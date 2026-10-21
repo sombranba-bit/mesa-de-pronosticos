@@ -1,7 +1,7 @@
 """Descarga resultados y calendario y actualiza docs/data/*.json.
 Uso: python pipeline/data.py [--full]   (--full recarga todas las temporadas desde 2019; sin él, solo la actual)
 Si una fuente falla se conservan los datos anteriores de esa fuente."""
-import io, re, json, sys, difflib, datetime as dt
+import io, re, json, sys, math, difflib, datetime as dt
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import pandas as pd, requests
@@ -20,7 +20,7 @@ DIVS = {'SP1': 'España - LaLiga', 'SP2': 'España - Segunda', 'E0': 'Inglaterra
         'I1': 'Italia - Serie A', 'I2': 'Italia - Serie B', 'D1': 'Alemania - Bundesliga', 'D2': 'Alemania - 2. Bundesliga',
         'F1': 'Francia - Ligue 1', 'F2': 'Francia - Ligue 2', 'N1': 'Países Bajos - Eredivisie', 'P1': 'Portugal - Primeira',
         'SC0': 'Escocia - Premiership', 'SC1': 'Escocia - Championship', 'B1': 'Bélgica - Pro League', 'T1': 'Turquía - Süper Lig', 'G1': 'Grecia - Super League'}
-FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref']
+FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref', 'hst', 'ast', 'il', 'im']
 UNDERSTAT = {'SP1': 'La_liga', 'E0': 'EPL', 'I1': 'Serie_A', 'D1': 'Bundesliga', 'F1': 'Ligue_1'}
 # API-Football: ids de liga para las bajas (https://www.api-football.com/documentation-v3)
 APIF_LEAGUES = {'SP1': 140, 'SP2': 141, 'E0': 39, 'E1': 40, 'I1': 135, 'I2': 136, 'D1': 78, 'D2': 79, 'F1': 61, 'F2': 62, 'N1': 88, 'P1': 94,
@@ -117,8 +117,35 @@ def parse_fd_csv(content, div):
                     'hy': ival(col('HY')[idx]), 'ay': ival(col('AY')[idx]), 'hr': ival(col('HR')[idx]), 'ar': ival(col('AR')[idx]),
                     'oH': num(col('B365H')[idx]), 'oD': num(col('B365D')[idx]), 'oA': num(col('B365A')[idx]),
                     'oO': num(col('B365>2.5')[idx]), 'oU': num(col('B365<2.5')[idx]),
+                    'hst': ival(col('HST')[idx]), 'ast': ival(col('AST')[idx]),
                     'ref': ref_name(col('Referee')[idx])})
     return out
+
+
+# Goles esperados implícitos en las cuotas de Bet365 de cada partido jugado (1X2 y más/menos 2,5): con ellos se valoran los
+# equipos «según el mercado» (el modelo de ratings de cuotas, validado en 17 ligas 2025-26). Rejilla de Poisson, mínimo error.
+_IG = None
+def implied_goals(rows):
+    import numpy as np
+    global _IG
+    todo = [r for r in rows if r.get('il') is None and all((r.get(k) or 0) > 1 for k in ('oH', 'oD', 'oA', 'oO', 'oU'))]
+    if not todo:
+        return
+    if _IG is None:
+        lam = np.arange(0.15, 4.5, 0.025); k = np.arange(11)
+        P = np.exp(-lam[:, None]) * lam[:, None] ** k / np.array([math.factorial(i) for i in k])
+        J = P[:, None, :, None] * P[None, :, None, :]
+        hw = np.tril(np.ones((11, 11)), -1)
+        flat = np.c_[(J * hw).sum((2, 3)).ravel(), (J * hw.T).sum((2, 3)).ravel(), (J * (np.add.outer(k, k) > 2.5)).sum((2, 3)).ravel()]
+        L1, L2 = np.meshgrid(lam, lam, indexing='ij'); _IG = (flat, L1.ravel(), L2.ravel())
+    flat, L1, L2 = _IG
+    q = 1 / np.array([[r['oH'], r['oD'], r['oA']] for r in todo]); q /= q.sum(1, keepdims=True)
+    qo = 1 / np.array([[r['oO'], r['oU']] for r in todo]); qo = qo[:, 0] / qo.sum(1)
+    t = np.c_[q[:, 0], q[:, 2], qo]
+    for i in range(0, len(t), 200):
+        b = ((t[i:i + 200, None, :] - flat[None]) ** 2).sum(2).argmin(1)
+        for r, j in zip(todo[i:i + 200], b):
+            r['il'], r['im'] = round(float(L1[j]), 3), round(float(L2[j]), 3)
 
 
 def fb_rows_from_json(F):
@@ -161,6 +188,7 @@ def update_football():
         update_xg(rows)
     except Exception as e:
         warn(f'xG: {e}')
+    implied_goals(rows.values())
     if rows:   # nunca se sobrescribe con un fichero vacío
         save('football.json', fb_to_json([r for r in rows.values() if r['d'] >= day(SINCE)]))
     print(f'fútbol: {got} partidos descargados, {len(rows)} en total')
@@ -353,7 +381,9 @@ def update_injuries(fixtures, rows):
     for e in out.values():
         # shortcut: heurístico sin validar (no hay histórico de bajas gratis); la mitad del peso goleador ausente, como mucho -25%
         e['att'] = round(max(0.75, 1 - 0.5 * e['share']), 3)
-    save('injuries.json', {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'teams': out})
+    if out:   # solo si hay algo: no borrar las bajas que vienen de otras fuentes
+        prev = load('injuries.json') or {'teams': {}}
+        save('injuries.json', {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'teams': {**prev.get('teams', {}), **out}})
     print(f'bajas: {sum(len(e["players"]) for e in out.values())} jugadores en {len(out)} equipos')
 
 
@@ -389,6 +419,92 @@ def update_fpl(fixtures, rows):
     teams = {k: v for k, v in prev.get('teams', {}).items() if not k.startswith('E0|')}
     save('injuries.json', {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'teams': {**teams, **out}})
     print(f'bajas Premier (Fantasy oficial): {sum(len(e["players"]) for e in out.values())} jugadores en {len(out)} equipos')
+
+
+# ============================== BAJAS DEL RESTO DE LIGAS (sportsgambler.com, gratis y sin clave) ==============================
+SG_LEAGUES = {'SP1': 'spain-la-liga', 'SP2': 'spain-la-liga-2', 'E1': 'england-championship', 'I1': 'italy-serie-a', 'I2': 'italy-serie-b',
+              'D1': 'germany-bundesliga', 'D2': 'germany-2-bundesliga', 'F1': 'france-ligue-1', 'N1': 'netherlands-eredivisie',
+              'P1': 'portugal-primeira-liga', 'SC0': 'scottish-premiership', 'B1': 'belgium-first-division-a', 'T1': 'turkey-super-lig', 'G1': 'greece-super-league-1'}
+SUSP_WORDS = ('card', 'suspen', 'red ', 'yellow')
+def parse_sportsgambler(page):
+    """[(equipo, jugador, info, partidos, goles, asistencias, vuelta 'AAAA-MM-DD' o None)] del HTML de una liga.
+    Cada equipo empieza con un <h3>; cada fila: nombre, posición (G/D/M/F), partidos, goles, asistencias, motivo, vuelta."""
+    import html as H
+    num = lambda x: 0 if x == '-' else int(x)
+    out = []
+    for chunk in re.split(r'(?i)<h3\b[^>]*>', re.sub(r'(?is)<(script|style)\b.*?</\1>', ' ', page))[1:]:
+        toks = [t for t in (H.unescape(x).strip() for x in re.split(r'<[^>]+>', chunk)) if t]
+        if not toks:
+            continue
+        team, i = toks[0], 1
+        while i + 6 < len(toks):
+            t = toks[i:i + 7]
+            if t[1] in ('G', 'D', 'M', 'F') and all(re.match(r'^(\d+|-)$', x) for x in t[2:5]) and re.match(r'^(\d{4}-\d{2}-\d{2}|-)$', t[6]):
+                out.append((team, t[0], t[5], num(t[2]), num(t[3]), num(t[4]), None if t[6] == '-' else t[6])); i += 7
+            else:
+                i += 1
+    return out
+SG_ALIAS = {'Deportivo': 'La Coruna', 'Racing Club': 'Santander', 'Espanyol': 'Espanol', "B. M'gladbach": "M'gladbach", 'Hamburger SV': 'Hamburg',
+            'Frankfurt': 'Ein Frankfurt', 'AC Milan': 'Milan', 'Inter Milan': 'Inter', 'Atletico Madrid': 'Ath Madrid', 'Athletic Club': 'Ath Bilbao',
+            'Celta Vigo': 'Celta', 'Real Betis': 'Betis', 'Real Sociedad': 'Sociedad', 'Rayo Vallecano': 'Vallecano', 'Mainz 05': 'Mainz'}
+def pick_team(raw, known):
+    """Nombre de otra web -> nombre del histórico: alias, igualdad sin acentos, contenido único o parecido alto (si no, None)."""
+    import unicodedata
+    asc = unicodedata.normalize('NFD', raw).encode('ascii', 'ignore').decode()
+    for x in (raw, asc):
+        for al in (SG_ALIAS.get(x), ALIAS.get(x), x):
+            if al in known:
+                return al
+    rk, keys = team_key(asc), {team_key(k): k for k in known}
+    if rk in keys:
+        return keys[rk]
+    inside = [k for kk, k in keys.items() if kk and (kk in rk or rk in kk)]
+    if len(inside) == 1:
+        return inside[0]
+    m = difflib.get_close_matches(rk, list(keys), n=1, cutoff=0.8)
+    return keys[m[0]] if m else None
+def update_sportsgambler(fixtures, rows):
+    """Cada 3 horas: lesionados y sancionados de 14 ligas. Peso de cada baja = su parte de los goles del equipo (goles + media asistencia)."""
+    if not daily_once('sgDate', 3):
+        return
+    import time
+    season = season_start()
+    prev = load('injuries.json') or {'teams': {}}
+    teams_out = {k: v for k, v in prev.get('teams', {}).items() if k.split('|')[0] not in SG_LEAGUES}
+    n_ok, n_players = 0, 0
+    for div, slug in SG_LEAGUES.items():
+        known = {t for r in rows.values() if r['div'] == div and r['d'] >= day(dt.date(season, 7, 1)) for t in (r['h'], r['a'])}
+        if not known:
+            continue
+        try:
+            items = parse_sportsgambler(get(f'https://www.sportsgambler.com/injuries/football/{slug}/').decode('utf-8', 'replace'))
+        except Exception as e:
+            warn(f'bajas {div}: {e}'); continue
+        finally:
+            time.sleep(2)   # ritmo moderado con la web
+        if not items:
+            warn(f'bajas {div}: no se ha podido leer la página (¿ha cambiado?)'); continue
+        n_ok += 1
+        name = lambda x, known=known: pick_team(x, known)
+        season_rows = [r for r in rows.values() if r['div'] == div and r['d'] >= day(dt.date(season, 7, 1))]
+        goals = lambda t: max(5, sum(r['hg'] for r in season_rows if r['h'] == t) + sum(r['ag'] for r in season_rows if r['a'] == t))
+        for team_raw, player, info, apps, g, a, back in items:
+            team = name(team_raw)
+            if not team or (back and back <= TODAY.isoformat()):
+                continue   # equipo no reconocido o ya recuperado
+            e = teams_out.setdefault(f'{div}|{team}', {'players': [], 'share': 0.0})
+            if any(p['name'] == player for p in e['players']):
+                continue
+            share = (g + 0.5 * a) / goals(team)
+            susp = any(w in info.lower() for w in SUSP_WORDS)
+            e['players'].append({'name': player, 'reason': info + (f' · vuelta prevista {back}' if back else ''), 'type': 'Sancionado' if susp else 'Lesionado', 'share': round(share, 3), 'apps': apps})
+            e['share'] += share; n_players += 1
+    for k, e in teams_out.items():
+        if k.split('|')[0] in SG_LEAGUES:
+            e['att'] = round(max(0.75, 1 - 0.5 * e['share']), 3)
+    if n_ok:
+        save('injuries.json', {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'teams': teams_out})
+    print(f'bajas (sportsgambler.com): {n_players} jugadores en {n_ok} ligas')
 
 
 # ============================== FOOTBALL-DATA.ORG (opcional: árbitros y Champions) ==============================
@@ -819,7 +935,7 @@ def main():
         horizon = NOW + dt.timedelta(days=FIXTURE_DAYS)
         uniq = {(f['kickoff'], f['h'], f['a']): f for f in fx}   # sin duplicados
         fixtures[key] = sorted((f for f in uniq.values() if dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) <= horizon), key=lambda f: f['kickoff'])
-    for fn in (update_injuries, update_referees, update_fpl):
+    for fn in (update_injuries, update_referees, update_fpl, update_sportsgambler):
         try:
             fn(fixtures['football'], FB_ROWS)
         except Exception as e:

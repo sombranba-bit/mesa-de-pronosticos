@@ -51,6 +51,16 @@ near(sum(gc['Goles exactos'].map(r => r.p)), 1, 1e-6, 'calibrado: goles exactos 
 const raw = M.footballMarkets(M.rescaleGrid(M.dcGrid(setNoXg.ft, 'J', 'A'), [Pc.summary.H, Pc.summary.D, Pc.summary.A])).over(2.5);
 const want = 1 / (1 + Math.exp(-(0.725 * Math.log(raw / (1 - raw)) + 0.092)));
 near(Pc.summary.o25, want, 2e-3, 'calibrado: más de 2,5 sigue la fórmula validada');
+// ---- ratings de cuotas pasadas y GAP (tiros a puerta) ----
+const rowsMk = rows.map(r => ({ ...r, il: 1.4 * strength[r.h] / strength[r.a], im: 1.1 * strength[r.a] / strength[r.h], hst: 3 + 2 * strength[r.h], ast: 3 + 2 * strength[r.a] }));
+const setMk = M.fitFootballSet(rowsMk, 19700, 0.0015), Rmk = M.footballRatings(rowsMk), mkJA = M.marketPredict(setMk.mk, "J", "A");
+ok(setMk.mk && mkJA && mkJA.p[0] > 0.6, `ratings de cuotas: el fuerte en casa es claro favorito (${mkJA && mkJA.p[0].toFixed(3)})`);
+{ const rr = []; for (let d = 19000; d < 19700; d++) { const h = teams[Math.floor(rnd() * 10)]; let a = h; while (a === h) a = teams[Math.floor(rnd() * 10)]; rr.push({ d, h, a, il: 1.4 * strength[h] / strength[a], im: 1.1 * strength[a] / strength[h] }); }
+  const p = M.marketPredict(M.fitMarket(rr, 19700), 'J', 'A'); near(p.l, 1.4 * strength.J / strength.A, 0.4, 'ratings de cuotas: recupera los goles implícitos del local'); near(p.m, 1.1 * strength.A / strength.J, 0.06, 'ratings de cuotas: y los del visitante'); }
+ok(Rmk.feat('J', 'A').gap > 0.5, 'GAP: el equipo que más tira a puerta tiene ventaja');
+const Pm = M.footballPredict(setMk, Rmk.feat('J', 'A'), 'J', 'A'), gm = Object.fromEntries(Pm.groups.map(x => [x.title, x.rows]));
+near(sum(gm['Resultado'].map(r => r.p)), 1, 1e-9, 'con cuotas: 1X2 suma 1'); near(sum(gm['Goles exactos'].map(r => r.p)), 1, 1e-6, 'con cuotas: goles exactos suma 1');
+near(Pm.summary.o25, (1 - M.MK.ou) * Pc.summary.o25 + M.MK.ou * M.marketPredict(setMk.mk, 'J', 'A').o, 0.08, 'con cuotas: más de 2,5 mezcla modelo y cuotas');
 // ---- europeo ----
 const E = M.eloPredict(1900, 1700, 'X', 'Y'); near(E.summary.H + E.summary.D + E.summary.A, 1, 1e-9, 'europeo 1X2 suma 1'); ok(E.summary.H > 0.5, 'Elo +200 en casa es favorito claro');
 const En = M.eloPredict(1800, 1800, 'X', 'Y', true); near(En.summary.H, En.summary.A, 1e-9, 'campo neutral e igual Elo: simétrico');

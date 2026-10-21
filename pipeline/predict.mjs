@@ -12,7 +12,7 @@ const read = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, 'utf8
 const write = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + '.tmp', JSON.stringify(o)); fs.renameSync(f + '.tmp', f); };
 const NOW = Date.now(), TODAY = Math.floor(NOW / 864e5);
 const COUNTRY = { SP1: 'ES', SP2: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
-const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg'];
+const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg', 'hst', 'ast', 'il', 'im'];
 const usDay = ms => Math.round(Date.parse(new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(ms)) + 'T00:00:00Z') / 864e5);
 const madridDate = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms));   // AAAA-MM-DD
 const madridTime = ms => new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));

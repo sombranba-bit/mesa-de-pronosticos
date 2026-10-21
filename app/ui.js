@@ -67,7 +67,7 @@ function fillSelect(sel, items, keep) { const v = keep ?? sel.value; sel.innerHT
 // ============================== FÚTBOL ==============================
 let Fd, FB = [], FR = null;
 const COUNTRY = { SP1: 'ES', SP2: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
-const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref'];
+const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref', 'hst', 'ast', 'il', 'im'];
 let CE = null, IJ = null, NW = null, OD = null;   // ratings de ClubElo, bajas, noticias y cuotas del día
 function buildFB() {
   FB = Fd.date.map((d, k) => { const r = { d, div: Fd.divs[Fd.div[k]], h: Fd.teams[Fd.h[k]], a: Fd.teams[Fd.a[k]], hg: Fd.hg[k], ag: Fd.ag[k] };

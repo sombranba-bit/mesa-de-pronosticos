@@ -108,7 +108,14 @@ const M = (() => {
 
   // ---------- FÚTBOL: conjunto Dixon-Coles + Elo + pi-ratings ----------
   // Pesos y logit ordenado ajustados en 2023-25 y validados en 2025-26 (log-loss 0,9958 -> 0,9919 frente a DC solo).
-  const ENS = { w: [0.349, 0.32, 0.396], elo: [0.5087, -0.6668, -0.5861], pi: [1.0445, -0.6941, -0.5584] };
+  // Conjunto 1X2: Dixon-Coles, Elo, pi-ratings y GAP (tiros a puerta, Wheatcroft 2020). Pesos ajustados en 17 ligas 2022-25,
+  // prueba 2025-26: log-loss 1,0130 -> 1,0101 al añadir GAP.
+  const ENS = { w: [0.292, 0.139, 0.140, 0.538], elo: [0.5087, -0.6668, -0.5861], pi: [1.0445, -0.6941, -0.5584], gap: [0.4076, -0.2601, -0.9566] };
+  const GAP = { lambda: 0.2, phi: 0.5 };
+  // Ratings de cuotas pasadas: ataque/defensa ajustados a los goles implícitos en las cuotas Bet365 de los partidos jugados
+  // (2 años, decaimiento 0,008/día). Mezcla con el conjunto validada en 17 ligas (pesos 2024-25, prueba 2025-26):
+  // 1X2 1,0105 -> 1,0083 (acierto 49,1% -> 49,4%); más/menos 2,5 0,6843 -> 0,6806. Apuesta del día 69,0% -> 71,2% de acierto.
+  const MK = { w: 0.35, ou: 0.86, xi: 0.008, ridge: 2, days: 730, rho: -0.05 };
   function ordLogit([b, c1, c2], x) {
     const ph = 1 / (1 + Math.exp(-(b * x + c1))), pa = 1 / (1 + Math.exp(b * x - c2)), pd = Math.max(1 - ph - pa, 1e-4), t = ph + pd + pa;
     return [ph / t, pd / t, pa / t];
@@ -117,10 +124,18 @@ const M = (() => {
   // rows en orden cronológico; devuelve las variables previas a cada partido y el estado final.
   function footballRatings(rows) {
     const E = new Map(), RH = new Map(), RA = new Map(), pre = new Array(rows.length);
+    const HA = new Map(), HD = new Map(), AA = new Map(), AD = new Map();   // GAP: ataque/defensa en casa y fuera (tiros a puerta)
+    const gp = (h, a) => [((HA.get(h) ?? 4.5) + (AD.get(a) ?? 4.0)) / 2, ((AA.get(a) ?? 4.0) + (HD.get(h) ?? 4.5)) / 2];
     const psi = e => 3 * Math.log10(1 + Math.abs(e)) * Math.sign(e), pinv = r => (10 ** (Math.abs(r) / 3) - 1) * Math.sign(r);
-    const feat = (h, a) => ({ elo: ((E.get(h) ?? 1500) + 60 - (E.get(a) ?? 1500)) / 100, pi: pinv(RH.get(h) ?? 0) - pinv(RA.get(a) ?? 0) });
+    const feat = (h, a) => { const g = gp(h, a); return { elo: ((E.get(h) ?? 1500) + 60 - (E.get(a) ?? 1500)) / 100, pi: pinv(RH.get(h) ?? 0) - pinv(RA.get(a) ?? 0), gap: g[0] - g[1] }; };
     rows.forEach((r, k) => {
       const h = r.h, a = r.a; pre[k] = feat(h, a);
+      if (r.hst != null && r.ast != null) {
+        const [ph, pa] = gp(h, a), eh = r.hst - ph, ea = r.ast - pa, L = GAP.lambda, f = GAP.phi, up = (M, t, d, v) => M.set(t, Math.max((M.get(t) ?? d) + v, 0));
+        const ha = HA.get(h) ?? 4.5, hd = HD.get(h) ?? 4.5, aa = AA.get(a) ?? 4.0, ad = AD.get(a) ?? 4.0;
+        HA.set(h, Math.max(ha + L * f * eh, 0)); AD.set(a, Math.max(ad + L * f * eh, 0)); AA.set(a, Math.max(aa + L * f * ea, 0)); HD.set(h, Math.max(hd + L * f * ea, 0));
+        up(AA, h, 4.0, L * (1 - f) * eh); up(HD, a, 4.5, L * (1 - f) * eh); up(HA, a, 4.5, L * (1 - f) * ea); up(AD, h, 4.0, L * (1 - f) * ea);
+      }
       const eh = E.get(h) ?? 1500, ea = E.get(a) ?? 1500, we = 1 / (1 + 10 ** ((ea - eh - 60) / 400)), gd = Math.abs(r.hg - r.ag);
       const K = 20 * (gd <= 1 ? 1 : gd === 2 ? 1.5 : (11 + gd) / 8), sc = r.hg > r.ag ? 1 : r.hg === r.ag ? 0.5 : 0;
       E.set(h, eh + K * (sc - we)); E.set(a, ea - K * (sc - we));
@@ -131,7 +146,7 @@ const M = (() => {
     return { pre, feat, elo: E };
   }
   function ensemble1x2(dc, f) {
-    const P = [dc, ordLogit(ENS.elo, f.elo), ordLogit(ENS.pi, f.pi)];
+    const P = [dc, ordLogit(ENS.elo, f.elo), ordLogit(ENS.pi, f.pi), ordLogit(ENS.gap, f.gap ?? 0)];
     const g = [0, 1, 2].map(i => Math.exp(P.reduce((s, p, j) => s + ENS.w[j] * Math.log(p[i]), 0))), t = sum(g);
     return g.map(x => x / t);
   }
@@ -150,10 +165,10 @@ const M = (() => {
   // Más/menos 2,5 goles: el Dixon-Coles es demasiado tajante. logit(p') = 0,725·logit(p) + 0,092
   // (17 ligas, ajuste 2022-25, prueba 2025-26: 0,6890 -> 0,6845). Se ajusta la tabla de marcadores manteniendo el 1X2.
   const OU_CAL = [0.725, 0.092];
-  function calibrateOU(G, target1x2) {
+  const over25 = G => { let o = 0; G.g.forEach((r, x) => r.forEach((v, y) => { if (x + y > 2.5) o += v; })); return o; };
+  function calibrateOU(G, target1x2, targetO = null) {
     const g = G.g.map(r => r.slice()), n = g.length, reg = (x, y) => x > y ? 0 : x === y ? 1 : 2;
-    let o = 0; for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) if (x + y > 2.5) o += g[x][y];
-    const lo = Math.log(o / (1 - o)), to = 1 / (1 + Math.exp(-(OU_CAL[0] * lo + OU_CAL[1])));
+    const o = over25(G), lo = Math.log(o / (1 - o)), to = targetO ?? 1 / (1 + Math.exp(-(OU_CAL[0] * lo + OU_CAL[1])));
     for (let it = 0; it < 30; it++) {   // ajuste proporcional alterno: total de goles y 1X2
       let so = 0; for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) if (x + y > 2.5) so += g[x][y];
       for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) g[x][y] *= x + y > 2.5 ? to / so : (1 - to) / (1 - so);
@@ -317,6 +332,40 @@ const M = (() => {
   // ---------- Pronóstico completo de un partido (lo usan la app y el proceso automático) ----------
   const nfmt = (x, d = 1) => x.toFixed(d).replace('.', ',');
   const sgnL = L => (L > 0 ? '+' : L < 0 ? '−' : '') + nfmt(Math.abs(L), Number.isInteger(L * 2) && !Number.isInteger(L) ? 1 : Number.isInteger(L) ? 0 : 2);
+  // Ratings de cuotas pasadas (ver MK): mínimos cuadrados ponderados sobre log(goles implícitos) de local y visitante
+  function fitMarket(rows, ref) {
+    const R = rows.filter(r => r.il != null && r.im != null && r.d < ref && r.d >= ref - MK.days);
+    if (R.length < 200) return null;
+    const teams = [...new Set(R.flatMap(r => [r.h, r.a]))], ix = new Map(teams.map((t, i) => [t, i])), n = teams.length, m = 2 * n + 1;
+    const A = Array.from({ length: m }, () => new Float64Array(m)), b = new Float64Array(m);
+    let sw = 0, sy = 0;
+    for (const r of R) { const w = Math.exp(-MK.xi * (ref - r.d)); sw += 2 * w; sy += w * (Math.log(r.il) + Math.log(r.im)); }
+    const mu0 = sy / sw;
+    const addRow = (idx, sg, y, w) => { for (let p = 0; p < idx.length; p++) { b[idx[p]] += w * sg[p] * (y - mu0); for (let q = 0; q < idx.length; q++) A[idx[p]][idx[q]] += w * sg[p] * sg[q]; } };
+    for (const r of R) { const w = Math.exp(-MK.xi * (ref - r.d)), h = ix.get(r.h), a = ix.get(r.a);
+      addRow([h, n + a, 2 * n], [1, -1, 1], Math.log(r.il), w); addRow([a, n + h], [1, -1], Math.log(r.im), w); }
+    for (let i = 0; i < 2 * n; i++) A[i][i] += MK.ridge; A[2 * n][2 * n] += 1e-6;
+    // eliminación gaussiana con pivote parcial
+    for (let c = 0; c < m; c++) { let pv = c; for (let r = c + 1; r < m; r++) if (Math.abs(A[r][c]) > Math.abs(A[pv][c])) pv = r;
+      [A[c], A[pv]] = [A[pv], A[c]]; [b[c], b[pv]] = [b[pv], b[c]];
+      for (let r = c + 1; r < m; r++) { const f = A[r][c] / A[c][c]; if (!f) continue; for (let k = c; k < m; k++) A[r][k] -= f * A[c][k]; b[r] -= f * b[c]; } }
+    const beta = new Float64Array(m); for (let c = m - 1; c >= 0; c--) { let s = b[c]; for (let k = c + 1; k < m; k++) s -= A[c][k] * beta[k]; beta[c] = s / A[c][c]; }
+    return { ix, beta, mu0, n };
+  }
+  function marketPredict(mk, h, a) {
+    if (!mk || !mk.ix.has(h) || !mk.ix.has(a)) return null;
+    const i = mk.ix.get(h), j = mk.ix.get(a), n = mk.n, b = mk.beta;
+    const l = Math.exp(mk.mu0 + b[i] - b[n + j] + b[2 * n]), m = Math.exp(mk.mu0 + b[j] - b[n + i]), rho = MK.rho;
+    const ph = k => { let p = Math.exp(-l), out = []; for (let x = 0; x < 11; x++) { out.push(p); p *= l / (x + 1); } return out; };
+    const pa = k => { let p = Math.exp(-m), out = []; for (let x = 0; x < 11; x++) { out.push(p); p *= m / (x + 1); } return out; };
+    const X = ph(), Y = pa(); let H = 0, D = 0, Aw = 0, O = 0, t = 0;
+    for (let x = 0; x < 11; x++) for (let y = 0; y < 11; y++) {
+      let v = X[x] * Y[y];
+      if (x === 0 && y === 0) v *= 1 - l * m * rho; else if (x === 0 && y === 1) v *= 1 + l * rho; else if (x === 1 && y === 0) v *= 1 + m * rho; else if (x === 1 && y === 1) v *= 1 - rho;
+      t += v; if (x > y) H += v; else if (x === y) D += v; else Aw += v; if (x + y > 2.5) O += v;
+    }
+    return { p: [H / t, D / t, Aw / t], o: O / t, l, m };
+  }
   // Ajusta los cinco modelos de un país: goles, 1ª parte, 2ª parte, córners y tarjetas (amarillas + rojas)
   function fitFootballSet(rows, ref, xi) {
     const sub = (f, map) => { const r = rows.filter(f); return r.length > 200 ? fitDC(r.map(map), ref, xi) : null; };
@@ -330,6 +379,7 @@ const M = (() => {
       ca: sub(has('hy', 'ay'), r => ({ ...r, hg: r.hy + (r.hr || 0), ag: r.ay + (r.ar || 0) })),
     };
     set.caTrend = cardsTrend(set.ca, rows, ref);
+    set.mk = fitMarket(rows, ref);
     return set;
   }
   // Tendencia reciente de tarjetas de la liga (vida media 180 días, encogida con 40 tarjetas): corrige que el árbitraje
@@ -376,13 +426,17 @@ const M = (() => {
     const Gb = dcGrid(set.ft, h, a); if (!Gb) return null;
     const kb = footballMarkets(Gb), base = [kb.H, kb.D, kb.A];
     let ens = ensemble1x2(base, feat);
+    const mk = marketPredict(set.mk, h, a);
+    if (mk) { const g = [0, 1, 2].map(i => Math.exp((1 - MK.w) * Math.log(ens[i]) + MK.w * Math.log(mk.p[i]))), t = sum(g); ens = g.map(x => x / t); }
     // con xG (5 grandes ligas) la forma de los goles sale del modelo mezcla goles+xG: mejora más/menos 2,5 (0,6722 -> 0,6672)
     const G0 = (set.fx && dcGrid(set.fx, h, a, 11, adj)) || dcGrid(set.ft, h, a, 11, adj);
     if (adj) { // las bajas mueven el 1X2 del conjunto en la misma proporción que mueven al Dixon-Coles
       const ka = footballMarkets(dcGrid(set.ft, h, a, 11, adj)), r = [ka.H / kb.H, ka.D / kb.D, ka.A / kb.A], t = ens.reduce((s, p, i) => s + p * r[i], 0);
       ens = ens.map((p, i) => p * r[i] / t);
     }
-    const G = set.fx ? rescaleGrid(G0, ens) : calibrateOU(rescaleGrid(G0, ens), ens), k = footballMarkets(G);   // con xG no se calibra: no validado
+    let G = set.fx ? rescaleGrid(G0, ens) : calibrateOU(rescaleGrid(G0, ens), ens);   // con xG no se calibra: no validado
+    if (mk) G = calibrateOU(G, ens, (1 - MK.ou) * over25(G) + MK.ou * mk.o);   // más/menos 2,5 mezclado con los ratings de cuotas
+    const k = footballMarkets(G);
     const out = footballGroups(G, k, h, a);
     const groups = out.groups, add = out.add;
     let ht = null;
@@ -451,7 +505,7 @@ const M = (() => {
       { title: 'Hándicap', rows: sp }, { title: 'Puntos totales', rows: to }, { title: 'Puntos de cada equipo', rows: tt }] };
   }
 
-  return { nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
+  return { nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
     NBA_SD, fitPts, ptsPredict, spreadProbs, totalProbs, runElo, eloProb, holdProb, tiebreakProb, setDist, matchDist, matchWin, tennisFromProb, bo3to5 };
 })();
 if (typeof module !== 'undefined') module.exports = M;

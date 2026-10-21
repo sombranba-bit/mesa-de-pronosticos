@@ -95,7 +95,7 @@ calcular pronósticos o enviar avisos, y GitHub te avisa por correo.
 
 ## Modelos
 
-- **Fútbol:** conjunto de Dixon-Coles con decaimiento temporal, Elo por resultados y pi-ratings. En las 5 grandes, los mercados de goles usan un modelo que mezcla goles y xG. Ajuste por bajas (automático con API-Football o a mano). Mercados: 1X2, doble oportunidad, ambos marcan, goles totales y exactos, par/impar, goles por equipo, portería a cero, margen, hándicap asiático, resultado exacto, descanso, descanso/final, córners y tarjetas.
+- **Fútbol:** conjunto de Dixon-Coles con decaimiento temporal, Elo por resultados, pi-ratings, GAP ratings (tiros a puerta) y ratings de cuotas pasadas (goles implícitos en las cuotas de Bet365 de los partidos jugados). Validado en 17 ligas 2025-26: 1X2 1,0130 → 1,0083, más/menos 2,5 0,6843 → 0,6806. En las 5 grandes, los mercados de goles usan un modelo que mezcla goles y xG. Ajuste por bajas (automático con API-Football o a mano). Mercados: 1X2, doble oportunidad, ambos marcan, goles totales y exactos, par/impar, goles por equipo, portería a cero, margen, hándicap asiático, resultado exacto, descanso, descanso/final, córners y tarjetas.
 - **Competiciones europeas:** Elo de ClubElo traducido a goles esperados (fórmula ajustada en 23.000 partidos).
 - **Ligas:** España (1ª y 2ª), Inglaterra (Premier y Championship), Italia (A y B), Alemania (1ª y 2ª), Francia (1ª y 2ª), Países Bajos, Portugal, Escocia (1ª y 2ª), Bélgica, Turquía y Grecia.
 - **Tarjetas:** se corrige la tendencia reciente de cada liga (validado en la Premier 2022-26). El árbitro se muestra como información; ajustar por él no mejoraba el pronóstico.
@@ -107,7 +107,7 @@ calcular pronósticos o enviar avisos, y GitHub te avisa por correo.
 ## Límites conocidos
 
 - La ACB se lee del calendario oficial de acb.com (gratis, sin clave). Las demás ligas europeas de baloncesto (Lega A, BBL, francesa, griega, turca) dependen de API-Basketball, cuyo plan gratuito no da la temporada actual.
-- Bajas: las de la Premier llegan solas cada hora desde el Fantasy oficial de la Premier League (lesionados, sancionados y dudas con su probabilidad de jugar). Para el resto de ligas no hay fuente gratuita fiable (API-Football gratis no da la temporada actual; SofaScore, Flashscore y Transfermarkt bloquean servidores y lo prohíben): se pueden poner a mano en la ficha del partido, y las noticias avisan de lesiones.
+- Bajas: Premier desde el Fantasy oficial (cada hora, con probabilidad de jugar); LaLiga, LaLiga 2, Championship, Serie A y B, Bundesliga y 2. Bundesliga, Ligue 1, Eredivisie, Primeira, Escocia, Bélgica, Turquía y Grecia desde sportsgambler.com (cada 3 horas). Faltan Ligue 2 y la 2ª escocesa. Si la web cambia su diseño, el registro de *Actions* lo indicará y se conservan las últimas bajas leídas.
 - Los árbitros fuera de Inglaterra dependen de las claves de football-data.org y API-Football.
 - Sin `FOOTBALL_DATA_ORG_KEY`, la Champions no tiene hora ni se evalúa en «Aciertos»; Europa League y Conference nunca se evalúan.
 - El ajuste por bajas es una estimación sin validar (no hay histórico gratuito de bajas). La pestaña de aciertos compara el 1X2 con y sin este ajuste para comprobar si ayuda.
