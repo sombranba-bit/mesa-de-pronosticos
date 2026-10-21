@@ -1,0 +1,242 @@
+// Calcula los pronósticos de los próximos partidos, guarda el historial, evalúa aciertos y envía el resumen a Telegram.
+// Uso: node pipeline/predict.mjs   (lee docs/data/*.json, data/history.json y config.json)
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const M = createRequire(import.meta.url)(path.join(ROOT, 'app', 'model.js'));
+const DATA = path.join(ROOT, 'docs', 'data'), STATE = path.join(ROOT, 'data');
+const read = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
+const write = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + '.tmp', JSON.stringify(o)); fs.renameSync(f + '.tmp', f); };
+const NOW = Date.now(), TODAY = Math.floor(NOW / 864e5);
+const COUNTRY = { SP1: 'ES', SP2: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
+const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg'];
+const usDay = ms => Math.round(Date.parse(new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(ms)) + 'T00:00:00Z') / 864e5);
+const madridDate = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms));   // AAAA-MM-DD
+const madridTime = ms => new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+
+// Competiciones de baloncesto: NBA y Euroliga en sus ficheros; el resto (EuroCup, ACB, ...) en basket_extra.json
+export function basketComps(B) {
+  const list = [['nba', 'NBA', B.nba], ['euroliga', 'Euroliga', B.euroliga]];
+  for (const [k, v] of Object.entries(B.extra?.comps || {})) list.push([k, v.name, v]);
+  return list.filter(([, , D]) => D && D.date && D.date.length);
+}
+
+export function predictAll(F, B, fixtures, injuries = {}) {
+  const matches = [], skipped = [];
+  // ---------- fútbol ----------
+  if (F) {
+    const rows = F.date.map((d, k) => { const r = { d, div: F.divs[F.div[k]], h: F.teams[F.h[k]], a: F.teams[F.a[k]], hg: F.hg[k], ag: F.ag[k] };
+      for (const f of FB_FIELDS) r[f] = F[f] ? F[f][k] : null; return r; }).sort((a, b) => a.d - b.d);
+    const R = M.footballRatings(rows), sets = {}, names = Object.fromEntries(F.divs.map((d, i) => [d, F.divNames[i]]));
+    for (const f of fixtures.football || []) {
+      const c = COUNTRY[f.league]; if (!c) continue;
+      if (!sets[c]) { const cr = rows.filter(r => COUNTRY[r.div] === c); sets[c] = M.fitFootballSet(cr.filter(r => r.d >= TODAY - 3 * 365), TODAY, 0.0015); }
+      const ih = injuries[`${f.league}|${f.h}`], ia = injuries[`${f.league}|${f.a}`];
+      const adj = (ih?.att ?? 1) !== 1 || (ia?.att ?? 1) !== 1 ? { h: ih?.att ?? 1, a: ia?.att ?? 1 } : null;
+      const P = M.footballPredict(sets[c], R.feat(f.h, f.a), f.h, f.a, adj);
+      if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
+      const s = P.summary, pick = M.footballPick(s, f.h, f.a), m = { id: `futbol|${f.league}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: f.league, leagueName: names[f.league],
+        kickoff: f.kickoff, home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, corners: s.corners, cards: s.cards,
+        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, pick };
+      if (f.ref) m.ref = f.ref;
+      if (adj) { const b = M.footballPredict(sets[c], R.feat(f.h, f.a), f.h, f.a).summary; m.base = { H: b.H, D: b.D, A: b.A };
+        m.injuries = [...(ih?.players || []).map(p => ({ team: f.h, ...p })), ...(ia?.players || []).map(p => ({ team: f.a, ...p }))]; }
+      matches.push(m);
+    }
+    // competiciones europeas: Elo de ClubElo -> goles
+    for (const f of fixtures.uefa || []) {
+      const P = M.eloPredict(f.eh, f.ea, f.h, f.a), s = P.summary;
+      matches.push({ id: `futbol|UEFA|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: 'UEFA', leagueName: f.competition || 'Competiciones europeas', kickoff: f.kickoff, noTime: f.noTime !== false, ...(f.ref ? { ref: f.ref } : {}),
+        home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, score: `${s.score.x}-${s.score.y}`, pick: M.footballPick(s, f.h, f.a) });
+    }
+  }
+  // ---------- baloncesto ----------
+  for (const [sport, name, D] of basketComps(B)) {
+    const fx = [...(fixtures[sport] || []), ...(fixtures.basket || []).filter(f => f.league === sport)]; if (!fx.length) continue;
+    const rows = D.date.map((d, k) => ({ d, h: D.teams[D.h[k]], a: D.teams[D.a[k]], hp: D.hp[k], ap: D.ap[k] })).sort((a, b) => a.d - b.d);
+    const last = rows[rows.length - 1].d, m = M.fitPts(rows.filter(r => r.d >= last - 500), Math.max(TODAY, last + 1), 0.01);
+    const sd = sport === 'nba' ? M.NBA_SD : M.ptsSD(m, rows);
+    for (const f of fx) {
+      const fat = sport === 'nba' ? M.nbaFatigue(rows, f.h, f.a, usDay(Date.parse(f.kickoff))) : { adj: 0 };
+      const P = M.basketPredict(m, sd, f.h, f.a, undefined, undefined, fat.adj); if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
+      const home = P.pw >= 0.5;
+      matches.push({ id: `${sport}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport, league: sport, leagueName: name, kickoff: f.kickoff, home: f.h, away: f.a,
+        pw: P.pw, ph: P.P.ph, pa: P.P.pa, margin: P.P.margin, total: P.P.total,
+        fatigue: fat.home ? { adj: +fat.adj.toFixed(2), b2bH: fat.home.rest === 1, b2bA: fat.away.rest === 1, restH: fat.home.rest, restA: fat.away.rest } : null,
+        pick: { market: 'Ganador', label: `Gana ${home ? f.h : f.a}`, p: Math.max(P.pw, 1 - P.pw), code: home ? 'H' : 'A' } });
+    }
+  }
+  return { matches, skipped };
+}
+
+// Busca el resultado de un partido guardado (±1 día por husos horarios)
+function findResult(e, F, B, U) {
+  const d0 = Math.floor(Date.parse(e.kickoff) / 864e5), v = (c, k) => (F[c] ? F[c][k] : null);
+  if (e.league === 'UEFA') {   // resultados de Champions de football-data.org, con nombres de ClubElo
+    const r = (U?.results || []).find(x => Math.abs(x.d - d0) <= 1 && x.h === e.home && x.a === e.away);
+    return r ? { hg: r.hg, ag: r.ag, corners: null, cards: null } : null;
+  }
+  if (e.sport === 'futbol') {
+    if (!F) return null;
+    for (let k = F.date.length - 1; k >= 0; k--) { const d = F.date[k]; if (d < d0 - 1) break;
+      if (d <= d0 + 1 && F.teams[F.h[k]] === e.home && F.teams[F.a[k]] === e.away)
+        return { hg: F.hg[k], ag: F.ag[k], corners: v('hc', k) != null ? v('hc', k) + v('ac', k) : null,
+          cards: v('hy', k) != null ? v('hy', k) + v('ay', k) + (v('hr', k) || 0) + (v('ar', k) || 0) : null }; }
+  } else {
+    const D = basketComps(B).find(([s]) => s === e.sport)?.[2]; if (!D) return null;
+    for (let k = D.date.length - 1; k >= 0; k--) { const d = D.date[k]; if (d < d0 - 1) break;
+      if (d <= d0 + 1 && D.teams[D.h[k]] === e.home && D.teams[D.a[k]] === e.away) return { hp: D.hp[k], ap: D.ap[k] }; }
+  }
+  return null;
+}
+// Evalúa un pronóstico con su resultado: devuelve los aciertos por mercado
+export function evaluate(e) {
+  const r = e.result, ev = {};
+  const side = (p, happened) => ({ p: Math.max(p, 1 - p), hit: (p > 0.5) === happened });
+  if (e.sport === 'futbol') {
+    const y = r.hg > r.ag ? 'H' : r.hg === r.ag ? 'D' : 'A', fav = [['H', e.H], ['D', e.D], ['A', e.A]].reduce((b, x) => x[1] > b[1] ? x : b);
+    const over = r.hg + r.ag > 2.5, both = r.hg > 0 && r.ag > 0;
+    ev['1X2'] = { p: fav[1], hit: fav[0] === y };
+    if (e.base) { // comparación con y sin el ajuste por bajas, en los partidos en que hubo bajas
+      const fb = [['H', e.base.H], ['D', e.base.D], ['A', e.base.A]].reduce((b, x) => x[1] > b[1] ? x : b);
+      ev['1X2 con bajas'] = ev['1X2']; ev['1X2 sin bajas'] = { p: fb[1], hit: fb[0] === y };
+    }
+    ev['más/menos 2,5'] = side(e.o25, over);
+    ev['ambos marcan'] = side(e.btts, both);
+    if (e.co95 != null && r.corners != null) ev['córners más/menos 9,5'] = side(e.co95, r.corners > 9.5);
+    if (e.ca45 != null && r.cards != null) ev['tarjetas más/menos 4,5'] = side(e.ca45, r.cards > 4.5);
+    const c = e.pick.code;
+    ev.pick = { p: e.pick.p, hit: c === 'H' || c === 'D' || c === 'A' ? c === y : c === 'O' ? over : c === 'U' ? !over : c === 'BY' ? both : !both };
+    e.scoreText = `${r.hg}-${r.ag}`;
+  } else {
+    ev.ganador = { p: e.pick.p, hit: (e.pick.code === 'H') === (r.hp > r.ap) };
+    ev.pick = ev.ganador;
+    e.scoreText = `${r.hp}-${r.ap}`;
+  }
+  return ev;
+}
+// Apuesta del día y selección: los pronósticos de más probabilidad del día (hora de Madrid), uno por partido y de cualquier deporte.
+// Los partidos ya empezados conservan su último pronóstico previo, así la elección es la misma en la app y al medir aciertos.
+export const SEL_MIN = 0.65, SEL_MAX = 5;
+export function dailyPicks(entries, day) {
+  const d = entries.filter(e => madridDate(Date.parse(e.kickoff)) === day).sort((a, b) => b.pick.p - a.pick.p);
+  return d.length ? { day, bet: d[0], picks: d.filter(e => e.pick.p >= SEL_MIN).slice(0, SEL_MAX) } : null;
+}
+// Día a mostrar: hoy si queda algún partido por empezar; si no, el siguiente día con partidos.
+export function dailyFor(entries, now = NOW) {
+  const next = entries.filter(e => Date.parse(e.kickoff) > now).map(e => madridDate(Date.parse(e.kickoff))).sort()[0];
+  return next ? dailyPicks(entries, next) : null;
+}
+export function performance(hist) {
+  const done = Object.values(hist).filter(e => e.eval).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  const sports = {}, leagues = {};
+  const tally = (o, e) => {
+    o.n++;
+    for (const [k, v] of Object.entries(e.eval)) { if (k === 'pick') continue; const mk = o.markets[k] || (o.markets[k] = { n: 0, hits: 0 }); mk.n++; mk.hits += v.hit; }
+    const pk = o.markets['pronóstico principal'] || (o.markets['pronóstico principal'] = { n: 0, hits: 0 }); pk.n++; pk.hits += e.eval.pick.hit;
+  };
+  for (const e of done) {
+    const s = sports[e.sport] || (sports[e.sport] = { n: 0, markets: {}, preds: [] });
+    tally(s, e); s.preds.push({ p: +e.eval.pick.p.toFixed(3), hit: e.eval.pick.hit });
+    tally(leagues[e.league] || (leagues[e.league] = { name: e.leagueName, sport: e.sport, n: 0, markets: {} }), e);
+  }
+  for (const s of Object.values(sports)) s.preds = s.preds.slice(-3000);
+  const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
+  const all = Object.values(hist), daily = { bet: { n: 0, hits: 0 }, picks: { n: 0, hits: 0 }, full: { n: 0, hits: 0 }, recent: [] };
+  for (const day of [...new Set(done.map(e => madridDate(Date.parse(e.kickoff))))].sort()) {
+    const sel = dailyPicks(all, day);
+    if (sel.bet.eval) { daily.bet.n++; daily.bet.hits += sel.bet.eval.pick.hit;
+      daily.recent.unshift({ date: day, home: sel.bet.home, away: sel.bet.away, label: sel.bet.pick.label, p: sel.bet.pick.p, hit: sel.bet.eval.pick.hit }); }
+    for (const e of sel.picks) if (e.eval) { daily.picks.n++; daily.picks.hits += e.eval.pick.hit; }
+    if (sel.picks.length >= 2 && sel.picks.every(e => e.eval)) { daily.full.n++; daily.full.hits += sel.picks.every(e => e.eval.pick.hit); }
+  }
+  daily.recent = daily.recent.slice(0, 30);
+  return { updated: new Date(NOW).toISOString(), sports, leagues, recent, daily };
+}
+
+async function telegram(text) {
+  const token = process.env.TELEGRAM_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chat) return false;
+  const chunks = []; let cur = '';
+  for (const line of text.split('\n')) { if ((cur + line).length > 3800) { chunks.push(cur); cur = ''; } cur += line + '\n'; }
+  if (cur.trim()) chunks.push(cur);
+  for (const c of chunks) {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat, text: c, parse_mode: 'HTML', disable_web_page_preview: true }) });
+    if (!r.ok) { console.log('AVISO: Telegram respondió', r.status, (await r.text()).slice(0, 200)); return false; }
+  }
+  return true;
+}
+const html = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const pc = p => Math.round(p * 100) + '%';
+const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+// Filtros de config.json -> telegram: equipos, competiciones, confianza mínima
+export function filterForAlerts(matches, cfg = {}) {
+  const teams = (cfg.equipos || []).map(norm), comps = (cfg.competiciones || []).map(norm), min = +cfg.confianza_minima || 0;
+  return matches.filter(m => (!teams.length || teams.some(t => norm(m.home).includes(t) || norm(m.away).includes(t)))
+    && (!comps.length || comps.some(c => norm(m.league) === c || norm(m.leagueName).includes(c) || norm(m.sport) === c))
+    && m.pick.p >= min);
+}
+export function digest(matches, perf, day, cfg = {}, sel = null) {
+  const todays = filterForAlerts(matches.filter(m => madridDate(Date.parse(m.kickoff)) === day && Date.parse(m.kickoff) > NOW), cfg)
+    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  if (!todays.length) return null;
+  const topMin = Math.max(0.6, +cfg.confianza_minima || 0), top = todays.filter(m => m.pick.p >= topMin);
+  const filtered = (cfg.equipos || []).length || (cfg.competiciones || []).length || +cfg.confianza_minima > 0;
+  let t = `<b>Pronósticos de hoy</b> (${todays.length} partidos${filtered ? ', según tus filtros' : ''})\n`;
+  const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff));
+  if (sel && sel.day === day) {
+    t += `\n⭐ <b>Apuesta del día:</b> ${html(sel.bet.pick.label)} ${pc(sel.bet.pick.p)} · ${html(sel.bet.home)} – ${html(sel.bet.away)} (${html(sel.bet.leagueName)}, ${when(sel.bet)})\n`;
+    if (sel.picks.length >= 2) t += `<b>Selección recomendada</b> (todas juntas ${pc(sel.picks.reduce((x, e) => x * e.pick.p, 1))})\n` + sel.picks.map(e => `${when(e)} ${html(e.home)} – ${html(e.away)}: <b>${html(e.pick.label)}</b> ${pc(e.pick.p)}`).join('\n') + '\n';
+  }
+  if (top.length) t += `\n<b>Más confianza</b>\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 15)
+    .map(m => `${when(m)} ${html(m.home)} – ${html(m.away)}: <b>${html(m.pick.label)}</b> ${pc(m.pick.p)}`).join('\n') + '\n';
+  if (cfg.incluir_todos !== false) t += `\n<b>Todos</b>\n` + todays.slice(0, 40).map(m => m.sport === 'futbol'
+    ? `${when(m)} ${html(m.home)} – ${html(m.away)} · 1 ${pc(m.H)} X ${pc(m.D)} 2 ${pc(m.A)} · +2,5 ${pc(m.o25)}${m.ref ? ' · árbitro ' + html(m.ref) : ''}`
+    : `${when(m)} ${html(m.home)} – ${html(m.away)} · ${html(m.pick.label)} ${pc(m.pick.p)} · ${Math.round(m.ph)}-${Math.round(m.pa)}`).join('\n');
+  const y = perf.recent.filter(r => r.date < day).slice(0, 30);
+  if (y.length) t += `\n\n<b>Últimos resultados:</b> ${y.filter(r => r.hit).length} aciertos de ${y.length}`;
+  if (process.env.PAGES_URL) t += `\n\n${process.env.PAGES_URL}`;
+  return t;
+}
+
+async function main() {
+  const F = read(path.join(DATA, 'football.json'));
+  const B = { nba: read(path.join(DATA, 'nba.json')), euroliga: read(path.join(DATA, 'euroliga.json')), extra: read(path.join(DATA, 'basket_extra.json')) };
+  const fixtures = read(path.join(DATA, 'fixtures.json'), {}), inj = read(path.join(DATA, 'injuries.json'), {}), cfg = read(path.join(ROOT, 'config.json'), {});
+  const U = read(path.join(DATA, 'uefa.json'), { results: [] });
+  const { matches, skipped } = predictAll(F, B, fixtures, inj.teams || {});
+  if (skipped.length) console.log(`AVISO: ${skipped.length} partidos sin datos suficientes (equipo nuevo o nombre distinto):`, skipped.slice(0, 10).join(', '));
+  // historial: se guarda el último pronóstico antes del inicio
+  const histFile = path.join(STATE, 'history.json'), hist = read(histFile, {});
+  for (const m of matches) if (Date.parse(m.kickoff) > NOW) hist[m.id] = { ...m, savedAt: new Date(NOW).toISOString() };
+  let evaluated = 0;
+  for (const [id, e] of Object.entries(hist)) {
+    if (e.eval) continue;
+    const age = NOW - Date.parse(e.kickoff);
+    if (age < 3 * 3600e3) continue;
+    const res = findResult(e, F, B, U);
+    if (res) { e.result = res; e.eval = evaluate(e); evaluated++; }
+    else if (age > 14 * 864e5) delete hist[id];   // aplazado, europeo sin resultado o nunca publicado
+  }
+  for (const [id, e] of Object.entries(hist)) if (NOW - Date.parse(e.kickoff) > 400 * 864e5) delete hist[id];
+  const perf = performance(hist);
+  write(histFile, hist);
+  write(path.join(DATA, 'performance.json'), perf);
+  const sel = dailyFor(Object.values(hist));
+  const withHit = e => e.eval ? { ...e, hit: e.eval.pick.hit } : e;
+  const daily = sel && { day: sel.day, bet: withHit(sel.bet), picks: sel.picks.map(withHit) };
+  write(path.join(DATA, 'predictions.json'), { generated: new Date(NOW).toISOString(), daily, matches: matches.filter(m => Date.parse(m.kickoff) > NOW - 3 * 3600e3) });
+  console.log(`pronósticos: ${matches.length} partidos · evaluados ahora: ${evaluated} · historial: ${Object.keys(hist).length}`);
+  // resumen diario por Telegram, a partir de la hora configurada (8:00 por defecto, hora de Madrid)
+  const tg = cfg.telegram || {}, stFile = path.join(STATE, 'state.json'), st = read(stFile, {}), day = madridDate(NOW);
+  const hour = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date(NOW));
+  if (tg.activo !== false && hour >= (+tg.hora || 8) && st.lastDigest !== day) {
+    const t = digest(matches, perf, day, tg, sel);
+    if (t && await telegram(t)) { st.lastDigest = day; write(stFile, st); console.log('resumen enviado a Telegram'); }
+  }
+}
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

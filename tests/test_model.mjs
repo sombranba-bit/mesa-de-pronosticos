@@ -1,0 +1,87 @@
+// Pruebas de coherencia del motor de pronósticos. Uso: node tests/test_model.mjs   (falla con código 1 si algo no cuadra)
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const M = createRequire(import.meta.url)(path.join(ROOT, 'app', 'model.js'));
+let fails = 0, checks = 0;
+const ok = (cond, msg) => { checks++; if (!cond) { fails++; console.log('FALLO:', msg); } };
+const near = (a, b, tol, msg) => ok(Math.abs(a - b) <= tol, `${msg}: ${a} frente a ${b}`);
+const sum = a => a.reduce((s, x) => s + x, 0);
+
+// ---- fútbol: datos sintéticos de una liga de 10 equipos ----
+const teams = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'], rows = [];
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const pois = l => { let k = 0, p = Math.exp(-l), s = p; const u = rnd(); while (u > s && k < 15) { k++; p *= l / k; s += p; } return k; };
+const strength = Object.fromEntries(teams.map((t, i) => [t, 0.6 + i * 0.12]));
+for (let d = 19000; d < 19700; d += 7) for (let i = 0; i < 5; i++) {
+  const h = teams[(i + d) % 10], a = teams[(i + 5 + d) % 10]; if (h === a) continue;
+  const hg = pois(1.4 * strength[h] / strength[a]), ag = pois(1.1 * strength[a] / strength[h]);
+  const hth = Math.min(hg, pois(0.45 * hg + 0.1)), hta = Math.min(ag, pois(0.45 * ag + 0.1));
+  rows.push({ d, div: 'SP1', h, a, hg, ag, hth, hta, hc: pois(5.2), ac: pois(4.4), hy: pois(2.1), ay: pois(2.4), hr: 0, ar: 0, hxg: hg * 0.8 + 0.3, axg: ag * 0.8 + 0.2 });
+}
+const set = M.fitFootballSet(rows, 19700, 0.0015), R = M.footballRatings(rows);
+ok(set.ft && set.ht && set.sh && set.co && set.ca && set.fx, 'se ajustan los seis modelos de fútbol');
+ok(set.caTrend > 0.7 && set.caTrend < 1.3, `tendencia de tarjetas razonable (${set.caTrend})`);
+for (const adj of [null, { h: 0.85, a: 1.1 }]) {
+  const P = M.footballPredict(set, R.feat('J', 'A'), 'J', 'A', adj), g = Object.fromEntries(P.groups.map(x => [x.title, x.rows]));
+  near(sum(g['Resultado'].map(r => r.p)), 1, 1e-9, '1X2 suma 1');
+  near(sum(g['Goles exactos'].map(r => r.p)), 1, 1e-6, 'goles exactos suma 1');
+  near(sum(g['Margen de victoria'].map(r => r.p)), 1, 1e-6, 'margen de victoria suma 1');
+  near(sum(g['Descanso/final'].map(r => r.p)), 1, 1e-6, 'descanso/final suma 1');
+  near(sum(g['Par o impar'].map(r => r.p)), 1, 1e-9, 'par/impar suma 1');
+  for (const t of ['Goles totales', 'Córners', 'Tarjetas (amarillas + rojas)']) {
+    const over = g[t].filter(r => r.label.startsWith('Más de')).map(r => r.p), under = g[t].filter(r => r.label.startsWith('Menos de')).map(r => r.p);
+    over.forEach((p, i) => near(p + under[i], 1, 1e-9, `${t}: más + menos = 1`));
+    ok(over.every((p, i) => i === 0 || p <= over[i - 1] + 1e-12), `${t}: «más de» baja al subir la línea`);
+  }
+  for (const r of g['Hándicap asiático']) ok(r.p >= 0 && r.p <= 1 && (r.push || 0) >= 0 && r.p + (r.push || 0) <= 1 + 1e-9, `hándicap ${r.label} válido`);
+  ok(P.summary.H > P.summary.A, 'el equipo fuerte en casa es favorito');
+  ok(P.groups.flatMap(x => x.rows).every(r => r.p >= -1e-12 && r.p <= 1 + 1e-12), 'todas las probabilidades entre 0 y 1');
+}
+const base = M.footballPredict(set, R.feat('J', 'A'), 'J', 'A'), injured = M.footballPredict(set, R.feat('J', 'A'), 'J', 'A', { h: 0.8, a: 1 });
+ok(injured.summary.H < base.summary.H && injured.summary.lam < base.summary.lam, 'las bajas del local bajan su victoria y sus goles');
+const pick = M.footballPick(base.summary, 'J', 'A'); ok(pick.p >= 0.5 || pick.market === '1X2', 'el pronóstico principal es coherente');
+// ---- liga sin xG: el más/menos 2,5 pasa por la calibración y el 1X2 no cambia ----
+const setNoXg = M.fitFootballSet(rows.map(r => ({ ...r, hxg: null, axg: null })), 19700, 0.0015);
+ok(!setNoXg.fx, 'sin xG no hay modelo mezcla');
+const Pc = M.footballPredict(setNoXg, R.feat('J', 'A'), 'J', 'A'), gc = Object.fromEntries(Pc.groups.map(x => [x.title, x.rows]));
+near(sum(gc['Resultado'].map(r => r.p)), 1, 1e-9, 'calibrado: 1X2 suma 1');
+near(sum(gc['Goles exactos'].map(r => r.p)), 1, 1e-6, 'calibrado: goles exactos suma 1');
+const raw = M.footballMarkets(M.rescaleGrid(M.dcGrid(setNoXg.ft, 'J', 'A'), [Pc.summary.H, Pc.summary.D, Pc.summary.A])).over(2.5);
+const want = 1 / (1 + Math.exp(-(0.725 * Math.log(raw / (1 - raw)) + 0.092)));
+near(Pc.summary.o25, want, 2e-3, 'calibrado: más de 2,5 sigue la fórmula validada');
+// ---- europeo ----
+const E = M.eloPredict(1900, 1700, 'X', 'Y'); near(E.summary.H + E.summary.D + E.summary.A, 1, 1e-9, 'europeo 1X2 suma 1'); ok(E.summary.H > 0.5, 'Elo +200 en casa es favorito claro');
+const En = M.eloPredict(1800, 1800, 'X', 'Y', true); near(En.summary.H, En.summary.A, 1e-9, 'campo neutral e igual Elo: simétrico');
+// ---- cuotas sin margen ----
+near(sum(M.fairProbs([1.9, 3.5, 4.2])), 1, 1e-9, 'Shin suma 1'); near(sum(M.fairProbs([1.8, 2.1])), 1, 1e-9, 'potencia suma 1');
+// ---- baloncesto ----
+const brow = []; for (let d = 19000; d < 19300; d++) { const h = teams[d % 10], a = teams[(d + 3) % 10]; brow.push({ d, h, a, hp: Math.round(110 + 8 * strength[h] - 6 * strength[a] + (rnd() - 0.5) * 20), ap: Math.round(108 + 8 * strength[a] - 6 * strength[h] + (rnd() - 0.5) * 20) }); }
+const bm = M.fitPts(brow, 19300, 0.01), sd = M.ptsSD(bm, brow), B = M.basketPredict(bm, sd, 'J', 'A');
+ok(sd.margin > 3 && sd.margin < 25, `dispersión del margen razonable (${sd.margin})`);
+near(B.groups[0].rows[0].p + B.groups[0].rows[1].p, 1, 1e-9, 'baloncesto: ganador suma 1');
+for (const g of B.groups.slice(1)) for (let i = 0; i < g.rows.length; i += 2) near(g.rows[i].p + g.rows[i + 1].p + (g.rows[i].push || 0), 1, 1e-6, `${g.title}: suma 1`);
+const fat0 = M.nbaFatigue([{ d: 10, h: 'Boston Celtics', a: 'Miami Heat' }], 'Boston Celtics', 'Miami Heat', 12); near(fat0.adj, 0, 1e-9, 'mismo descanso y sin viaje: sin ajuste');
+const fat1 = M.nbaFatigue([{ d: 10, h: 'Boston Celtics', a: 'Miami Heat' }, { d: 11, h: 'LA Clippers', a: 'Miami Heat' }], 'Boston Celtics', 'Miami Heat', 12);
+ok(fat1.adj > 2, 'rival en segunda noche seguida tras cruzar el país: ventaja para el local');
+// ---- tenis ----
+for (const bo of [3, 5]) for (const p of [0.3, 0.5, 0.8]) {
+  const T = M.tennisFromProb(p, bo, 0.62); near(sum(T.dist.map(x => x.p)), 1, 1e-6, `tenis bo${bo}: distribución suma 1`);
+  near(sum(T.dist.filter(x => x.sa > x.sb).map(x => x.p)), p, 2e-3, `tenis bo${bo}: reproduce la probabilidad ${p}`);
+  const X = M.tennisExtras(T.pa, T.pb, T.dist); ok(X.tieBreak >= 0 && X.tieBreak <= 1 && X.firstSetA >= 0 && X.firstSetA <= 1, 'tenis: extras válidos');
+}
+near(M.matchWin(0.62, 0.62, 3), 0.5, 1e-9, 'tenis: jugadores iguales, 50%');
+// ---- apuesta del día y selección ----
+const P2 = await import(path.join(ROOT, 'pipeline', 'predict.mjs'));
+const mk = (id, iso, p, hit) => ({ id, home: id, away: 'x', kickoff: iso, pick: { p, label: id }, ...(hit === undefined ? {} : { eval: { pick: { p, hit } } }) });
+const H = { a: mk('a', '2026-01-10T18:00:00Z', 0.9, true), b: mk('b', '2026-01-10T20:00:00Z', 0.7, false), c: mk('c', '2026-01-10T21:00:00Z', 0.5, true),
+  d: mk('d', '2026-01-11T18:00:00Z', 0.8, false), e: mk('e', '2026-01-12T18:00:00Z', 0.95) };
+const S1 = P2.dailyPicks(Object.values(H), '2026-01-10');
+ok(S1.bet.id === 'a' && S1.picks.map(e => e.id).join() === 'a,b', 'apuesta del día: la más probable y selección ≥65% ordenada');
+ok(P2.dailyFor(Object.values(H), Date.parse('2026-01-10T19:00:00Z')).day === '2026-01-10', 'apuesta del día: se mantiene el día con partidos pendientes');
+ok(P2.dailyFor(Object.values(H), Date.parse('2026-01-10T22:00:00Z')).day === '2026-01-11', 'apuesta del día: pasa al día siguiente al empezar todos');
+const DP = P2.performance(H).daily;
+ok(DP.bet.n === 2 && DP.bet.hits === 1 && DP.picks.n === 3 && DP.picks.hits === 1 && DP.full.n === 1 && DP.full.hits === 0, `seguimiento de la apuesta del día (${JSON.stringify(DP)})`);
+console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
+process.exit(fails ? 1 : 0);

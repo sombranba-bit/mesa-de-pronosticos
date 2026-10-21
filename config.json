@@ -1,0 +1,10 @@
+{
+  "telegram": {
+    "activo": true,
+    "hora": 8,
+    "equipos": [],
+    "competiciones": [],
+    "confianza_minima": 0,
+    "incluir_todos": true
+  }
+}

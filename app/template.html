@@ -1,0 +1,318 @@
+<title>Mesa de Pronósticos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cabecera tipo marcador; pestaña de pronósticos (lista de próximos partidos + aciertos) y una pestaña por deporte (partido, estadísticas, precisión) */
+:root {
+  --bg: #eef1f0; --surface: #ffffff; --ink: #15201c; --muted: #5b6964; --line: #d5ddd9; --soft: #e4eae7;
+  --accent: #2f48b5; --accent-ink: #ffffff; --pos: #157a45; --pos-bg: #e1f2e8; --neg: #b03a2e; --neg-bg: #f8e4e1; --warn: #93600a; --warn-bg: #fbf0d9;
+  --board: #13201b; --board-ink: #f1f5f3; --board-dim: #9fb3aa;
+  --f-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1513; --surface: #17201d; --ink: #e4ebe8; --muted: #93a39c; --line: #2a3632; --soft: #1f2a26;
+  --accent: #8ea2ff; --accent-ink: #0f1513; --pos: #5ccf8e; --pos-bg: #173326; --neg: #f08a7d; --neg-bg: #3a1e1a; --warn: #e6b45a; --warn-bg: #3a2d14;
+  --board: #0a0f0d; --board-ink: #eef3f1; --board-dim: #8aa197; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1513; --surface: #17201d; --ink: #e4ebe8; --muted: #93a39c; --line: #2a3632; --soft: #1f2a26;
+  --accent: #8ea2ff; --accent-ink: #0f1513; --pos: #5ccf8e; --pos-bg: #173326; --neg: #f08a7d; --neg-bg: #3a1e1a; --warn: #e6b45a; --warn-bg: #3a2d14;
+  --board: #0a0f0d; --board-ink: #eef3f1; --board-dim: #8aa197; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.board { background: var(--board); color: var(--board-ink); }
+header.board .wrap { padding-block: 18px 0; display: flex; flex-direction: column; gap: 14px; }
+.brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.brand h1 { font-family: var(--f-display); font-weight: 700; font-size: 34px; letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+.brand p { margin: 0; color: var(--board-dim); font-size: 14px; }
+nav.tabs { display: flex; gap: 4px; overflow-x: auto; }
+nav.tabs button { font-family: var(--f-display); font-size: 19px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: transparent; color: var(--board-dim);
+  border: 0; border-bottom: 3px solid transparent; padding: 8px 14px 9px; cursor: pointer; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--board-ink); border-bottom-color: var(--accent); }
+nav.tabs button:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+main .wrap { padding-block: 22px 48px; display: flex; flex-direction: column; gap: 18px; }
+.sub { display: flex; gap: 6px; flex-wrap: wrap; }
+.sub button { font: 600 14px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+.sub button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel h2 { font-family: var(--f-display); font-size: 22px; font-weight: 600; letter-spacing: .02em; margin: 0; text-transform: uppercase; text-wrap: balance; }
+.panel h3 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+select, input[type=text], input[type=number], input[type=date] { font: 15px var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; min-width: 0; width: 100%; box-sizing: border-box; }
+.btn { font: 600 15px var(--f-body); background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 9px 16px; cursor: pointer; justify-self: start; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+.panel > .btn { align-self: flex-start; }
+#avComps label { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 14px; color: var(--ink); }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.scoreline { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; background: var(--board); color: var(--board-ink); border-radius: 8px; padding: 14px 16px; }
+.scoreline .team { font-family: var(--f-display); font-size: 22px; font-weight: 600; text-transform: uppercase; min-width: 0; overflow-wrap: anywhere; }
+.scoreline .team:last-child { text-align: right; }
+.scoreline .mid { font-family: var(--f-mono); font-size: 26px; text-align: center; }
+.scoreline .mid small { display: block; font-size: 11px; color: var(--board-dim); letter-spacing: .06em; text-transform: uppercase; font-family: var(--f-body); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+@media (min-width: 980px) { .grid2 { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; } }
+.heat td { padding: 3px 2px; font-size: 11.5px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--soft); white-space: nowrap; }
+td.num, th.num { text-align: right; font-family: var(--f-mono); font-size: 13.5px; }
+tr.group td { font-weight: 600; color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; background: var(--soft); }
+.chip { display: inline-block; font: 600 12px var(--f-body); padding: 2px 8px; border-radius: 999px; }
+.chip.pos { background: var(--pos-bg); color: var(--pos); } .chip.neg { background: var(--neg-bg); color: var(--neg); } .chip.warn { background: var(--warn-bg); color: var(--warn); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat { background: var(--soft); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.stat b { font-family: var(--f-mono); font-size: 20px; font-weight: 500; }
+.stat span { font-size: 12px; color: var(--muted); }
+.note { font-size: 14px; color: var(--muted); max-width: 72ch; margin: 0; }
+.verdict { border-left: 4px solid var(--warn); background: var(--warn-bg); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 0; max-width: 80ch; }
+.verdict.pos { border-color: var(--pos); background: var(--pos-bg); }
+.progress { height: 6px; background: var(--soft); border-radius: 3px; overflow: hidden; } .progress i { display: block; height: 100%; background: var(--accent); width: 0; }
+svg.chart text { fill: var(--muted); font: 11px var(--f-mono); }
+.heat td { text-align: center; font-family: var(--f-mono); font-size: 12px; padding: 4px; border: 1px solid var(--soft); }
+.prose { max-width: 72ch; display: flex; flex-direction: column; gap: 10px; }
+.prose p, .prose li { margin: 0; } .prose ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); }
+@media (max-width: 520px) { .brand h1 { font-size: 28px; } .scoreline .team { font-size: 18px; } .scoreline .mid { font-size: 20px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.match { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--soft); }
+.match:last-child { border-bottom: 0; }
+.daily { border-left: 4px solid var(--accent); }
+.daily .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; }
+.daily .hero .lbl { font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.daily .hero .p { font-family: var(--f-mono); font-size: 40px; line-height: 1; color: var(--accent); grid-row: 1 / 3; grid-column: 2; }
+.daily .hero small { color: var(--muted); font-size: 13.5px; }
+.daily .combo { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14px; padding-top: 4px; border-top: 1px solid var(--soft); }
+.match .when { font-family: var(--f-mono); font-size: 13px; color: var(--muted); line-height: 1.3; }
+.match .teams { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.match .teams small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.match .pick { text-align: right; }
+.match .pick b { font-family: var(--f-mono); font-size: 18px; font-weight: 500; display: block; }
+.match .pick span { font-size: 12.5px; color: var(--muted); }
+.match .probs { grid-column: 2 / 4; display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.match .probs b { color: var(--ink); font-family: var(--f-mono); font-weight: 500; }
+.tribar { grid-column: 2 / 4; display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--soft); }
+.tribar i { display: block; height: 100%; } .tribar i:nth-child(1) { background: var(--accent); } .tribar i:nth-child(2) { background: var(--line); } .tribar i:nth-child(3) { background: var(--warn); }
+.daylabel { font-family: var(--f-display); font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; margin: 8px 0 0; }
+.linkbtn { background: none; border: 0; color: var(--accent); font: 600 13px var(--f-body); cursor: pointer; padding: 0; justify-self: start; }
+th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
+@media (max-width: 520px) { .match { grid-template-columns: 58px minmax(0, 1fr); } .match .pick { grid-column: 2; text-align: left; } .match .probs, .tribar { grid-column: 1 / 3; } }
+</style>
+
+<header class="board"><div class="wrap">
+  <div class="brand"><h1>Mesa de Pronósticos</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-pronosticos" aria-selected="true" data-tab="pronosticos">Pronósticos</button>
+    <button role="tab" id="tab-futbol" aria-selected="false" data-tab="futbol">Fútbol</button>
+    <button role="tab" id="tab-baloncesto" aria-selected="false" data-tab="baloncesto">Baloncesto</button>
+    <button role="tab" id="tab-tenis" aria-selected="false" data-tab="tenis">Tenis</button>
+    <button role="tab" id="tab-guia" aria-selected="false" data-tab="guia">Guía</button>
+  </nav>
+</div></header>
+
+<main><div class="wrap">
+  <!-- ===== PRONÓSTICOS (automáticos) ===== -->
+  <section id="sec-pronosticos" data-sec="pronosticos">
+    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true">Próximos partidos</button><button data-v="aciertos" aria-pressed="false">Aciertos</button><button data-v="avisos" aria-pressed="false">Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false">Cuotas</button></div>
+    <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"></div>
+    <div data-view="proximos" class="panel" style="margin-top:12px">
+      <h2>Próximos partidos</h2>
+      <div class="controls">
+        <div class="field"><label for="prSport">Deporte</label><select id="prSport"><option value="">Todos</option><option value="futbol">Fútbol</option><option value="nba">NBA</option><option value="euroliga">Euroliga</option></select></div>
+        <div class="field"><label for="prLeague">Competición</label><select id="prLeague"><option value="">Todas</option></select></div>
+        <div class="field"><label for="prConf">Confianza del pronóstico</label><select id="prConf"><option value="0">Todos</option><option value="0.6">60% o más</option><option value="0.7">70% o más</option><option value="0.8">80% o más</option></select></div>
+      </div>
+      <div id="prOut"></div>
+    </div>
+    <div data-view="aciertos" class="panel" style="margin-top:12px" hidden>
+      <h2>Aciertos de los pronósticos</h2>
+      <p class="note">Cada pronóstico se guarda antes del partido y se compara con el resultado. Un buen modelo acierta en la proporción que dice: de los pronósticos al 70%, deberían cumplirse unos 7 de cada 10.</p>
+      <div id="acOut"></div>
+    </div>
+    <div data-view="avisos" class="panel" style="margin-top:12px" hidden>
+      <h2>Avisos de Telegram</h2>
+      <p class="note">Elige qué quieres recibir. Al terminar, copia el texto de abajo y pégalo en el fichero <code>config.json</code> de tu repositorio de GitHub (ábrelo, pulsa el lápiz, sustituye el contenido y guarda con «Commit changes»).</p>
+      <div class="controls">
+        <div class="field"><label for="avHora">Hora del resumen</label><select id="avHora"></select></div>
+        <div class="field"><label for="avConf">Solo pronósticos de al menos</label><select id="avConf"><option value="0">Cualquier confianza</option><option value="0.55">55%</option><option value="0.6">60%</option><option value="0.65">65%</option><option value="0.7">70%</option><option value="0.75">75%</option></select></div>
+        <div class="field"><label for="avTodos">Lista completa del día</label><select id="avTodos"><option value="1">Incluir</option><option value="0">Solo los de más confianza</option></select></div>
+        <div class="field"><label for="avActivo">Avisos</label><select id="avActivo"><option value="1">Activados</option><option value="0">Desactivados</option></select></div>
+        <div class="field"><label for="avCuotas">Surebets y cuotas anómalas</label><select id="avCuotas"><option value="0">No avisar</option><option value="1">Avisar también</option></select></div>
+      </div>
+      <div class="field"><label for="avTeam">Mis equipos (vacío = todos)</label><div class="row"><input type="text" id="avTeam" list="avTeams" placeholder="Escribe un equipo y pulsa Añadir" style="max-width:320px"><button class="btn ghost" id="avTeamAdd" type="button">Añadir</button></div><datalist id="avTeams"></datalist><div id="avTeamList" class="row"></div></div>
+      <div class="field"><label>Competiciones (ninguna marcada = todas)</label><div id="avComps" class="row" style="gap:6px 14px"></div></div>
+      <p class="note" id="avPreview"></p>
+      <textarea id="avJson" readonly rows="10" style="font:13px var(--f-mono);width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px"></textarea>
+      <button class="btn" id="avCopy" type="button">Copiar configuración</button>
+    </div>
+    <div data-view="cuotas" class="panel" style="margin-top:12px" hidden>
+      <h2>Cuotas: surebets, valor y errores</h2>
+      <p class="note">Esto va aparte de los pronósticos. Compara las cuotas de las casas europeas que publica The Odds API (Pinnacle, William Hill, Betsson, Unibet, Winamax, Codere y otras; Bet365 no está). Las cuotas cambian en minutos: comprueba siempre en tu casa antes de apostar, y ten en cuenta que muchas de estas casas no tienen licencia en España y que las casas limitan a quien gana de forma constante.</p>
+      <div id="odOut"></div>
+    </div>
+  </section>
+
+  <!-- ===== FÚTBOL ===== -->
+  <section id="sec-futbol" data-sec="futbol" hidden>
+    <div class="sub" id="sub-futbol"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="stats" aria-pressed="false">Estadísticas</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div data-view="partido" class="panel" style="margin-top:12px">
+      <h2>Pronóstico de partido</h2>
+      <div class="controls">
+        <div class="field"><label for="fbLeague">Liga</label><select id="fbLeague"></select></div>
+        <div class="field"><label for="fbHome">Local</label><select id="fbHome"></select></div>
+        <div class="field"><label for="fbAway">Visitante</label><select id="fbAway"></select></div>
+        <div class="field"><label for="fbXi">Memoria del modelo</label><select id="fbXi"><option value="0.003">Corta (vida media ~8 meses)</option><option value="0.0015" selected>Media (~15 meses)</option><option value="0.001">Larga (~2 años)</option></select></div>
+      </div>
+      <details id="fbInjBox"><summary class="note" style="cursor:pointer">Bajas y lesiones</summary>
+        <div class="controls" style="margin-top:10px">
+          <div class="field"><label for="injAttH">Ataque del local</label><select id="injAttH" class="inj"></select></div>
+          <div class="field"><label for="injDefH">Defensa del local</label><select id="injDefH" class="inj"></select></div>
+          <div class="field"><label for="injAttA">Ataque del visitante</label><select id="injAttA" class="inj"></select></div>
+          <div class="field"><label for="injDefA">Defensa del visitante</label><select id="injDefA" class="inj"></select></div>
+        </div>
+        <div id="injList" class="note" style="margin-top:8px"></div>
+      </details>
+      <div id="fbOut"></div>
+    </div>
+    <div data-view="stats" class="panel" style="margin-top:12px" hidden>
+      <h2>Estadísticas por equipo</h2>
+      <div class="controls">
+        <div class="field"><label for="stLeague">Liga</label><select id="stLeague"></select></div>
+        <div class="field"><label for="stN">Partidos</label><select id="stN"><option value="5">Últimos 5</option><option value="10" selected>Últimos 10</option><option value="20">Últimos 20</option></select></div>
+        <div class="field"><label for="stSide">Condición</label><select id="stSide"><option value="all">Todos</option><option value="home">Como local</option><option value="away">Como visitante</option></select></div>
+      </div>
+      <div id="stOut"></div>
+    </div>
+    <div data-view="backtest" class="panel" style="margin-top:12px" hidden>
+      <h2>Precisión histórica</h2>
+      <p class="note">Cada semana se reajusta el modelo solo con partidos anteriores y se pronostica la jornada siguiente, como si fuera en directo.</p>
+      <div class="controls">
+        <div class="field"><label for="btFbLeague">Liga</label><select id="btFbLeague"></select></div>
+        <div class="field"><label for="btFbFrom">Desde</label><input type="date" id="btFbFrom" value="2025-07-01"></div>
+      </div>
+      <button class="btn" id="btFbRun">Calcular precisión</button>
+      <div class="progress" hidden id="btFbProg"><i></i></div>
+      <div id="btFbOut"></div>
+    </div>
+    <div data-view="datos" class="panel" style="margin-top:12px" hidden>
+      <h2>Añadir partidos</h2>
+      <p class="note">La versión publicada en GitHub se actualiza sola. Aquí puedes subir a mano un CSV de football-data.co.uk (por ejemplo SP1.csv); se guarda en este navegador.</p>
+      <input type="file" id="fbFile" accept=".csv" multiple>
+      <div id="fbFileOut" class="note"></div>
+    </div>
+  </section>
+
+  <!-- ===== BALONCESTO ===== -->
+  <section id="sec-baloncesto" data-sec="baloncesto" hidden>
+    <div class="sub" id="sub-baloncesto"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div data-view="partido" class="panel" style="margin-top:12px">
+      <h2>Pronóstico de partido</h2>
+      <div class="controls">
+        <div class="field"><label for="nbComp">Competición</label><select id="nbComp"></select></div>
+        <div class="field"><label for="nbHome">Local</label><select id="nbHome"></select></div>
+        <div class="field"><label for="nbAway">Visitante</label><select id="nbAway"></select></div>
+        <div class="field"><label for="nbSpread">Hándicap del local</label><input type="number" id="nbSpread" step="0.5" value="-3.5"></div>
+        <div class="field"><label for="nbTotal">Línea de puntos totales</label><input type="number" id="nbTotal" step="0.5" value="225.5"></div>
+      </div>
+      <div id="nbOut"></div>
+    </div>
+    <div data-view="backtest" class="panel" style="margin-top:12px" hidden>
+      <h2>Precisión histórica</h2>
+      <p class="note">El modelo se reajusta cada día con los partidos previos y pronostica los del día.</p>
+      <div class="controls">
+        <div class="field"><label for="btNbFrom">Desde</label><input type="date" id="btNbFrom" value="2024-10-01"></div>
+      </div>
+      <button class="btn" id="btNbRun">Calcular precisión</button>
+      <div class="progress" hidden id="btNbProg"><i></i></div>
+      <div id="btNbOut"></div>
+    </div>
+    <div data-view="datos" class="panel" style="margin-top:12px" hidden>
+      <h2>Añadir partidos</h2>
+      <p class="note">Sube un CSV con las columnas <code>fecha,local,visitante,pts_local,pts_visitante</code> (fecha AAAA-MM-DD). Se añade a la competición elegida arriba.</p>
+      <input type="file" id="nbFile" accept=".csv">
+      <div id="nbFileOut" class="note"></div>
+    </div>
+  </section>
+
+  <!-- ===== TENIS ===== -->
+  <section id="sec-tenis" data-sec="tenis" hidden>
+    <div class="sub" id="sub-tenis"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div data-view="partido" class="panel" style="margin-top:12px">
+      <h2>Pronóstico de partido</h2>
+      <div class="controls">
+        <div class="field"><label for="tnTour">Circuito</label><select id="tnTour"><option value="0">ATP</option><option value="1">WTA</option></select></div>
+        <div class="field"><label for="tnA">Jugador A</label><input type="text" id="tnA" list="tnList" autocomplete="off"></div>
+        <div class="field"><label for="tnB">Jugador B</label><input type="text" id="tnB" list="tnList" autocomplete="off"></div>
+        <div class="field"><label for="tnSurf">Superficie</label><select id="tnSurf"><option value="0">Pista dura</option><option value="1">Tierra</option><option value="2">Hierba</option></select></div>
+        <div class="field"><label for="tnBo">Formato</label><select id="tnBo"><option value="3">Mejor de 3 sets</option><option value="5">Mejor de 5 sets</option></select></div>
+      </div>
+      <datalist id="tnList"></datalist>
+      <div id="tnOut"></div>
+    </div>
+    <div data-view="backtest" class="panel" style="margin-top:12px" hidden>
+      <h2>Precisión histórica</h2>
+      <p class="note">El Elo se actualiza partido a partido y pronostica cada partido antes de jugarse.</p>
+      <div class="controls">
+        <div class="field"><label for="btTnTour">Circuito</label><select id="btTnTour"><option value="-1">ATP y WTA</option><option value="0">ATP</option><option value="1">WTA</option></select></div>
+        <div class="field"><label for="btTnFrom">Desde</label><input type="date" id="btTnFrom" value="2024-01-01"></div>
+      </div>
+      <button class="btn" id="btTnRun">Calcular precisión</button>
+      <div id="btTnOut"></div>
+    </div>
+    <div data-view="datos" class="panel" style="margin-top:12px" hidden>
+      <h2>Añadir partidos</h2>
+      <p class="note">Sube el fichero del año en curso de tennis-data.co.uk (ATP o WTA, Excel o CSV).</p>
+      <input type="file" id="tnFile" accept=".csv,.xlsx,.xls">
+      <div id="tnFileOut" class="note"></div>
+    </div>
+  </section>
+
+  <!-- ===== GUÍA ===== -->
+  <section id="sec-guia" data-sec="guia" hidden>
+    <div class="panel prose">
+      <h2>Cómo se calculan los pronósticos</h2>
+      <ul>
+        <li><b>Fútbol (17 ligas):</b> conjunto de tres modelos. Dixon-Coles con decaimiento temporal (como penaltyblog) predice el marcador; un Elo por resultados y los pi-ratings de Constantinou y Fenton afinan el 1X2. Descanso, córners y tarjetas usan el mismo método sobre esos datos.</li>
+        <li><b>xG:</b> en las cinco grandes ligas, los mercados de goles salen de un modelo que mezcla goles y goles esperados de Understat; mejora el más/menos 2,5 en la validación. Para el 1X2 no mejoraba y no se usa.</li>
+        <li><b>Competiciones europeas:</b> el Elo de ClubElo, que compara clubes de todas las ligas, se traduce a goles esperados con una fórmula ajustada en 23.000 partidos. Sirve para Champions, Europa League, Conference y cualquier cruce entre clubes de distintos países.</li>
+        <li><b>Bajas:</b> cada día se descargan los lesionados y sancionados (si hay clave de API-Football) y se resta a cada equipo la mitad del peso goleador de los ausentes, con un máximo del 25%. También puedes ajustarlo a mano. Es una estimación: no hay histórico gratuito de bajas para validarla, así que la pestaña de aciertos compara el pronóstico con y sin este ajuste.</li>
+        <li><b>Árbitro:</b> se muestra si es tarjetero (tarjetas por partido frente a la media de su liga). Probado en la Premier League 2022-26, ajustar el pronóstico por el árbitro no lo mejoraba; lo que sí mejora es seguir la tendencia de tarjetas de cada liga (log-loss 0,6348 → 0,6244), y eso se aplica siempre.</li>
+        <li><b>Baloncesto:</b> NBA, Euroliga, EuroCup y, con la clave de API-Sports, ACB, Lega A, BBL, Betclic Élite, liga griega y liga turca. Rating de ataque y defensa por equipo con factor cancha. En la NBA se ajusta por cansancio: jugar la segunda noche seguida resta 2,8 puntos de margen, y también cuentan los días de descanso y los kilómetros de viaje. Validado en 2025-26.</li>
+        <li><b>Tenis:</b> Elo general y por superficie, calibrado para que lo que pronostica al 75% se cumpla en torno al 75%. Se traduce a puntos ganados al saque para calcular sets, juegos y tie-breaks.</li>
+        <li><b>Noticias:</b> cada día se buscan en Google Noticias titulares de las últimas 48 horas sobre bajas, sanciones, dudas, alineaciones o cambios de entrenador de cada equipo que juega pronto. Se muestran en la ficha del partido para que los tengas en cuenta; no cambian el pronóstico porque no hay forma gratuita de validar ese ajuste. Twitter/X no se usa: leer publicaciones es de pago.</li>
+        <li><b>Probado y descartado:</b> el descanso entre partidos de liga en fútbol empeoraba los pronósticos; el cansancio de jugar en Europa entre semana no se puede medir sin un histórico de esos partidos.
+          Tampoco mejoraron (17 ligas, prueba desde julio de 2025): reajustar los pesos del conjunto, calibrar por temperatura, ni apilar una regresión logística o gradient boosting con forma reciente y xG. En tenis, Glicko-2 empata con el Elo actual (0,6190 frente a 0,6188).</li>
+        <li><b>Añadido en la última revisión:</b> córners y tarjetas con binomial negativa (córners 0,719 → 0,690 de log-loss), y calibración del más/menos 2,5 en ligas sin xG (0,689 → 0,685).</li>
+        <li><b>Cuota justa:</b> es el mismo pronóstico expresado como cuota (1 entre la probabilidad).</li>
+      </ul>
+      <h2>Qué esperar</h2>
+      <p>Un pronóstico del 60% falla 4 de cada 10 veces aunque el modelo sea bueno. Mira la pestaña de aciertos: si los pronósticos al 70% se cumplen alrededor del 70%, el modelo está bien calibrado. En la temporada 2025-26 de las cinco grandes ligas, el favorito del modelo acertó el 52% de los partidos y el favorito de las casas de apuestas el 53,5%. En 1X2 nadie acierta mucho más.</p>
+      <p>Si apuestas, hazlo en casas con licencia de la DGOJ y con dinero que puedas permitirte perder. En <a href="https://www.jugarbien.es" target="_blank" rel="noopener">jugarbien.es</a> hay ayuda.</p>
+      <h2>Fuentes</h2>
+      <ul>
+        <li>Fútbol: football-data.co.uk, vía <a href="https://github.com/xgabora/Club-Football-Match-Data" target="_blank" rel="noopener">xgabora/Club-Football-Match-Data</a> (MIT) para el histórico; xG de Understat (histórico vía <a href="https://github.com/JaseZiv/worldfootballR_data" target="_blank" rel="noopener">worldfootballR_data</a>); ratings europeos de <a href="http://clubelo.com" target="_blank" rel="noopener">ClubElo</a>; bajas de API-Football.</li>
+        <li>Baloncesto: <a href="https://github.com/llimllib/nba_data" target="_blank" rel="noopener">llimllib/nba_data</a>, fixturedownload.com (calendario NBA) y la API oficial de la Euroliga.</li>
+        <li>Tenis: tennis-data.co.uk, vía <a href="https://github.com/nick-benelli/Tennis-Data-Pipeline" target="_blank" rel="noopener">nick-benelli/Tennis-Data-Pipeline</a> (MIT).</li>
+        <li>Métodos: <a href="https://github.com/martineastwood/penaltyblog" target="_blank" rel="noopener">penaltyblog</a>, pi-ratings (Constantinou y Fenton, 2013), Elo por superficie (FiveThirtyEight / Tennis Abstract).</li>
+      </ul>
+    </div>
+  </section>
+</div></main>
+
+<script id="d-fb" type="application/json">/*DATA_FB*/</script>
+<script id="d-nb" type="application/json">/*DATA_NB*/</script>
+<script id="d-el" type="application/json">/*DATA_EL*/</script>
+<script id="d-tn" type="application/json">/*DATA_TN*/</script>
+<script id="d-pr" type="application/json">/*DATA_PR*/</script>
+<script id="d-pf" type="application/json">/*DATA_PF*/</script>
+<script id="d-ce" type="application/json">/*DATA_CE*/</script>
+<script id="d-ij" type="application/json">/*DATA_IJ*/</script>
+<script id="d-bx" type="application/json">/*DATA_BX*/</script>
+<script id="d-nw" type="application/json">/*DATA_NW*/</script>
+<script id="d-od" type="application/json">/*DATA_OD*/</script>
+<script>/*MODEL_JS*/</script>
+<script>/*UI_JS*/</script>
