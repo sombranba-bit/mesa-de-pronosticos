@@ -5,6 +5,8 @@ import io, re, json, sys, difflib, datetime as dt
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import pandas as pd, requests
+import urllib3.util.connection as _uc
+_uc.HAS_IPV6 = False   # algunas máquinas de GitHub no tienen salida IPv6 y cada intento esperaba un minuto: forzar IPv4
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'docs' / 'data'
@@ -35,8 +37,15 @@ FIXTURE_DAYS = 10
 FB_ROWS = {}
 
 
+DEAD = set()   # servidores que no responden en esta ejecución: no se reintentan
 def get(url):
-    r = requests.get(url, headers=UA, timeout=60)
+    host = url.split('/')[2]
+    if host in DEAD:
+        raise ConnectionError(f'{host} no responde en esta ejecución (se reintenta en la próxima)')
+    try:
+        r = requests.get(url, headers=UA, timeout=(10, 60))   # 10 s para conectar, 60 s para descargar
+    except (requests.ConnectionError, requests.Timeout):
+        DEAD.add(host); raise
     r.raise_for_status()
     return r.content
 
@@ -212,7 +221,10 @@ def update_xg(rows):
 def update_clubelo():
     """Ratings de ClubElo y partidos próximos entre clubes de distintos países (Champions, Europa League, Conference)."""
     try:
-        ratings = pd.read_csv(io.BytesIO(get(f'http://api.clubelo.com/{TODAY.isoformat()}')))
+        try:
+            ratings = pd.read_csv(io.BytesIO(get(f'http://api.clubelo.com/{TODAY.isoformat()}')))
+        except requests.HTTPError:   # el corte del día a veces aún no está publicado: se usa el de ayer
+            ratings = pd.read_csv(io.BytesIO(get(f'http://api.clubelo.com/{(TODAY - dt.timedelta(days=1)).isoformat()}')))
         fx = pd.read_csv(io.BytesIO(get('http://api.clubelo.com/Fixtures')))
     except Exception as e:
         warn(f'ClubElo: {e}'); return None
