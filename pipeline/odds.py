@@ -17,6 +17,8 @@ SPORTS = ['soccer_spain_la_liga', 'soccer_uefa_champs_league', 'soccer_epl', 'so
           'soccer_uefa_europa_conference_league', 'soccer_turkey_super_league', 'soccer_belgium_first_div', 'soccer_spl', 'soccer_greece_super_league',
           'basketball_euroleague', 'basketball_nba']
 VALUE_MIN, SURE_MIN, ANOMALY = 0.03, 0.002, 1.25
+EXCHANGES, COMMISSION = ('betfair_ex', 'matchbook', 'smarkets'), 0.05   # en los exchanges se paga comisión sobre la ganancia
+STALE_MIN = 20   # cuotas sin actualizar en más de 20 minutos no cuentan (provocan falsas surebets)
 
 
 def fair(prices):
@@ -40,11 +42,16 @@ def analyse(event):
     """Devuelve surebets, valor frente a Pinnacle y anomalías de un evento de The Odds API."""
     sure, value, anom = [], [], []
     markets = {}   # (mercado, línea) -> {resultado: {casa: cuota}}
+    fresh = lambda t: not t or (NOW - dt.datetime.fromisoformat(t.replace('Z', '+00:00'))).total_seconds() <= STALE_MIN * 60
     for b in event.get('bookmakers', []):
+        exch = any(x in b.get('key', '') for x in EXCHANGES)
         for m in b.get('markets', []):
+            if not fresh(m.get('last_update') or b.get('last_update')):
+                continue
             for o in m.get('outcomes', []):
                 key = (m['key'], o.get('point'))
-                markets.setdefault(key, {}).setdefault(o['name'], {})[b['title']] = o['price']
+                price = 1 + (o['price'] - 1) * (1 - COMMISSION) if exch else o['price']
+                markets.setdefault(key, {}).setdefault(o['name'], {})[b['title']] = round(price, 3)
     base = {'match': f"{event['home_team']} – {event['away_team']}", 'kickoff': event['commence_time'], 'sport': event.get('sport_title', '')}
     for (mk, point), outs in markets.items():
         label = 'Ganador' if mk == 'h2h' else f"Más/menos {str(point).replace('.', ',')}"
@@ -114,7 +121,7 @@ def main():
             print('AVISO cuotas', sp, e); continue
         remaining = float(r.headers.get('x-requests-remaining', 0) or 0); used += float(r.headers.get('x-requests-last', 2) or 2)
         for ev in r.json():
-            if dt.datetime.fromisoformat(ev['commence_time'].replace('Z', '+00:00')) <= horizon:
+            if NOW < dt.datetime.fromisoformat(ev['commence_time'].replace('Z', '+00:00')) <= horizon:   # solo antes del partido: en directo las cuotas van con retraso
                 s_, v_, a_ = analyse(ev); out['surebets'] += s_; out['value'] += v_; out['anomalies'] += a_
     out = {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'credits_left': remaining,
            'surebets': sorted(out['surebets'], key=lambda x: -x['profit'])[:40], 'value': sorted(out['value'], key=lambda x: -x['ev'])[:60],
