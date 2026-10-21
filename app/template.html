@@ -81,6 +81,11 @@ a { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 .match { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--soft); }
 .match:last-child { border-bottom: 0; }
+.crest { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: hsl(var(--h) 42% 40%); color: #fff;
+  font: 700 9px/1 var(--f-body); letter-spacing: .02em; vertical-align: middle; margin-right: 6px; overflow: hidden; flex: none; }
+.crest img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 1px; }
+.scoreline .crest { width: 34px; height: 34px; font-size: 12px; margin: 0 8px 0 0; }
+.flag { width: 16px; height: 12px; object-fit: cover; border-radius: 2px; vertical-align: -1px; margin-right: 5px; box-shadow: 0 0 0 1px var(--line); }
 .daily { border-left: 4px solid var(--accent); }
 .daily .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; }
 .daily .hero .lbl { font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
@@ -109,11 +114,11 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
 <header class="board"><div class="wrap">
   <div class="brand"><h1>Mesa de Pronósticos</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
   <nav class="tabs" role="tablist">
-    <button role="tab" id="tab-pronosticos" aria-selected="true" data-tab="pronosticos">Pronósticos</button>
-    <button role="tab" id="tab-futbol" aria-selected="false" data-tab="futbol">Fútbol</button>
-    <button role="tab" id="tab-baloncesto" aria-selected="false" data-tab="baloncesto">Baloncesto</button>
-    <button role="tab" id="tab-tenis" aria-selected="false" data-tab="tenis">Tenis</button>
-    <button role="tab" id="tab-guia" aria-selected="false" data-tab="guia">Guía</button>
+    <button role="tab" id="tab-pronosticos" aria-selected="true" data-tab="pronosticos">📊 Pronósticos</button>
+    <button role="tab" id="tab-futbol" aria-selected="false" data-tab="futbol">⚽ Fútbol</button>
+    <button role="tab" id="tab-baloncesto" aria-selected="false" data-tab="baloncesto">🏀 Baloncesto</button>
+    <button role="tab" id="tab-tenis" aria-selected="false" data-tab="tenis">🎾 Tenis</button>
+    <button role="tab" id="tab-guia" aria-selected="false" data-tab="guia">📖 Guía</button>
   </nav>
 </div></header>
 
@@ -145,6 +150,8 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <div class="field"><label for="avTodos">Lista completa del día</label><select id="avTodos"><option value="1">Incluir</option><option value="0">Solo los de más confianza</option></select></div>
         <div class="field"><label for="avActivo">Avisos</label><select id="avActivo"><option value="1">Activados</option><option value="0">Desactivados</option></select></div>
         <div class="field"><label for="avCuotas">Surebets y cuotas anómalas</label><select id="avCuotas"><option value="0">No avisar</option><option value="1">Avisar también</option></select></div>
+        <div class="field"><label for="avBsky">Cuentas de Bluesky a vigilar (separadas por comas)</label><input id="avBsky" type="text" placeholder="periodista.bsky.social, otro.bsky.social"></div>
+        <div class="field"><label for="avTg">Canales públicos de Telegram (separados por comas)</label><input id="avTg" type="text" placeholder="nombre_del_canal"></div>
       </div>
       <div class="field"><label for="avTeam">Mis equipos (vacío = todos)</label><div class="row"><input type="text" id="avTeam" list="avTeams" placeholder="Escribe un equipo y pulsa Añadir" style="max-width:320px"><button class="btn ghost" id="avTeamAdd" type="button">Añadir</button></div><datalist id="avTeams"></datalist><div id="avTeamList" class="row"></div></div>
       <div class="field"><label>Competiciones (ninguna marcada = todas)</label><div id="avComps" class="row" style="gap:6px 14px"></div></div>
@@ -289,6 +296,11 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <li><b>Noticias:</b> cada día se buscan en Google Noticias titulares de las últimas 48 horas sobre bajas, sanciones, dudas, alineaciones o cambios de entrenador de cada equipo que juega pronto. Se muestran en la ficha del partido para que los tengas en cuenta; no cambian el pronóstico porque no hay forma gratuita de validar ese ajuste. Twitter/X no se usa: leer publicaciones es de pago.</li>
         <li><b>Probado y descartado:</b> el descanso entre partidos de liga en fútbol empeoraba los pronósticos; el cansancio de jugar en Europa entre semana no se puede medir sin un histórico de esos partidos.
           Tampoco mejoraron (17 ligas, prueba desde julio de 2025): reajustar los pesos del conjunto, calibrar por temperatura, ni apilar una regresión logística o gradient boosting con forma reciente y xG. En tenis, Glicko-2 empata con el Elo actual (0,6190 frente a 0,6188).</li>
+        <li><b>Primera Federación:</b> los dos grupos, desde el calendario de lapreferente.com. Los equipos que vienen de Segunda (Zaragoza, Huesca, Cartagena, Mirandés…) conservan su historial, así que se valoran desde el primer día; los demás empiezan sin historial y el modelo es menos fiable con ellos las primeras jornadas. No hay cuotas ni tiros a puerta de esta categoría, así que usa Dixon-Coles, Elo y pi-ratings.</li>
+        <li><b>Tenis con cuotas pasadas:</b> el Elo se mezcla con un rating que sigue lo que decían las cuotas de Pinnacle en los partidos anteriores de cada jugador (prueba 2024-26: log-loss 0,6239 → 0,6172).</li>
+        <li><b>Redes:</b> se pueden seguir cuentas de Bluesky y canales públicos de Telegram (se configuran en <i>Avisos de Telegram</i>); sus mensajes sobre bajas, sanciones o alineaciones de equipos que juegan en 48 horas salen junto a las noticias. X/Twitter e Instagram no se leen: su acceso es de pago y prohíben leerlas automáticamente. Solo se usa información publicada.</li>
+        <li><b>Probado y descartado en esta revisión:</b> ratings de cuotas con memoria más corta (peor: 1,0129 → 1,0191).</li>
+        <li><b>Imágenes:</b> escudos de la lista pública de equipos de ESPN, banderas de flagpedia.net (flagcdn.com).</li>
         <li><b>Ratings de tiros a puerta (GAP) y de cuotas pasadas:</b> el 1X2 combina ahora cinco modelos: Dixon-Coles, Elo, pi-ratings, GAP (valora a cada equipo por los tiros a puerta que genera y concede, en casa y fuera) y ratings sacados de los goles que las cuotas de Bet365 esperaban en sus partidos ya jugados (las cuotas recogen bajas, forma y noticias). Probado en 17 ligas con la temporada 2025-26 sin verla antes: 1X2 1,0130 → 1,0083 de log-loss (acierto del favorito 48,6% → 49,4%; las casas, 50,4%); más/menos 2,5 0,6843 → 0,6806.</li>
         <li><b>Apuesta del día y selección, con cuotas reales de Bet365 (2025-26):</b> apuesta del día 71% de acierto (antes 69%, y ahora la probabilidad que muestra coincide con lo que se acierta); selección de 65% o más: 78% de acierto (antes 69%) y rentabilidad +0,1% (antes −5,6%); con 75% o más: 84% y +1,2%. Es decir, ya no se pierde dinero apostando a lo más probable, pero tampoco se gana de forma clara: la casa paga poco por lo seguro.</li>
         <li><b>Bajas automáticas:</b> Premier desde el Fantasy oficial (con probabilidad de jugar) y otras 14 ligas desde sportsgambler.com (lesionados y sancionados con su fecha prevista de vuelta), cada 3 horas.</li>
@@ -320,5 +332,6 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
 <script id="d-bx" type="application/json">/*DATA_BX*/</script>
 <script id="d-nw" type="application/json">/*DATA_NW*/</script>
 <script id="d-od" type="application/json">/*DATA_OD*/</script>
+<script id="d-cr" type="application/json">/*DATA_CR*/</script>
 <script>/*MODEL_JS*/</script>
 <script>/*UI_JS*/</script>

@@ -11,7 +11,7 @@ const DATA = path.join(ROOT, 'docs', 'data'), STATE = path.join(ROOT, 'data');
 const read = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
 const write = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + '.tmp', JSON.stringify(o)); fs.renameSync(f + '.tmp', f); };
 const NOW = Date.now(), TODAY = Math.floor(NOW / 864e5);
-const COUNTRY = { SP1: 'ES', SP2: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
+const COUNTRY = { SP1: 'ES', SP2: 'ES', SP3: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
 const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg', 'hst', 'ast', 'il', 'im'];
 const usDay = ms => Math.round(Date.parse(new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(ms)) + 'T00:00:00Z') / 864e5);
 const madridDate = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms));   // AAAA-MM-DD
@@ -96,7 +96,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
       const s = P.summary, pick = M.footballPick(s, f.h, f.a), m = { id: `futbol|${f.league}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: f.league, leagueName: names[f.league],
         kickoff: f.kickoff, home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, corners: s.corners, cards: s.cards,
-        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, pick };
+        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, pick, ...(f.noTime ? { noTime: true } : {}) };
       if (f.ref) m.ref = f.ref;
       m.why = whyFootball(m, T, R.elo, { [f.h]: ih, [f.a]: ia });
       if (adj) { const b = M.footballPredict(sets[c], R.feat(f.h, f.a), f.h, f.a).summary; m.base = { H: b.H, D: b.D, A: b.A };

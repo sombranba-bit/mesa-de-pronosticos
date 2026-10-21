@@ -19,7 +19,8 @@ UA = {'User-Agent': 'Mozilla/5.0 (mesa-de-pronosticos; GitHub Actions)'}
 DIVS = {'SP1': 'España - LaLiga', 'SP2': 'España - Segunda', 'E0': 'Inglaterra - Premier', 'E1': 'Inglaterra - Championship',
         'I1': 'Italia - Serie A', 'I2': 'Italia - Serie B', 'D1': 'Alemania - Bundesliga', 'D2': 'Alemania - 2. Bundesliga',
         'F1': 'Francia - Ligue 1', 'F2': 'Francia - Ligue 2', 'N1': 'Países Bajos - Eredivisie', 'P1': 'Portugal - Primeira',
-        'SC0': 'Escocia - Premiership', 'SC1': 'Escocia - Championship', 'B1': 'Bélgica - Pro League', 'T1': 'Turquía - Süper Lig', 'G1': 'Grecia - Super League'}
+        'SC0': 'Escocia - Premiership', 'SC1': 'Escocia - Championship', 'B1': 'Bélgica - Pro League', 'T1': 'Turquía - Süper Lig', 'G1': 'Grecia - Super League',
+        'SP3': 'España - Primera Federación'}   # SP3 no está en football-data: viene de lapreferente.com
 FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref', 'hst', 'ast', 'il', 'im']
 UNDERSTAT = {'SP1': 'La_liga', 'E0': 'EPL', 'I1': 'Serie_A', 'D1': 'Bundesliga', 'F1': 'Ligue_1'}
 # API-Football: ids de liga para las bajas (https://www.api-football.com/documentation-v3)
@@ -178,7 +179,7 @@ def update_football():
     got = 0
     for y in seasons:
         code = f'{y % 100:02d}{(y + 1) % 100:02d}'
-        for div in DIVS:
+        for div in [x for x in DIVS if x != 'SP3']:
             try:
                 for r in parse_fd_csv(get(f'https://www.football-data.co.uk/mmz4281/{code}/{div}.csv'), div):
                     rows[(r['d'], r['h'], r['a'])] = r; got += 1
@@ -189,6 +190,11 @@ def update_football():
     except Exception as e:
         warn(f'xG: {e}')
     implied_goals(rows.values())
+    global SP3_FIXTURES
+    try:
+        SP3_FIXTURES = update_sp3(rows)
+    except Exception as e:
+        warn(f'Primera Federación: {e}')
     if rows:   # nunca se sobrescribe con un fichero vacío
         save('football.json', fb_to_json([r for r in rows.values() if r['d'] >= day(SINCE)]))
     print(f'fútbol: {got} partidos descargados, {len(rows)} en total')
@@ -210,7 +216,86 @@ def update_football():
     except Exception as e:
         warn(f'calendario de fútbol: {e}')
         fixtures = None
+    if fixtures is not None and SP3_FIXTURES is not None:
+        fixtures += SP3_FIXTURES
     return fixtures
+
+
+# ============================== PRIMERA FEDERACIÓN (lapreferente.com, gratis) ==============================
+# Calendario completo de cada grupo en una página. Los equipos que vienen de Segunda se enlazan con su histórico de
+# football-data (p. ej. «Real Zaragoza» -> «Zaragoza»), así el modelo de España cubre las tres categorías juntas.
+SP3_FIXTURES = None
+SP3_COMPS = {2026: (26708, 26709), 2025: (22269, 22270)}   # temporada -> (grupo 1, grupo 2) en lapreferente.com
+DAYS_ES = {'L': 0, 'M': 1, 'X': 2, 'J': 3, 'V': 4, 'S': 5, 'D': 6}
+def parse_lapreferente(page):
+    """[(fecha jornada, hora 'L-HH:MM' o None, local, visitante, goles local o None, goles visitante o None)]."""
+    import html as H
+    toks = [t for t in (H.unescape(x).strip() for x in re.split(r'<[^>]+>', re.sub(r'(?is)<(script|style)\b.*?</\1>', ' ', page))) if t]
+    head = re.compile(r'^JORNADA\s+(\d+)\s*-\s*(\d{1,2})/(\d{1,2})/(\d{4})$', re.I)
+    score, when = re.compile(r'^(\d{1,2})\s*-\s*(\d{1,2})$'), re.compile(r'^([LMXJVSD])\s*-\s*(\d{1,2}:\d{2})$')
+    team = lambda t: bool(re.search(r'[A-Za-zÀ-ÿ]{3}', t)) and not head.match(t) and not when.match(t) and len(t) <= 45
+    out, jd, used = [], None, set()
+    for i, t in enumerate(toks):
+        if i in used:
+            continue   # hora ya asignada al partido anterior
+        m = head.match(t)
+        if m:
+            jd = dt.date(int(m.group(4)), int(m.group(3)), int(m.group(2))); continue
+        if jd is None or i == 0 or i + 1 >= len(toks):
+            continue
+        sm, wm = score.match(t), when.match(t)
+        if (sm or wm or t == '-') and team(toks[i - 1]) and team(toks[i + 1]):
+            hg, ag = (int(sm.group(1)), int(sm.group(2))) if sm else (None, None)
+            hm = None
+            if wm:
+                hm = wm.group(1) + '-' + wm.group(2)
+            else:   # la hora puede ir en la celda siguiente
+                nx = toks[i + 2] if i + 2 < len(toks) else ''
+                if when.match(nx):
+                    hm = nx.replace(' ', ''); used.add(i + 2)
+            out.append((jd, hm, toks[i - 1], toks[i + 1], hg, ag))
+    return out
+SP3_SKIP = re.compile(r'(?i)\bB$|castilla|fabril|madrile|\bB\b')
+def sp3_name(raw, known):
+    """Nombre de lapreferente -> nombre de football-data si el equipo viene de Segunda o Primera (nunca para filiales)."""
+    if SP3_SKIP.search(raw):
+        return raw
+    return pick_team(raw, known) or raw
+def update_sp3(rows):
+    """Resultados y próximos partidos de Primera Federación (cada 3 horas; la temporada anterior, una sola vez)."""
+    have_prev = any(r['div'] == 'SP3' and r['d'] < day(dt.date(season_start(), 7, 1)) for r in rows.values())
+    if not daily_once('sp3Date', 3) and any(r['div'] == 'SP3' for r in rows.values()):   # fuera de tramo: calendario anterior
+        return [f for f in (load('fixtures.json') or {}).get('football', []) if f['league'] == 'SP3' and f['kickoff'] > (NOW - dt.timedelta(hours=3)).isoformat()[:16]]
+    import time
+    known = {t for r in rows.values() if r['div'] in ('SP1', 'SP2') for t in (r['h'], r['a'])}
+    cur = season_start(); fx, got = [], 0
+    mad = ZoneInfo('Europe/Madrid')
+    for y in sorted(SP3_COMPS):
+        if y > cur or (y < cur and have_prev):
+            continue
+        for comp in SP3_COMPS[y]:
+            try:
+                games = parse_lapreferente(get(f'https://www.lapreferente.com/C{comp}-1/primera-federacion/calendario.html').decode('utf-8', 'replace'))
+            except Exception as e:
+                warn(f'Primera Federación {comp}: {e}'); continue
+            finally:
+                time.sleep(2)
+            if len(games) < 100:   # una temporada tiene 380 partidos por grupo
+                warn(f'Primera Federación {comp}: solo {len(games)} partidos leídos (¿ha cambiado la página?)'); continue
+            for jd, hm, h, a, hg, ag in games:
+                h, a = sp3_name(h, known), sp3_name(a, known)
+                if hg is not None:
+                    rows[(day(jd), h, a)] = {'div': 'SP3', 'd': day(jd), 'h': h, 'a': a, 'hg': hg, 'ag': ag}; got += 1
+                elif y == cur:
+                    d_, hh, mm, no_time = jd, 19, 0, True
+                    if hm:   # «S-13:00»: sábado más cercano a la fecha de la jornada
+                        wd, t = hm.split('-', 1); hh, mm = (int(x) for x in t.split(':')); no_time = False
+                        d_ = min((jd + dt.timedelta(days=k) for k in range(-3, 4)), key=lambda x: (x.weekday() != DAYS_ES[wd], abs((x - jd).days)))
+                    ko = dt.datetime(d_.year, d_.month, d_.day, hh, mm, tzinfo=mad).astimezone(dt.timezone.utc)
+                    if ko > NOW - dt.timedelta(hours=3):
+                        fx.append({'league': 'SP3', 'kickoff': ko.isoformat().replace('+00:00', 'Z'), 'h': h, 'a': a, **({'noTime': True} if no_time else {})})
+    print(f'Primera Federación (lapreferente.com): {got} resultados, {len(fx)} partidos próximos')
+    return fx
 
 
 def update_xg(rows):
@@ -477,11 +562,14 @@ def update_sportsgambler(fixtures, rows):
         if not known:
             continue
         try:
-            items = parse_sportsgambler(get(f'https://www.sportsgambler.com/injuries/football/{slug}/').decode('utf-8', 'replace'))
+            page = get(f'https://www.sportsgambler.com/injuries/football/{slug}/').decode('utf-8', 'replace')
+            items = parse_sportsgambler(page)
         except Exception as e:
             warn(f'bajas {div}: {e}'); continue
         finally:
             time.sleep(2)   # ritmo moderado con la web
+        if not items and 'No players are currently reported' in page:
+            n_ok += 1; continue   # la web no tiene bajas de esta liga ahora mismo (p. ej., Grecia)
         if not items:
             warn(f'bajas {div}: no se ha podido leer la página (¿ha cambiado?)'); continue
         n_ok += 1
@@ -582,6 +670,42 @@ def update_fdorg(rows, fixtures):
     print(f'football-data.org: {refs} árbitros nuevos en partidos jugados, {nxt} en próximos, {len(res)} resultados de Champions')
 
 
+# ============================== ESCUDOS (lista pública de equipos de ESPN, una vez al día) ==============================
+ESPN_SLUGS = {'SP1': 'esp.1', 'SP2': 'esp.2', 'E0': 'eng.1', 'E1': 'eng.2', 'I1': 'ita.1', 'I2': 'ita.2', 'D1': 'ger.1', 'D2': 'ger.2',
+              'F1': 'fra.1', 'F2': 'fra.2', 'N1': 'ned.1', 'P1': 'por.1', 'SC0': 'sco.1', 'SC1': 'sco.2', 'B1': 'bel.1', 'T1': 'tur.1', 'G1': 'gre.1',
+              'UEFA': 'uefa.champions'}
+def update_crests(rows, fixtures):
+    """crests.json: {equipo: url del escudo}. Fútbol (17 ligas y Champions) y NBA. Sin escudo, la app pone las iniciales."""
+    if not daily_once('crestsDate'):
+        return
+    out, n = load('crests.json') or {}, 0
+    season = day(dt.date(season_start(), 7, 1))
+    uefa = {f[k] for f in fixtures.get('uefa', []) for k in ('h', 'a')}
+    for div, slug in ESPN_SLUGS.items():
+        known = uefa if div == 'UEFA' else {t for r in rows.values() if r['div'] == div and r['d'] >= season - 365 for t in (r['h'], r['a'])}
+        if not known:
+            continue
+        try:
+            js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/teams'))
+        except Exception as e:
+            warn(f'escudos {div}: {e}'); continue
+        for t in js['sports'][0]['leagues'][0]['teams']:
+            tm = t['team']; logo = (tm.get('logos') or [{}])[0].get('href')
+            name = pick_team(tm.get('displayName', ''), known) or pick_team(tm.get('shortDisplayName', ''), known)
+            if name and logo and name not in out:
+                out[name] = logo; n += 1
+    try:
+        js = json.loads(get('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams'))
+        for t in js['sports'][0]['leagues'][0]['teams']:
+            tm = t['team']; logo = (tm.get('logos') or [{}])[0].get('href')
+            if logo:
+                out.setdefault(tm['displayName'].replace('Los Angeles Clippers', 'LA Clippers'), logo)
+    except Exception as e:
+        warn(f'escudos NBA: {e}')
+    save('crests.json', out)
+    print(f'escudos: {len(out)} equipos ({n} nuevos)')
+
+
 # ============================== NOTICIAS (Google Noticias por RSS, sin clave) ==============================
 # Titulares de las últimas 48 h de cada equipo que juega pronto, filtrados por bajas, sanciones, dudas y rotaciones.
 # Solo se guardan titular, medio, fecha y enlace. No ajustan el pronóstico: no hay forma gratuita de validarlo.
@@ -605,12 +729,12 @@ SEARCH_NAMES = {'Ath Madrid': 'Atlético de Madrid', 'Ath Bilbao': 'Athletic Clu
                 "Nott'm Forest": 'Nottingham Forest', 'Ein Frankfurt': 'Eintracht Frankfurt', "M'gladbach": 'Borussia Mönchengladbach',
                 'Paris SG': 'Paris Saint-Germain', 'Inter': 'Inter Milan', 'Milan': 'AC Milan', 'Bayern Munich': 'Bayern Munich'}
 def update_news(fixtures):
-    if not daily_once('newsDate'):
+    if not daily_once('newsDate', 3):   # cada 3 horas: las bajas y alineaciones se publican a lo largo del día
         return
     import xml.etree.ElementTree as ET, urllib.parse, email.utils, time
     soon = NOW + dt.timedelta(hours=48)
     teams = {}
-    country_of = lambda div: next((c for c, ds in {'ES': ['SP1', 'SP2'], 'EN': ['E0', 'E1'], 'IT': ['I1', 'I2'], 'DE': ['D1', 'D2'], 'FR': ['F1', 'F2'],
+    country_of = lambda div: next((c for c, ds in {'ES': ['SP1', 'SP2', 'SP3'], 'EN': ['E0', 'E1'], 'IT': ['I1', 'I2'], 'DE': ['D1', 'D2'], 'FR': ['F1', 'F2'],
                                                   'NL': ['N1'], 'PT': ['P1'], 'SC': ['SC0', 'SC1'], 'BE': ['B1'], 'TR': ['T1'], 'GR': ['G1']}.items() if div in ds), 'EN')
     for f in fixtures.get('football', []):
         if dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) <= soon:
@@ -642,6 +766,61 @@ def update_news(fixtures):
         time.sleep(1)   # ritmo moderado
     save('news.json', {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'teams': out})
     print(f'noticias: {sum(len(v) for v in out.values())} titulares relevantes de {len(out)} equipos ({n} búsquedas)')
+
+# ============================== REDES: Bluesky y canales públicos de Telegram (gratis, opcional) ==============================
+# config.json -> "fuentes": {"bluesky": ["periodista.bsky.social", ...], "telegram": ["canal_publico", ...]}
+# Solo información publicada: X/Twitter e Instagram no se usan (API de pago y prohíben leerlas automáticamente).
+def social_posts(cfg):
+    import html as H
+    out = []
+    for h in cfg.get('bluesky', [])[:30]:
+        try:
+            js = json.loads(get(f'https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor={h}&limit=50&filter=posts_no_replies'))
+            for it in js.get('feed', []):
+                p = it['post']; out.append({'text': p['record'].get('text', ''), 'date': p['record'].get('createdAt'),
+                                            'link': f"https://bsky.app/profile/{h}/post/{p['uri'].split('/')[-1]}", 'source': f'Bluesky @{h}'})
+        except Exception as e:
+            warn(f'Bluesky {h}: {e}')
+    for c in cfg.get('telegram', [])[:30]:
+        try:
+            page = get(f'https://t.me/s/{c}').decode('utf-8', 'replace')
+            for blk in re.split(r'class="tgme_widget_message_wrap', page)[1:]:
+                tm = re.search(r'class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', blk, re.S)
+                dm = re.search(r'<time[^>]*datetime="([^"]+)"', blk); lm = re.search(r'data-post="([^"]+)"', blk)
+                if tm and dm:
+                    out.append({'text': ' '.join(H.unescape(re.sub(r'<[^>]+>', ' ', tm.group(1))).split()), 'date': dm.group(1),
+                                'link': f'https://t.me/{lm.group(1)}' if lm else f'https://t.me/s/{c}', 'source': f'Telegram @{c}'})
+        except Exception as e:
+            warn(f'Telegram {c}: {e}')
+    return out
+def update_social(fixtures):
+    cfg = (json.loads((ROOT / 'config.json').read_text()) if (ROOT / 'config.json').exists() else {}).get('fuentes', {})
+    if not (cfg.get('bluesky') or cfg.get('telegram')) or not daily_once('socialDate', 3):
+        return
+    soon = NOW + dt.timedelta(hours=48); teams = {}
+    for f in fixtures.get('football', []):
+        if dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) <= soon:
+            for t in (f['h'], f['a']):
+                teams[f"{f['league']}|{t}"] = t
+    news = load('news.json') or {'teams': {}}; added = 0
+    for p in social_posts(cfg):
+        try:
+            when = dt.datetime.fromisoformat(p['date'].replace('Z', '+00:00'))
+        except Exception:
+            continue
+        if NOW - when > dt.timedelta(hours=48):
+            continue
+        low = p['text'].lower(); tags = [tag for tag, keys in NEWS_TAGS if any(k in low for k in keys)]
+        if not tags:
+            continue
+        for key, t in teams.items():
+            if SEARCH_NAMES.get(t, t).split()[0].lower() in low or t.lower() in low:
+                items = news['teams'].setdefault(key, [])
+                if not any(i.get('link') == p['link'] for i in items):
+                    items.insert(0, {'title': p['text'][:180], 'link': p['link'], 'source': p['source'], 'date': when.astimezone(dt.timezone.utc).isoformat().replace('+00:00', 'Z'), 'tags': tags}); added += 1
+    save('news.json', {**news, 'updated': NOW.isoformat().replace('+00:00', 'Z')})
+    print(f'redes (Bluesky/Telegram): {added} publicaciones relevantes')
+
 
 # ============================== BALONCESTO ==============================
 def bk_rows_from_json(B):
@@ -948,6 +1127,14 @@ def main():
         update_news(fixtures)
     except Exception as e:
         warn(f'noticias: {e}')
+    try:
+        update_social(fixtures)
+    except Exception as e:
+        warn(f'redes: {e}')
+    try:
+        update_crests(FB_ROWS, fixtures)
+    except Exception as e:
+        warn(f'escudos: {e}')
     try:
         update_tennis()
     except Exception as e:

@@ -110,7 +110,7 @@ const M = (() => {
   // Pesos y logit ordenado ajustados en 2023-25 y validados en 2025-26 (log-loss 0,9958 -> 0,9919 frente a DC solo).
   // Conjunto 1X2: Dixon-Coles, Elo, pi-ratings y GAP (tiros a puerta, Wheatcroft 2020). Pesos ajustados en 17 ligas 2022-25,
   // prueba 2025-26: log-loss 1,0130 -> 1,0101 al añadir GAP.
-  const ENS = { w: [0.292, 0.139, 0.140, 0.538], elo: [0.5087, -0.6668, -0.5861], pi: [1.0445, -0.6941, -0.5584], gap: [0.4076, -0.2601, -0.9566] };
+  const ENS = { w: [0.292, 0.139, 0.140, 0.538], w3: [0.349, 0.32, 0.396], elo: [0.5087, -0.6668, -0.5861], pi: [1.0445, -0.6941, -0.5584], gap: [0.4076, -0.2601, -0.9566] };
   const GAP = { lambda: 0.2, phi: 0.5 };
   // Ratings de cuotas pasadas: ataque/defensa ajustados a los goles implícitos en las cuotas Bet365 de los partidos jugados
   // (2 años, decaimiento 0,008/día). Mezcla con el conjunto validada en 17 ligas (pesos 2024-25, prueba 2025-26):
@@ -127,7 +127,8 @@ const M = (() => {
     const HA = new Map(), HD = new Map(), AA = new Map(), AD = new Map();   // GAP: ataque/defensa en casa y fuera (tiros a puerta)
     const gp = (h, a) => [((HA.get(h) ?? 4.5) + (AD.get(a) ?? 4.0)) / 2, ((AA.get(a) ?? 4.0) + (HD.get(h) ?? 4.5)) / 2];
     const psi = e => 3 * Math.log10(1 + Math.abs(e)) * Math.sign(e), pinv = r => (10 ** (Math.abs(r) / 3) - 1) * Math.sign(r);
-    const feat = (h, a) => { const g = gp(h, a); return { elo: ((E.get(h) ?? 1500) + 60 - (E.get(a) ?? 1500)) / 100, pi: pinv(RH.get(h) ?? 0) - pinv(RA.get(a) ?? 0), gap: g[0] - g[1] }; };
+    const feat = (h, a) => { const g = gp(h, a); return { elo: ((E.get(h) ?? 1500) + 60 - (E.get(a) ?? 1500)) / 100, pi: pinv(RH.get(h) ?? 0) - pinv(RA.get(a) ?? 0),
+      gap: g[0] - g[1], gapOK: HA.has(h) && AA.has(a) }; };   // sin tiros a puerta de alguno de los dos, GAP no cuenta
     rows.forEach((r, k) => {
       const h = r.h, a = r.a; pre[k] = feat(h, a);
       if (r.hst != null && r.ast != null) {
@@ -146,8 +147,9 @@ const M = (() => {
     return { pre, feat, elo: E };
   }
   function ensemble1x2(dc, f) {
-    const P = [dc, ordLogit(ENS.elo, f.elo), ordLogit(ENS.pi, f.pi), ordLogit(ENS.gap, f.gap ?? 0)];
-    const g = [0, 1, 2].map(i => Math.exp(P.reduce((s, p, j) => s + ENS.w[j] * Math.log(p[i]), 0))), t = sum(g);
+    const gapOK = f.gapOK ?? f.gap != null, P = [dc, ordLogit(ENS.elo, f.elo), ordLogit(ENS.pi, f.pi)].concat(gapOK ? [ordLogit(ENS.gap, f.gap)] : []);
+    const W = gapOK ? ENS.w : ENS.w3;   // sin datos de tiros: el conjunto anterior de tres modelos (validado igual)
+    const g = [0, 1, 2].map(i => Math.exp(P.reduce((s, p, j) => s + W[j] * Math.log(p[i]), 0))), t = sum(g);
     return g.map(x => x / t);
   }
   // Reescala la tabla de marcadores para que 1X2 coincida con el conjunto (el resto de mercados queda coherente)
@@ -237,12 +239,18 @@ const M = (() => {
     const wS = opts.surfWeight ?? 0.3, minN = opts.minN ?? 10, from = opts.from ?? Infinity, P = T.players.length;
     const R = new Float64Array(P).fill(1500), S = [0, 1, 2, 3].map(() => new Float64Array(P).fill(1500));
     const Nn = new Float64Array(P), NS = [0, 1, 2, 3].map(() => new Float64Array(P)), preds = [];
+    const Mk = new Float64Array(P), Ms = new Uint8Array(P);   // rating de mercado (cuotas Pinnacle de partidos pasados)
     for (let k = 0; k < T.date.length; k++) {
       const w = T.w[k], l = T.l[k], s = T.surf[k];
       if (!T.completed[k] && T.W1[k] == null) continue;   // walkover
       const rw = (1 - wS) * R[w] + wS * S[s][w], rl = (1 - wS) * R[l] + wS * S[s][l];
       const p = 1 / (1 + Math.pow(10, (rl - rw) / 400));
-      if (T.date[k] >= from && Nn[w] >= minN && Nn[l] >= minN) preds.push({ k, p: eloCalib(p) });
+      if (T.date[k] >= from && Nn[w] >= minN && Nn[l] >= minN) preds.push({ k, p: tnBlend(p, Ms[w] && Ms[l] ? Mk[w] - Mk[l] : null) });
+      const ow = T.pW && T.pW[k], ol = T.pL && T.pL[k];
+      if (ow > 1 && ol > 1) {   // el rating de mercado se acerca a lo que decían las cuotas, no al resultado
+        const q = Math.min(Math.max((1 / ow) / (1 / ow + 1 / ol), 0.01), 0.99), e = Math.log(q / (1 - q)) - (Mk[w] - Mk[l]);
+        Mk[w] += TN_MK.k * e; Mk[l] -= TN_MK.k * e; Ms[w] = Ms[l] = 1;
+      }
       if (T.completed[k]) {
         R[w] += eloK(Nn[w]) * (1 - p); R[l] -= eloK(Nn[l]) * (1 - p);
         const ps = 1 / (1 + Math.pow(10, (S[s][l] - S[s][w]) / 400));
@@ -250,9 +258,13 @@ const M = (() => {
         Nn[w]++; Nn[l]++; NS[s][w]++; NS[s][l]++;
       }
     }
-    return { R, S, N: Nn, NS, preds, wS };
+    return { R, S, N: Nn, NS, preds, wS, Mk, Ms };
   }
-  const eloProb = (E, a, b, s) => { const ra = (1 - E.wS) * E.R[a] + E.wS * E.S[s][a], rb = (1 - E.wS) * E.R[b] + E.wS * E.S[s][b]; return eloCalib(1 / (1 + Math.pow(10, (rb - ra) / 400))); };
+  // Tenis: Elo mezclado con ratings de cuotas pasadas (2019-23 para ajustar, prueba 2024-26 en los mismos partidos: log-loss 0,6239 -> 0,6172)
+  const TN_MK = { k: 0.35, wElo: 0.199, wMk: 0.738 };
+  const tnBlend = (pRaw, dm) => dm == null ? eloCalib(pRaw) : 1 / (1 + Math.exp(-(TN_MK.wElo * Math.log(pRaw / (1 - pRaw)) + TN_MK.wMk * dm)));
+  const eloProb = (E, a, b, s) => { const ra = (1 - E.wS) * E.R[a] + E.wS * E.S[s][a], rb = (1 - E.wS) * E.R[b] + E.wS * E.S[s][b];
+    return tnBlend(1 / (1 + Math.pow(10, (rb - ra) / 400)), E.Ms && E.Ms[a] && E.Ms[b] ? E.Mk[a] - E.Mk[b] : null); };
 
   // Modelo de puntos: probabilidad de ganar punto al saque -> juego, tie-break, set, partido (exacto)
   function holdProb(p) { const q = 1 - p; return p ** 4 * (1 + 4 * q + 10 * q * q) + 20 * p ** 3 * q ** 3 * p * p / (1 - 2 * p * q); }

@@ -77,6 +77,17 @@ Pinnacle (≥3%) y cuotas anómalas (≥25% por encima de la mediana de las dem�
 Bet365, Codere ni Winamax; compara casas europeas (Pinnacle, Betfair, Unibet, William Hill…). Las cuotas cambian en minutos:
 comprueba siempre antes en tu casa.
 
+### Primera Federación
+
+Los dos grupos se leen de lapreferente.com (gratis, sin clave) cada 3 horas. Aparece como «España - Primera Federación» en la app y en los avisos.
+
+### Redes: Bluesky y Telegram (opcional)
+
+En la app, *Pronósticos → Avisos de Telegram*, escribe las cuentas de Bluesky (p. ej. `periodista.bsky.social`) y los canales
+públicos de Telegram (el nombre que va después de `t.me/`) que quieras seguir, copia el texto y pégalo en `config.json`. Cada 3 horas
+se leen sus mensajes de las últimas 48 horas y los que hablan de bajas, sanciones o alineaciones de equipos con partido próximo salen
+junto a las noticias. X/Twitter e Instagram no se usan (acceso de pago y prohíben leerlas automáticamente).
+
 ### Comprobaciones automáticas
 
 `tests/test_model.mjs` revisa en cada ejecución 112 propiedades del modelo (probabilidades que suman 1, líneas de más/menos
