@@ -681,12 +681,15 @@ def update_tennis():
     got = 0
     for y in years:
         for tour, path in [(0, f'{y}/{y}.xlsx'), (1, f'{y}w/{y}.xlsx')]:
-            try:
-                df = pd.read_excel(io.BytesIO(get(f'http://www.tennis-data.co.uk/{path}')))
-                for r in parse_tennis(df, tour):
-                    rows[(r['d'], r['w'], r['l'])] = r; got += 1
-            except Exception as e:
-                warn(f'tenis {path}: {e}')
+            # tennis-data.co.uk bloquea a veces los servidores de GitHub (403): copia en GitHub de los mismos datos como respaldo
+            mirror = f"https://raw.githubusercontent.com/nick-benelli/Tennis-Data-Pipeline/main/data/raw/uk/{'wta' if tour else 'atp'}/uk_{'wta' if tour else 'atp'}_singles_raw_{y}.csv"
+            for src, read in [(f'http://www.tennis-data.co.uk/{path}', lambda b: pd.read_excel(io.BytesIO(b))), (mirror, lambda b: pd.read_csv(io.BytesIO(b), low_memory=False))]:
+                try:
+                    for r in parse_tennis(read(get(src)), tour):
+                        rows[(r['d'], r['w'], r['l'])] = r; got += 1
+                    break
+                except Exception as e:
+                    warn(f'tenis {src}: {e}')
     if got:
         save('tennis.json', tn_to_json([r for r in rows.values() if r['d'] >= day(dt.date(2019, 1, 1))]))
     print(f'tenis: {got} partidos descargados, {len(rows)} en total')

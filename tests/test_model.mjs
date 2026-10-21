@@ -83,5 +83,13 @@ ok(P2.dailyFor(Object.values(H), Date.parse('2026-01-10T19:00:00Z')).day === '20
 ok(P2.dailyFor(Object.values(H), Date.parse('2026-01-10T22:00:00Z')).day === '2026-01-11', 'apuesta del día: pasa al día siguiente al empezar todos');
 const DP = P2.performance(H).daily;
 ok(DP.bet.n === 2 && DP.bet.hits === 1 && DP.picks.n === 3 && DP.picks.hits === 1 && DP.full.n === 1 && DP.full.hits === 0, `seguimiento de la apuesta del día (${JSON.stringify(DP)})`);
+// ---- motivos de cada pronóstico ----
+const Th = new Map([['A', [{ f: 2, a: 0 }, { f: 3, a: 1 }, { f: 1, a: 1 }, { f: 2, a: 1 }, { f: 4, a: 0 }]], ['B', [{ f: 0, a: 2 }, { f: 1, a: 1 }, { f: 0, a: 3 }, { f: 1, a: 2 }, { f: 0, a: 1 }]]]);
+const Wf = P2.whyFootball({ home: 'A', away: 'B', lam: 2.1, mu: 0.6, pick: { code: 'H' } }, Th, new Map([['A', 1700], ['B', 1500]]), { B: { players: [{}, {}] } });
+ok(Wf.length === 3 && Wf[0] === 'B tiene 2 bajas' && Wf[1].includes('200 puntos') && Wf[2].includes('4V 1E 0D'), `motivos del fútbol (${Wf.join(' | ')})`);
+const Wo = P2.whyFootball({ home: 'A', away: 'B', lam: 2.1, mu: 0.6, pick: { code: 'O' } }, Th, null);
+ok(Wo[0].includes('2,7') && Wo[1].includes('A 3'), `motivos del más de 2,5 (${Wo.join(' | ')})`);
+const Wb = P2.whyBasket({ home: 'A', away: 'B', ph: 112, pa: 104, margin: 8, pick: { code: 'H' }, fatigue: { b2bA: true } }, Th);
+ok(Wb[0] === 'B juega su segunda noche seguida' && Wb[1].includes('por 8,0'), `motivos del baloncesto (${Wb.join(' | ')})`);
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

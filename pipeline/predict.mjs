@@ -24,13 +24,69 @@ export function basketComps(B) {
   return list.filter(([, , D]) => D && D.date && D.date.length);
 }
 
+// ---------- motivos breves de cada pronóstico (solo con datos que usa el modelo) ----------
+const n1 = x => x.toFixed(1).replace('.', ','), pcs = p => Math.round(p * 100) + '%';
+function teamHistory(rows, gf, ga) {   // últimos partidos de cada equipo, del más antiguo al más reciente
+  const T = new Map(), add = (t, f, a, d) => { if (!T.has(t)) T.set(t, []); T.get(t).push({ f, a, d }); };
+  for (const r of rows) { add(r.h, r[gf], r[ga], r.d); add(r.a, r[ga], r[gf], r.d); }
+  return T;
+}
+function formTxt(list, n, draws = true) {
+  const g = (list || []).slice(-n); if (g.length < 3) return null;
+  const w = g.filter(x => x.f > x.a).length, d = g.filter(x => x.f === x.a).length;
+  return draws ? `${w}V ${d}E ${g.length - w - d}D` : `${w}-${g.length - w}`;
+}
+export function whyFootball(m, T, elo, inj = {}) {
+  const c = m.pick.code, h = T.get(m.home) || [], a = T.get(m.away) || [], out = [];
+  const lastN = (l, k) => l.slice(-k), avg = (l, f) => l.reduce((s, x) => s + f(x), 0) / l.length;
+  const injTxt = t => { const n = inj[t]?.players?.length; return n ? `${t} tiene ${n} ${n === 1 ? 'baja' : 'bajas'}` : null; };
+  if (c === 'H' || c === 'A') {
+    const [fav, riv, fl, rl] = c === 'H' ? [m.home, m.away, h, a] : [m.away, m.home, a, h];
+    const de = elo ? Math.round((elo.get(fav) ?? 1500) - (elo.get(riv) ?? 1500)) : null;
+    if (de > 0) out.push(`${fav} está ${de} puntos de Elo por encima`);
+    else if (de !== null && c === 'H') out.push(`Ventaja de jugar en casa pese a un Elo similar o menor`);
+    const f1 = formTxt(fl, 5), f2 = formTxt(rl, 5);
+    if (f1 && f2) out.push(`Forma (últimos 5): ${fav} ${f1}, ${riv} ${f2}`);
+    out.push(`Goles esperados ${n1(m.lam)}–${n1(m.mu)}${c === 'H' ? ', y juega en casa' : ''}`);
+    const ij = injTxt(riv); if (ij) out.unshift(ij);
+  } else if (c === 'D') {
+    const de = elo ? Math.abs(Math.round((elo.get(m.home) ?? 1500) - (elo.get(m.away) ?? 1500))) : null;
+    if (de !== null) out.push(`Equipos muy igualados (${de} puntos de Elo de diferencia)`);
+    out.push(`Pocos goles esperados: ${n1(m.lam + m.mu)} entre los dos`);
+  } else if (c === 'O' || c === 'U') {
+    out.push(`Goles esperados: ${n1(m.lam + m.mu)} entre los dos (${n1(m.lam)}–${n1(m.mu)})`);
+    const hh = lastN(h, 8), aa = lastN(a, 8);
+    if (hh.length >= 5 && aa.length >= 5) {
+      const line = x => x.f + x.a > 2.5;
+      out.push(`${c === 'O' ? 'Más' : 'Menos'} de 2,5 en sus últimos 8: ${m.home} ${hh.filter(x => line(x) === (c === 'O')).length}, ${m.away} ${aa.filter(x => line(x) === (c === 'O')).length}`);
+      out.push(`Media de goles en esos partidos: ${n1(avg(hh, x => x.f + x.a))} y ${n1(avg(aa, x => x.f + x.a))}`);
+    }
+  } else {
+    out.push(`Goles esperados de cada uno: ${n1(m.lam)} y ${n1(m.mu)}`);
+    const hh = lastN(h, 8), aa = lastN(a, 8);
+    if (hh.length >= 5 && aa.length >= 5) out.push(c === 'BY'
+      ? `Marcaron en sus últimos 8: ${m.home} ${hh.filter(x => x.f > 0).length}, ${m.away} ${aa.filter(x => x.f > 0).length}`
+      : `Se quedaron sin marcar en sus últimos 8: ${m.home} ${hh.filter(x => x.f === 0).length}, ${m.away} ${aa.filter(x => x.f === 0).length}`);
+  }
+  return out.slice(0, 3);
+}
+export function whyBasket(m, T) {
+  const homeFav = m.pick.code === 'H', [fav, riv] = homeFav ? [m.home, m.away] : [m.away, m.home], out = [];
+  out.push(`Marcador esperado ${Math.round(m.ph)}–${Math.round(m.pa)}: ${fav} por ${n1(Math.abs(m.margin))} puntos`);
+  const f1 = formTxt(T.get(fav), 10, false), f2 = formTxt(T.get(riv), 10, false);
+  if (f1 && f2) out.push(`Últimos 10: ${fav} ${f1}, ${riv} ${f2}`);
+  const F = m.fatigue;
+  if (F) { const b2bRiv = homeFav ? F.b2bA : F.b2bH; if (b2bRiv) out.unshift(`${riv} juega su segunda noche seguida`); }
+  if (homeFav) out.push('Juega en casa');
+  return out.slice(0, 3);
+}
 export function predictAll(F, B, fixtures, injuries = {}) {
   const matches = [], skipped = [];
   // ---------- fútbol ----------
   if (F) {
     const rows = F.date.map((d, k) => { const r = { d, div: F.divs[F.div[k]], h: F.teams[F.h[k]], a: F.teams[F.a[k]], hg: F.hg[k], ag: F.ag[k] };
       for (const f of FB_FIELDS) r[f] = F[f] ? F[f][k] : null; return r; }).sort((a, b) => a.d - b.d);
-    const R = M.footballRatings(rows), sets = {}, names = Object.fromEntries(F.divs.map((d, i) => [d, F.divNames[i]]));
+    const R = M.footballRatings(rows), T = teamHistory(rows, 'hg', 'ag'), sets = {}, names = Object.fromEntries(F.divs.map((d, i) => [d, F.divNames[i]]));
     for (const f of fixtures.football || []) {
       const c = COUNTRY[f.league]; if (!c) continue;
       if (!sets[c]) { const cr = rows.filter(r => COUNTRY[r.div] === c); sets[c] = M.fitFootballSet(cr.filter(r => r.d >= TODAY - 3 * 365), TODAY, 0.0015); }
@@ -42,6 +98,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
         kickoff: f.kickoff, home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, corners: s.corners, cards: s.cards,
         co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, pick };
       if (f.ref) m.ref = f.ref;
+      m.why = whyFootball(m, T, R.elo, { [f.h]: ih, [f.a]: ia });
       if (adj) { const b = M.footballPredict(sets[c], R.feat(f.h, f.a), f.h, f.a).summary; m.base = { H: b.H, D: b.D, A: b.A };
         m.injuries = [...(ih?.players || []).map(p => ({ team: f.h, ...p })), ...(ia?.players || []).map(p => ({ team: f.a, ...p }))]; }
       matches.push(m);
@@ -51,6 +108,9 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       const P = M.eloPredict(f.eh, f.ea, f.h, f.a), s = P.summary;
       matches.push({ id: `futbol|UEFA|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: 'UEFA', leagueName: f.competition || 'Competiciones europeas', kickoff: f.kickoff, noTime: f.noTime !== false, ...(f.ref ? { ref: f.ref } : {}),
         home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, score: `${s.score.x}-${s.score.y}`, pick: M.footballPick(s, f.h, f.a) });
+      const u = matches[matches.length - 1], c = u.pick.code;
+      u.why = [c === 'H' || c === 'A' || c === 'D' ? `Elo de ClubElo: ${f.h} ${Math.round(f.eh)}, ${f.a} ${Math.round(f.ea)}${c === 'H' ? ' (y juega en casa)' : ''}` : null,
+        `Goles esperados ${n1(s.lam)}–${n1(s.mu)}`].filter(Boolean);
     }
   }
   // ---------- baloncesto ----------
@@ -58,7 +118,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
     const fx = [...(fixtures[sport] || []), ...(fixtures.basket || []).filter(f => f.league === sport)]; if (!fx.length) continue;
     const rows = D.date.map((d, k) => ({ d, h: D.teams[D.h[k]], a: D.teams[D.a[k]], hp: D.hp[k], ap: D.ap[k] })).sort((a, b) => a.d - b.d);
     const last = rows[rows.length - 1].d, m = M.fitPts(rows.filter(r => r.d >= last - 500), Math.max(TODAY, last + 1), 0.01);
-    const sd = sport === 'nba' ? M.NBA_SD : M.ptsSD(m, rows);
+    const sd = sport === 'nba' ? M.NBA_SD : M.ptsSD(m, rows), T = teamHistory(rows, 'hp', 'ap');
     for (const f of fx) {
       const fat = sport === 'nba' ? M.nbaFatigue(rows, f.h, f.a, usDay(Date.parse(f.kickoff))) : { adj: 0 };
       const P = M.basketPredict(m, sd, f.h, f.a, undefined, undefined, fat.adj); if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
@@ -67,6 +127,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
         pw: P.pw, ph: P.P.ph, pa: P.P.pa, margin: P.P.margin, total: P.P.total,
         fatigue: fat.home ? { adj: +fat.adj.toFixed(2), b2bH: fat.home.rest === 1, b2bA: fat.away.rest === 1, restH: fat.home.rest, restA: fat.away.rest } : null,
         pick: { market: 'Ganador', label: `Gana ${home ? f.h : f.a}`, p: Math.max(P.pw, 1 - P.pw), code: home ? 'H' : 'A' } });
+      matches[matches.length - 1].why = whyBasket(matches[matches.length - 1], T);
     }
   }
   return { matches, skipped };
@@ -190,6 +251,7 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
   const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff));
   if (sel && sel.day === day) {
     t += `\n⭐ <b>Apuesta del día:</b> ${html(sel.bet.pick.label)} ${pc(sel.bet.pick.p)} · ${html(sel.bet.home)} – ${html(sel.bet.away)} (${html(sel.bet.leagueName)}, ${when(sel.bet)})\n`;
+    if (sel.bet.why?.length) t += `<i>Por qué: ${html(sel.bet.why.join(' · '))}</i>\n`;
     if (sel.picks.length >= 2) t += `<b>Selección recomendada</b> (todas juntas ${pc(sel.picks.reduce((x, e) => x * e.pick.p, 1))})\n` + sel.picks.map(e => `${when(e)} ${html(e.home)} – ${html(e.away)}: <b>${html(e.pick.label)}</b> ${pc(e.pick.p)}`).join('\n') + '\n';
   }
   if (top.length) t += `\n<b>Más confianza</b>\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 15)

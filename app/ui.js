@@ -500,11 +500,12 @@ function dailyRender() {
   const T = PF && PF.daily, b = D.bet, P = D.picks || [];
   let h = `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
     <div class="hero"><div class="lbl">${esc(b.pick.label)}${res(b)}</div><div class="p">${pct(b.pick.p, 0)}</div>
-    <small>${esc(b.home)} – ${esc(b.away)} · ${esc(b.leagueName)} · ${esc(when(b))} · ${open(b)}</small></div>`;
+    <small>${esc(b.home)} – ${esc(b.away)} · ${esc(b.leagueName)} · ${esc(when(b))} · ${open(b)}</small></div>
+    ${b.why && b.why.length ? `<ul class="why">${b.why.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`;
   if (P.length >= 2) {
     const all = P.reduce((x, m) => x * m.pick.p, 1);
     h += `<h3>Selección recomendada</h3><div>${P.map(m => `<div class="match"><div class="when">${esc(when(m))}</div>
-      <div class="teams">${esc(m.home)} – ${esc(m.away)}<small>${esc(m.leagueName)} · ${open(m)}</small></div>
+      <div class="teams">${esc(m.home)} – ${esc(m.away)}<small>${esc(m.leagueName)} · ${open(m)}</small>${m.why && m.why.length ? `<small class="why1">${esc(m.why.join(' · '))}</small>` : ''}</div>
       <div class="pick"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span>${res(m)}</div></div>`).join('')}</div>
       <div class="combo"><span>Probabilidad de acertar las ${P.length} juntas: <b>${pct(all, 0)}</b> (cuota justa ${nf(1 / all, 2)})</span></div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
