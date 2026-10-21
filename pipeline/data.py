@@ -357,6 +357,40 @@ def update_injuries(fixtures, rows):
 
 
 
+# ============================== BAJAS DE LA PREMIER (Fantasy oficial, gratis y sin clave) ==============================
+FPL_NAMES = {'Spurs': 'Tottenham', 'Man Utd': 'Man United', "Nott'm Forest": "Nott'm Forest", 'Wolves': 'Wolves', 'Newcastle': 'Newcastle'}
+FPL_TYPE = {'i': 'Lesionado', 's': 'Sancionado', 'u': 'No disponible'}
+def update_fpl(fixtures, rows):
+    """Cada hora: lesionados, sancionados y dudas de la Premier según el Fantasy oficial (fantasy.premierleague.com).
+    El peso de cada baja es su parte de los goles del equipo (goles + media asistencia); una duda pesa (1 - probabilidad de jugar)."""
+    soon = {f['h'] for f in fixtures if f['league'] == 'E0'} | {f['a'] for f in fixtures if f['league'] == 'E0'}
+    if not soon:
+        return
+    js = json.loads(get('https://fantasy.premierleague.com/api/bootstrap-static/'))
+    name = matcher(soon)
+    team_of = {t['id']: name(FPL_NAMES.get(t['name'], t['name'])) for t in js['teams']}
+    season = season_start()
+    season_rows = [r for r in rows.values() if r['div'] == 'E0' and r['d'] >= day(dt.date(season, 7, 1))]
+    goals = lambda t: max(5, sum(r['hg'] for r in season_rows if r['h'] == t) + sum(r['ag'] for r in season_rows if r['a'] == t))
+    out = {}
+    for p in js['elements']:
+        team, st = team_of.get(p['team']), p.get('status')
+        if team not in soon or st in ('a', 'n') or (p.get('minutes') or 0) < 90:
+            continue   # disponible, cedido o sin minutos esta temporada
+        chance = p.get('chance_of_playing_next_round')
+        w = 1.0 if st != 'd' else 1 - (chance if chance is not None else 50) / 100
+        share = (p.get('goals_scored', 0) + 0.5 * p.get('assists', 0)) / goals(team) * w
+        e = out.setdefault(f'E0|{team}', {'players': [], 'share': 0.0})
+        e['players'].append({'name': p['web_name'], 'reason': p.get('news') or '', 'type': FPL_TYPE.get(st, f'Duda ({chance if chance is not None else "?"}%)'), 'share': round(share, 3)})
+        e['share'] += share
+    for e in out.values():
+        e['att'] = round(max(0.75, 1 - 0.5 * e['share']), 3)   # mismo ajuste que el resto de bajas
+    prev = load('injuries.json') or {'teams': {}}
+    teams = {k: v for k, v in prev.get('teams', {}).items() if not k.startswith('E0|')}
+    save('injuries.json', {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'teams': {**teams, **out}})
+    print(f'bajas Premier (Fantasy oficial): {sum(len(e["players"]) for e in out.values())} jugadores en {len(out)} equipos')
+
+
 # ============================== FOOTBALL-DATA.ORG (opcional: árbitros y Champions) ==============================
 # Plan gratuito con clave (10 peticiones/minuto): árbitro de cada partido en 8 ligas y resultados/horarios de la Champions.
 FDORG = {'PD': 'SP1', 'PL': 'E0', 'ELC': 'E1', 'SA': 'I1', 'BL1': 'D1', 'FL1': 'F1', 'DED': 'N1', 'PPL': 'P1', 'CL': 'UEFA'}
@@ -586,9 +620,57 @@ def update_euroliga():
 
 
 # Otras competiciones de baloncesto -> basket_extra.json. EuroCup sin clave; el resto con API-Basketball (misma clave gratuita de API-Sports).
-BASKET_APIS = [('acb', 'Liga ACB', 'Spain', ['acb']), ('lega', 'Lega Basket Serie A', 'Italy', ['lega a', 'serie a']),
+BASKET_APIS = [('lega', 'Lega Basket Serie A', 'Italy', ['lega a', 'serie a']),
                ('bbl', 'BBL (Alemania)', 'Germany', ['bbl']), ('lnb', 'Betclic Élite (Francia)', 'France', ['lnb', 'pro a', 'elite']),
                ('gbl', 'Liga griega', 'Greece', ['a1', 'basket league']), ('bsl', 'Liga turca', 'Turkey', ['super lig', 'bsl'])]
+
+# ACB: calendario oficial de acb.com (gratis). Se lee el texto de la página: hora, local, siglas, marcador, visitante, siglas.
+MESES = {m: i + 1 for i, m in enumerate(['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'])}
+def parse_acb(page):
+    """Devuelve [(fecha, 'HH:MM' o None, local, visitante, puntos local o None, puntos visitante o None)] a partir del HTML."""
+    import html as H
+    page = re.sub(r'(?is)<(script|style)\b.*?</\1>', ' ', page)
+    toks = [t for t in (H.unescape(x).strip() for x in re.split(r'<[^>]+>', page)) if t]
+    time_re, abbr_re = re.compile(r'^(\d{1,2}:\d{2}|XX:XX|--:--)$'), re.compile(r'^(?=.*[A-Z])[A-Z0-9&]{2,4}$')   # siglas: con al menos una letra (no un marcador)
+    date_re = re.compile(r'(\d{1,2}) de (' + '|'.join(MESES) + r') de (\d{4})', re.I)
+    stop = {'Resumen', 'Previa', 'Estadísticas', 'Compra entradas', 'Directo'}
+    out, cur = [], None
+    for i, t in enumerate(toks):
+        m = date_re.search(t)
+        if m and not time_re.match(t):
+            cur = dt.date(int(m.group(3)), MESES[m.group(2).lower()], int(m.group(1))); continue
+        if cur is None or not time_re.match(t):
+            continue
+        seg = []
+        for u in toks[i + 1:i + 12]:
+            if u in stop or time_re.match(u) or date_re.search(u):
+                break
+            seg.append(u)
+        ab = [k for k, u in enumerate(seg) if abbr_re.match(u)]
+        if len(ab) != 2 or ab[0] == 0:
+            continue
+        home, rest = ' '.join(seg[:ab[0]]), ' '.join(seg[ab[0] + 1:ab[1]])
+        sm = re.match(r'^(?:(\d{2,3})\s*-\s*(\d{2,3})|-)\s+(.+)$', rest)
+        if not sm:
+            continue
+        hp, ap = (int(sm.group(1)), int(sm.group(2))) if sm.group(1) else (None, None)
+        out.append((cur, t if re.match(r'^\d', t) else None, home, sm.group(3), hp, ap))
+    return out
+def acb_games(prev_rows):
+    rows = {(r['d'], r['h'], r['a']): r for r in prev_rows}; fx, got = [], 0
+    games = parse_acb(get('https://www.acb.com/es/liga/calendario').decode('utf-8', 'replace'))
+    if len(games) < 50:   # una temporada tiene 306 partidos: si salen pocos, la página ha cambiado
+        raise RuntimeError(f'solo {len(games)} partidos leídos en acb.com (¿ha cambiado la página?)')
+    mad = ZoneInfo('Europe/Madrid')
+    for d, hm, h, a, hp, ap in games:
+        if hp is not None:
+            rows[(day(d), h, a)] = {'d': day(d), 'h': h, 'a': a, 'hp': hp, 'ap': ap, 'ou': None}; got += 1
+        else:
+            hh, mm = (int(x) for x in hm.split(':')) if hm else (19, 0)
+            ko = dt.datetime(d.year, d.month, d.day, hh, mm, tzinfo=mad).astimezone(dt.timezone.utc)
+            if ko > NOW - dt.timedelta(hours=3):
+                fx.append({'kickoff': ko.isoformat().replace('+00:00', 'Z'), 'h': h, 'a': a, **({} if hm else {'noTime': True})})
+    return rows, fx, got
 def update_basket_extra():
     extra = load('basket_extra.json') or {'comps': {}}
     comps, fixtures, any_ok = extra['comps'], [], False
@@ -599,6 +681,13 @@ def update_basket_extra():
         comps['eurocup'] = {'name': 'EuroCup', **bk_to_json(rows.values())}
     fixtures += [{'league': 'eurocup', **f} for f in fx]
     print(f'EuroCup: {got} resultados, {len(fx)} partidos próximos')
+    try:
+        rows, fx, got = acb_games(prev('acb'))
+        comps['acb'] = {'name': 'Liga ACB', **bk_to_json(rows.values())}
+        fixtures += [{'league': 'acb', **f} for f in fx]; any_ok = True
+        print(f'Liga ACB (acb.com): {got} resultados, {len(fx)} partidos próximos')
+    except Exception as e:
+        warn(f'Liga ACB: {e}')
     if api_key() and daily_once('basketDate'):
         st_p = ROOT / 'data' / 'state.json'; st = json.loads(st_p.read_text()) if st_p.exists() else {}
         ids = st.get('basketIds', {})
@@ -721,7 +810,7 @@ def main():
         horizon = NOW + dt.timedelta(days=FIXTURE_DAYS)
         uniq = {(f['kickoff'], f['h'], f['a']): f for f in fx}   # sin duplicados
         fixtures[key] = sorted((f for f in uniq.values() if dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) <= horizon), key=lambda f: f['kickoff'])
-    for fn in (update_injuries, update_referees):
+    for fn in (update_injuries, update_referees, update_fpl):
         try:
             fn(fixtures['football'], FB_ROWS)
         except Exception as e:

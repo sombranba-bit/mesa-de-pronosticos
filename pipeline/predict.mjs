@@ -123,7 +123,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       const fat = sport === 'nba' ? M.nbaFatigue(rows, f.h, f.a, usDay(Date.parse(f.kickoff))) : { adj: 0 };
       const P = M.basketPredict(m, sd, f.h, f.a, undefined, undefined, fat.adj); if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
       const home = P.pw >= 0.5;
-      matches.push({ id: `${sport}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport, league: sport, leagueName: name, kickoff: f.kickoff, home: f.h, away: f.a,
+      matches.push({ id: `${sport}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport, league: sport, leagueName: name, kickoff: f.kickoff, home: f.h, away: f.a, ...(f.noTime ? { noTime: true } : {}),
         pw: P.pw, ph: P.P.ph, pa: P.P.pa, margin: P.P.margin, total: P.P.total,
         fatigue: fat.home ? { adj: +fat.adj.toFixed(2), b2bH: fat.home.rest === 1, b2bA: fat.away.rest === 1, restH: fat.home.rest, restA: fat.away.rest } : null,
         pick: { market: 'Ganador', label: `Gana ${home ? f.h : f.a}`, p: Math.max(P.pw, 1 - P.pw), code: home ? 'H' : 'A' } });

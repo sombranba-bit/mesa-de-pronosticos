@@ -106,7 +106,8 @@ calcular pronósticos o enviar avisos, y GitHub te avisa por correo.
 
 ## Límites conocidos
 
-- La ACB y las demás ligas europeas de baloncesto dependen de API-Basketball: sin clave no aparecen, y si el plan gratuito no da la temporada actual, el registro de *Actions* lo indicará.
+- La ACB se lee del calendario oficial de acb.com (gratis, sin clave). Las demás ligas europeas de baloncesto (Lega A, BBL, francesa, griega, turca) dependen de API-Basketball, cuyo plan gratuito no da la temporada actual.
+- Bajas: las de la Premier llegan solas cada hora desde el Fantasy oficial de la Premier League (lesionados, sancionados y dudas con su probabilidad de jugar). Para el resto de ligas no hay fuente gratuita fiable (API-Football gratis no da la temporada actual; SofaScore, Flashscore y Transfermarkt bloquean servidores y lo prohíben): se pueden poner a mano en la ficha del partido, y las noticias avisan de lesiones.
 - Los árbitros fuera de Inglaterra dependen de las claves de football-data.org y API-Football.
 - Sin `FOOTBALL_DATA_ORG_KEY`, la Champions no tiene hora ni se evalúa en «Aciertos»; Europa League y Conference nunca se evalúan.
 - El ajuste por bajas es una estimación sin validar (no hay histórico gratuito de bajas). La pestaña de aciertos compara el 1X2 con y sin este ajuste para comprobar si ayuda.
