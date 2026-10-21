@@ -49,8 +49,8 @@ select, input[type=text], input[type=number], input[type=date] { font: 15px var(
 #avComps label { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 14px; color: var(--ink); }
 .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .scoreline { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; background: var(--board); color: var(--board-ink); border-radius: 8px; padding: 14px 16px; }
-.scoreline .team { font-family: var(--f-display); font-size: 22px; font-weight: 600; text-transform: uppercase; min-width: 0; overflow-wrap: anywhere; }
-.scoreline .team:last-child { text-align: right; }
+.scoreline .team { font-family: var(--f-display); font-size: 20px; font-weight: 600; text-transform: uppercase; min-width: 0; overflow-wrap: anywhere;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; line-height: 1.1; }
 .scoreline .mid { font-family: var(--f-mono); font-size: 26px; text-align: center; }
 .scoreline .mid small { display: block; font-size: 11px; color: var(--board-dim); letter-spacing: .06em; text-transform: uppercase; font-family: var(--f-body); }
 .grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
@@ -84,7 +84,30 @@ a { color: var(--accent); }
 .crest { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: hsl(var(--h) 42% 40%); color: #fff;
   font: 700 9px/1 var(--f-body); letter-spacing: .02em; vertical-align: middle; margin-right: 6px; overflow: hidden; flex: none; }
 .crest img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 1px; }
-.scoreline .crest { width: 34px; height: 34px; font-size: 12px; margin: 0 8px 0 0; }
+/* escudos: tamaños y «baldosa» blanca redondeada, como en las apps de resultados */
+.crest.md { width: 26px; height: 26px; font-size: 10px; border-radius: 7px; margin-right: 9px; }
+.crest.xl { width: 64px; height: 64px; font-size: 20px; border-radius: 16px; margin: 0; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+.crest.md img, .crest.xl img { padding: 3px; }
+.crest.xl img { padding: 8px; }
+.flag.lg { width: 22px; height: 16px; border-radius: 3px; margin-right: 8px; vertical-align: -3px; }
+.tline { display: flex; align-items: center; min-width: 0; font-weight: 600; line-height: 1.25; }
+.tline + .tline { margin-top: 5px; }
+.tline span { min-width: 0; overflow-wrap: anywhere; }
+.lghead { display: flex; align-items: center; gap: 0; margin-top: 14px; padding: 8px 12px; background: var(--soft); border-radius: 8px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.lghead .mc-sp, .mc-head .mc-sp { margin-left: auto; font-size: 15px; letter-spacing: 0; }
+/* tarjeta de la apuesta del día */
+.mc { background: var(--board); color: var(--board-ink); border-radius: 12px; overflow: hidden; }
+.mc-head { display: flex; align-items: center; padding: 10px 14px; font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,.08); }
+.mc-body { display: grid; grid-template-columns: 1fr minmax(110px, auto) 1fr; align-items: center; gap: 10px; padding: 18px 12px 8px; }
+.mc-team { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; font-weight: 700; font-size: 16px; line-height: 1.15; min-width: 0; overflow-wrap: anywhere; }
+.mc-mid { text-align: center; }
+.mc-time { font-family: var(--f-mono); font-size: 13px; color: var(--board-dim); }
+.mc-p { font-family: var(--f-mono); font-size: 44px; line-height: 1.05; color: #fff; }
+.mc-pick { font-weight: 700; font-size: 15px; margin-top: 2px; }
+.mc-foot { text-align: center; padding: 6px 12px 14px; }
+.mc .linkbtn { color: #9fb2ff; }
+@media (max-width: 520px) { .crest.xl { width: 52px; height: 52px; border-radius: 13px; } .mc-p { font-size: 34px; } .mc-team { font-size: 14px; } .mc-body { grid-template-columns: 1fr minmax(90px, auto) 1fr; } }
 .flag { width: 16px; height: 12px; object-fit: cover; border-radius: 2px; vertical-align: -1px; margin-right: 5px; box-shadow: 0 0 0 1px var(--line); }
 .daily { border-left: 4px solid var(--accent); }
 .daily .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; }

@@ -76,7 +76,7 @@ const FLAG = { SP1: 'es', SP2: 'es', SP3: 'es', E0: 'gb-eng', E1: 'gb-eng', I1: 
 const flagOf = t => { const x = String(t || '').toLowerCase(); const c = [[/spain|la liga|segunda/, 'es'], [/epl|premier league|championship|england/, 'gb-eng'], [/scot/, 'gb-sct'], [/italy|serie a/, 'it'],
   [/germany|bundesliga/, 'de'], [/france|ligue/, 'fr'], [/netherlands|eredivisie/, 'nl'], [/portugal|primeira/, 'pt'], [/belgium/, 'be'], [/turkey|super lig/, 'tr'], [/greece/, 'gr'],
   [/champions|europa|conference|euroleague|uefa/, 'eu'], [/nba/, 'us']].find(([r]) => r.test(x)); return c ? `<img class="flag" src="https://flagcdn.com/w40/${c[1]}.png" alt="" loading="lazy" onerror="this.remove()">` : ''; };
-const flag = lg => FLAG[lg] ? `<img class="flag" src="https://flagcdn.com/w40/${FLAG[lg]}.png" alt="" loading="lazy" onerror="this.remove()">` : '';
+const flag = (lg, size = '') => FLAG[lg] ? `<img class="flag ${size}" src="https://flagcdn.com/w40/${FLAG[lg]}.png" alt="" loading="lazy" onerror="this.remove()">` : '';
 const sportIcon = sp => sp === 'futbol' ? '⚽' : sp === 'tenis' ? '🎾' : '🏀';
 const initials = n => { const w = String(n).replace(/[.'’]/g, ' ').split(/\s+/).filter(x => x && !/^(c|f|cf|fc|cd|sd|ud|ad|ce|ue|rc|club|de|la|el|the|afc)$/i.test(x));
   return (w.length ? (w.length === 1 ? w[0].slice(0, 2) : w[0][0] + w[1][0]) : String(n).slice(0, 2)).toUpperCase(); };
@@ -102,8 +102,9 @@ const crestUrl = (n, b) => {
   return share.length === 1 ? share[0][1] : null;
 };
 const isB = sp => !!sp && (/^(b|nba|euroliga|eurocup|acb|lega|bbl|lnb|gbl|bsl)$/i.test(sp) || /nba|basket|euroleague|eurocup/i.test(sp));
-const vs = (h, a, sp) => `${crest(h, sp)}${esc(h)} – ${crest(a, sp)}${esc(a)}`, vsText = (m, sp) => { const p = String(m).split(' – '); return p.length === 2 ? vs(p[0], p[1], sp) : esc(m); };
-const crest = (n, sp) => { const u = crestUrl(n, isB(sp)); return `<span class="crest" style="--h:${hue(n)}" aria-hidden="true">${esc(initials(n))}${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>`; };   // ratings de ClubElo, bajas, noticias y cuotas del día
+const twoLines = (h, a, sp) => `<div class="tline">${crest(h, sp, 'md')}<span>${esc(h)}</span></div><div class="tline">${crest(a, sp, 'md')}<span>${esc(a)}</span></div>`;
+const vs = (h, a, sp) => `${crest(h, sp, 'md')}${esc(h)} – ${crest(a, sp, 'md')}${esc(a)}`, vsText = (m, sp) => { const p = String(m).split(' – '); return p.length === 2 ? vs(p[0], p[1], sp) : esc(m); };
+const crest = (n, sp, size = '') => { const u = crestUrl(n, isB(sp)); return `<span class="crest ${size}" style="--h:${hue(n)}" aria-hidden="true">${esc(initials(n))}${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>`; };   // ratings de ClubElo, bajas, noticias y cuotas del día
 function buildFB() {
   FB = Fd.date.map((d, k) => { const r = { d, div: Fd.divs[Fd.div[k]], h: Fd.teams[Fd.h[k]], a: Fd.teams[Fd.a[k]], hg: Fd.hg[k], ag: Fd.ag[k] };
     for (const f of FB_FIELDS) r[f] = Fd[f] ? Fd[f][k] : null; return r; });
@@ -174,7 +175,7 @@ function fbPredict() {
   for (let x = 0; x <= 5; x++) { heat += `<tr><td><b>${x}</b></td>`; for (let y = 0; y <= 5; y++) { const v = P.G.g[x][y]; heat += `<td style="background:color-mix(in srgb, var(--accent) ${Math.round(v / mx * 45)}%, transparent)">${pct(v, 1)}</td>`; } heat += '</tr>'; }
   heat += '</table></div><p class="note">Filas: goles del local. Columnas: goles del visitante.</p>';
   out.innerHTML = `${uefa ? `<p class="note">Modelo europeo: Elo de ClubElo del ${dayES(last)} traducido a goles. Sin córners, tarjetas ni descanso.</p>` : ''}${adj ? '<p class="note"><span class="chip warn">Ajustado por bajas</span></p>' : ''}${stale > 21 ? `<p class="verdict">Datos ${uefa ? 'de ClubElo' : 'de esta liga'} hasta el ${dayES(last)}. Los pronósticos no tienen en cuenta lo jugado después.</p>` : ''}
-    <div class="scoreline"><div class="team">${crest(h)}${esc(h)}</div><div class="mid">${nf(s.lam)} – ${nf(s.mu)}<small>goles esperados</small></div><div class="team">${crest(a)}${esc(a)}</div></div>
+    <div class="scoreline"><div class="team">${crest(h, 'futbol', 'xl')}<span>${esc(h)}</span></div><div class="mid">${nf(s.lam)} – ${nf(s.mu)}<small>goles esperados</small></div><div class="team">${crest(a, 'futbol', 'xl')}<span>${esc(a)}</span></div></div>
     <div class="stats">${statBox(`${pct(s.H, 0)} · ${pct(s.D, 0)} · ${pct(s.A, 0)}`, '1 · X · 2')}${statBox(pct(pick.p, 0), 'Pronóstico: ' + esc(pick.label))}${statBox(`${s.score.x}-${s.score.y}`, `marcador más probable (${pct(s.score.p, 0)})`)}${s.corners ? statBox(nf(s.corners, 1), 'córners esperados') : ''}${s.cards ? statBox(nf(s.cards, 1), 'tarjetas esperadas') : ''}</div>
     ${uefa ? '' : fbFicha(div, h, a)}${uefa ? '' : '<div class="panel" style="padding:14px"><h3>Árbitro</h3><div id="refBox"></div></div>'}
     <div class="grid2"><div id="fbMk" style="min-width:0"></div><div class="panel" style="padding:12px"><h3>Marcador exacto</h3>${heat}</div></div>`;
@@ -192,7 +193,7 @@ function lastGames(rows, t, n, keyH = 'hg', keyA = 'ag') {
 function formTable(title, games, sp) {
   const pts = games.reduce((s, g) => s + (g.gf > g.ga ? 3 : g.gf === g.ga ? 1 : 0), 0);
   return `<div style="min-width:0"><h3>${esc(title)} · ${pts} de ${games.length * 3} puntos</h3><div class="tablewrap"><table><tbody>
-    ${games.map(g => `<tr><td>${dayES(g.r.d)}</td><td>${g.home ? 'vs' : 'en'} ${crest(g.opp, sp)}${esc(g.opp)}</td><td class="num">${g.gf}-${g.ga}</td><td>${resChip(g.gf, g.ga)}</td></tr>`).join('') || '<tr><td>Sin partidos</td></tr>'}
+    ${games.map(g => `<tr><td>${dayES(g.r.d)}</td><td>${g.home ? 'vs' : 'en'} ${crest(g.opp, sp, 'md')}${esc(g.opp)}</td><td class="num">${g.gf}-${g.ga}</td><td>${resChip(g.gf, g.ga)}</td></tr>`).join('') || '<tr><td>Sin partidos</td></tr>'}
   </tbody></table></div></div>`;
 }
 function h2hTable(rows, h, a, keyH = 'hg', keyA = 'ag', sp) {
@@ -375,7 +376,7 @@ function bkPredict() {
     <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">${formTable('Últimos 5 · ' + h, lastGames(rows, h, 5, 'hp', 'ap'), 'b').replace(/ · \d+ de \d+ puntos/, '')}${formTable('Últimos 5 · ' + a, lastGames(rows, a, 5, 'hp', 'ap'), 'b').replace(/ · \d+ de \d+ puntos/, '')}</div>
     <h3>Enfrentamientos directos</h3>${h2hTable(rows, h, a, 'hp', 'ap', 'b')}</div>`;
   out.innerHTML = `${stale > 30 ? `<p class="verdict">Resultados de ${BK[c].name} hasta el ${dayES(last)}. Los cambios de plantilla posteriores no están en el modelo.</p>` : ''}
-    <div class="scoreline"><div class="team">${crest(h, 'b')}${esc(h)}</div><div class="mid">${Math.round(P.P.ph)} – ${Math.round(P.P.pa)}<small>puntos esperados</small></div><div class="team">${crest(a, 'b')}${esc(a)}</div></div>
+    <div class="scoreline"><div class="team">${crest(h, 'b', 'xl')}<span>${esc(h)}</span></div><div class="mid">${Math.round(P.P.ph)} – ${Math.round(P.P.pa)}<small>puntos esperados</small></div><div class="team">${crest(a, 'b', 'xl')}<span>${esc(a)}</span></div></div>
     <div class="stats">${statBox(pct(Math.max(P.pw, 1 - P.pw), 0), 'Pronóstico: gana ' + esc(P.pw >= 0.5 ? h : a))}${statBox(nf(-P.P.margin, 1), `hándicap justo de ${esc(h)}`)}${statBox(nf(P.P.total, 1), 'puntos totales esperados')}${statBox('±' + nf(sd.margin, 1), 'dispersión típica del margen')}</div>
     ${fatNote}${ficha}<p class="note">Deja vacíos el hándicap y el total para usar las líneas justas del modelo, o escribe las que veas publicadas.</p>
     <div id="nbMk"></div>`;
@@ -534,13 +535,16 @@ function dailyRender() {
   const rate = o => o && o.n ? `${o.hits} de ${o.n} (${pct(o.hits / o.n, 0)})` : 'aún sin datos';
   const T = PF && PF.daily, b = D.bet, P = D.picks || [];
   let h = `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
-    <div class="hero"><div class="lbl">${sportIcon(b.sport)} ${esc(b.pick.label)}${res(b)}</div><div class="p">${pct(b.pick.p, 0)}</div>
-    <small>${vs(b.home, b.away, b.sport)} · ${flag(b.league)}${esc(b.leagueName)} · ${esc(when(b))} · ${open(b)}</small></div>
+    <div class="mc"><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)}</span></div>
+      <div class="mc-body"><div class="mc-team">${crest(b.home, b.sport, 'xl')}<span>${esc(b.home)}</span></div>
+        <div class="mc-mid"><div class="mc-time">${esc(when(b))}</div><div class="mc-p">${pct(b.pick.p, 0)}</div><div class="mc-pick">${esc(b.pick.label)}</div>${res(b)}</div>
+        <div class="mc-team">${crest(b.away, b.sport, 'xl')}<span>${esc(b.away)}</span></div></div>
+      <div class="mc-foot">${open(b)}</div></div>
     ${b.why && b.why.length ? `<ul class="why">${b.why.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`;
   if (P.length >= 2) {
     const all = P.reduce((x, m) => x * m.pick.p, 1);
     h += `<h3>Selección recomendada</h3><div>${P.map(m => `<div class="match"><div class="when">${esc(when(m))}</div>
-      <div class="teams">${sportIcon(m.sport)} ${vs(m.home, m.away, m.sport)}<small>${flag(m.league)}${esc(m.leagueName)} · ${open(m)}</small>${m.why && m.why.length ? `<small class="why1">${esc(m.why.join(' · '))}</small>` : ''}</div>
+      <div class="teams">${twoLines(m.home, m.away, m.sport)}<small>${sportIcon(m.sport)} ${flag(m.league)}${esc(m.leagueName)} · ${open(m)}</small>${m.why && m.why.length ? `<small class="why1">${esc(m.why.join(' · '))}</small>` : ''}</div>
       <div class="pick"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span>${res(m)}</div></div>`).join('')}</div>
       <div class="combo"><span>Probabilidad de acertar las ${P.length} juntas: <b>${pct(all, 0)}</b> (cuota justa ${nf(1 / all, 2)})</span></div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
@@ -549,6 +553,7 @@ function dailyRender() {
   box.innerHTML = h;
   box.querySelectorAll('[data-open]').forEach(x => x.addEventListener('click', () => openMatch(...JSON.parse(x.dataset.open))));
 }
+const dayKey = m => { const t = new Date(m.kickoff); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
 function prRender() {
   dailyRender();
   const out = $('prOut');
@@ -558,11 +563,12 @@ function prRender() {
   const leagues = [...new Map(PR.matches.filter(m => !sp || m.sport === sp).map(m => [m.league, m.leagueName])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
   fillSelect($('prLeague'), [['', 'Todas'], ...leagues]);
   const list = PR.matches.filter(m => (!sp || m.sport === sp) && (!$('prLeague').value || m.league === $('prLeague').value) && m.pick.p >= conf && Date.parse(m.kickoff) > now - 2 * 3600e3)
-    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
-  let html = `<p class="note">Calculados el ${new Date(PR.generated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}. ${list.length} partidos.</p>`, cur = '';
+    .sort((a, b) => dayKey(a) - dayKey(b) || a.leagueName.localeCompare(b.leagueName, 'es') || Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  let html = `<p class="note">Calculados el ${new Date(PR.generated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}. ${list.length} partidos.</p>`, cur = '', curL = '';
   for (const m of list.slice(0, 300)) {
     const t = new Date(m.kickoff), dkey = t.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    if (dkey !== cur) { cur = dkey; html += `<h3 class="daylabel">${esc(dkey)}</h3>`; }
+    if (dkey !== cur) { cur = dkey; curL = ''; html += `<h3 class="daylabel">${esc(dkey)}</h3>`; }
+    if (m.league !== curL) { curL = m.league; html += `<div class="lghead">${flag(m.league, 'lg')}<span>${esc(m.leagueName)}</span><span class="mc-sp">${sportIcon(m.sport)}</span></div>`; }
     const probs = m.sport === 'futbol'
       ? `${m.base ? `<span>Sin bajas: 1 <b>${pct(m.base.H, 0)}</b> X <b>${pct(m.base.D, 0)}</b> 2 <b>${pct(m.base.A, 0)}</b></span>` : ''}<span>1 <b>${pct(m.H, 0)}</b></span><span>X <b>${pct(m.D, 0)}</b></span><span>2 <b>${pct(m.A, 0)}</b></span><span>Más 2,5 <b>${pct(m.o25, 0)}</b></span><span>Ambos marcan <b>${pct(m.btts, 0)}</b></span><span>Goles esperados <b>${nf(m.lam, 1)}–${nf(m.mu, 1)}</b></span>${m.corners ? `<span>Córners <b>${nf(m.corners, 1)}</b></span>` : ''}`
       : `<span>Gana local <b>${pct(m.pw, 0)}</b></span><span>Puntos <b>${Math.round(m.ph)}–${Math.round(m.pa)}</b></span><span>Hándicap justo <b>${nf(-m.margin, 1)}</b></span><span>Total <b>${nf(m.total, 1)}</b></span>`;
@@ -571,7 +577,7 @@ function prRender() {
     const chips = (nn ? `<span class="chip warn">${nn} ${nn === 1 ? 'noticia' : 'noticias'}</span> ` : '') + (m.ref ? `<span class="chip">Árbitro: ${esc(m.ref)}</span> ` : '') + (m.injuries && m.injuries.length ? `<span class="chip warn">${m.injuries.length} bajas</span> ` : '') +
       (m.fatigue && (m.fatigue.b2bH || m.fatigue.b2bA) ? `<span class="chip warn">2ª noche seguida: ${esc(m.fatigue.b2bH ? m.home : m.away)}</span> ` : '');
     html += `<div class="match"><div class="when">${m.noTime ? 'Hora por<br>confirmar' : t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
-      <div class="teams">${vs(m.home, m.away, m.sport)}<small>${flag(m.league)}${esc(m.leagueName)}${chips ? ' · ' + chips : ''}</small></div>
+      <div class="teams">${twoLines(m.home, m.away, m.sport)}${chips ? `<small>${chips}</small>` : ''}</div>
       <div class="pick"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span></div>
       ${bar}<div class="probs">${probs}<button class="linkbtn" data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}">Todos los mercados</button></div></div>`;
   }
