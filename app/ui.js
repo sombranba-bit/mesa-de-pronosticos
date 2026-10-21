@@ -91,6 +91,7 @@ const crestUrl = (n, b) => {
   if (!CR) return null;
   const pre = b ? 'b:' : '';
   if (CR[pre + n]) return CR[pre + n];
+  if (b && CR[n] && /\/nba\/|cortextech|euroleague/.test(CR[n])) return CR[n];   // escudos de baloncesto guardados por versiones antiguas
   if (!CRI[pre]) CRI[pre] = Object.entries(CR).filter(([k]) => b ? k.startsWith('b:') : !k.startsWith('b:')).map(([k, v]) => [normT(k.replace(/^b:/, '')), v]);
   const idx = CRI[pre], t = normT(n); if (!t) return null;
   const exact = idx.find(([k]) => k === t); if (exact) return exact[1];

@@ -680,7 +680,9 @@ ESPN_SLUGS = {'SP1': 'esp.1', 'SP2': 'esp.2', 'E0': 'eng.1', 'E1': 'eng.2', 'I1'
 def update_crests(rows, fixtures):
     """crests.json: {equipo: url del escudo}. Fútbol (17 ligas y Champions) y NBA. Sin escudo, la app pone las iniciales."""
     out, n = load('crests.json') or {}, 0
-    before = len(out)
+    for k in [k for k, v in out.items() if not k.startswith('b:') and '/nba/' in str(v)]:   # escudos NBA guardados sin prefijo
+        out['b:' + k] = out.pop(k)
+    before = -1 if any(k.startswith('b:') for k in out) else len(out)   # fuerza a guardar si se ha migrado
     for k, v in EXTRA_CRESTS.items():   # sin peticiones extra: en cada ejecución
         out.setdefault(k, v)
     if not daily_once('crestsDate'):
