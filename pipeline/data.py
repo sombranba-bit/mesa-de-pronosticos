@@ -260,13 +260,14 @@ def api(host, path, **params):
     if js.get('errors'):
         raise RuntimeError(js['errors'])
     return js.get('response', [])
-def daily_once(key):
-    """True la primera vez del día para esa tarea (se apunta en data/state.json)."""
+def daily_once(key, hours=24):
+    """True la primera vez del día (o de cada tramo de `hours` horas) para esa tarea (se apunta en data/state.json)."""
     p = ROOT / 'data' / 'state.json'
     st = json.loads(p.read_text()) if p.exists() else {}
-    if st.get(key) == TODAY.isoformat():
+    slot = TODAY.isoformat() + (f'-{NOW.hour // hours}' if hours < 24 else '')
+    if st.get(key) == slot:
         return False
-    st[key] = TODAY.isoformat(); p.parent.mkdir(exist_ok=True); p.write_text(json.dumps(st))
+    st[key] = slot; p.parent.mkdir(exist_ok=True); p.write_text(json.dumps(st))
     return True
 
 
@@ -363,13 +364,12 @@ FPL_TYPE = {'i': 'Lesionado', 's': 'Sancionado', 'u': 'No disponible'}
 def update_fpl(fixtures, rows):
     """Cada hora: lesionados, sancionados y dudas de la Premier según el Fantasy oficial (fantasy.premierleague.com).
     El peso de cada baja es su parte de los goles del equipo (goles + media asistencia); una duda pesa (1 - probabilidad de jugar)."""
+    season = season_start()
     soon = {f['h'] for f in fixtures if f['league'] == 'E0'} | {f['a'] for f in fixtures if f['league'] == 'E0'}
-    if not soon:
-        return
+    soon |= {t for r in rows.values() if r['div'] == 'E0' and r['d'] >= day(dt.date(season, 7, 1)) for t in (r['h'], r['a'])}
     js = json.loads(get('https://fantasy.premierleague.com/api/bootstrap-static/'))
     name = matcher(soon)
     team_of = {t['id']: name(FPL_NAMES.get(t['name'], t['name'])) for t in js['teams']}
-    season = season_start()
     season_rows = [r for r in rows.values() if r['div'] == 'E0' and r['d'] >= day(dt.date(season, 7, 1))]
     goals = lambda t: max(5, sum(r['hg'] for r in season_rows if r['h'] == t) + sum(r['ag'] for r in season_rows if r['a'] == t))
     out = {}
@@ -406,9 +406,10 @@ def best_pair(cands, hs, as_):
     return best if best and sim(best['h'], hs) + sim(best['a'], as_) >= 1.3 else None
 
 def update_fdorg(rows, fixtures):
-    """Árbitros (8 ligas) y Champions desde football-data.org. Requiere FOOTBALL_DATA_ORG_KEY. Una vez al día."""
+    """Árbitros (8 ligas) y Champions desde football-data.org. Requiere FOOTBALL_DATA_ORG_KEY.
+    Cada 3 horas: los árbitros se designan pocos días (a veces horas) antes del partido."""
     key = os.environ.get('FOOTBALL_DATA_ORG_KEY')
-    if not key or not daily_once('fdorgDate'):
+    if not key or not daily_once('fdorgDate', 3):
         return
     import time
     season, refs, nxt = season_start(), 0, 0
@@ -417,6 +418,8 @@ def update_fdorg(rows, fixtures):
         byday.setdefault((r['div'], r['d']), []).append(r)
     clubs = load('clubelo.json') or {'clubs': []}
     top = [(team_key(c[0]), c[0]) for c in clubs['clubs'] if c[2] >= 1550]   # clubes con nivel de Champions
+    elo_of = {c[0]: c[2] for c in clubs['clubs']}
+    horizon = NOW + dt.timedelta(days=FIXTURE_DAYS)
     uefa = load('uefa.json') or {'results': []}
     res = {(x['d'], x['h'], x['a']): x for x in uefa['results']}
     for i, (code, div) in enumerate(FDORG.items()):
@@ -432,16 +435,22 @@ def update_fdorg(rows, fixtures):
             hs = [g['homeTeam'].get('shortName'), g['homeTeam'].get('name')]; as_ = [g['awayTeam'].get('shortName'), g['awayTeam'].get('name')]
             ref = next((ref_name(x['name']) for x in g.get('referees') or [] if x.get('type') == 'REFEREE'), None)
             if div == 'UEFA':   # nombres de ClubElo para casar con los pronósticos europeos
-                name = lambda vs: max(top, key=lambda t: max(difflib.SequenceMatcher(None, t[0], team_key(v)).ratio() for v in vs if v), default=(None, None))[1]
-                h, a = name(hs), name(as_)
+                score = lambda t, vs: max(difflib.SequenceMatcher(None, t[0], team_key(v)).ratio() for v in vs if v)
+                bh, ba = max(top, key=lambda t: score(t, hs), default=None), max(top, key=lambda t: score(t, as_), default=None)
+                h, a = bh and bh[1], ba and ba[1]
                 ft = (g.get('score') or {}).get('fullTime') or {}
                 if g['status'] == 'FINISHED' and ft.get('home') is not None:
                     res[(d, h, a)] = {'d': d, 'h': h, 'a': a, 'hg': ft['home'], 'ag': ft['away'], 'ref': ref}
-                else:
+                elif g['status'] in ('SCHEDULED', 'TIMED') and NOW < ko <= horizon:
+                    hit = False
                     for f in fixtures.get('uefa', []):
                         if {f['h'], f['a']} == {h, a} and abs(day(dt.date.fromisoformat(f['kickoff'][:10])) - d) <= 1:
-                            f['kickoff'] = g['utcDate'].replace('+00:00', 'Z'); f['noTime'] = False; f['competition'] = 'Champions League'
+                            f['kickoff'] = g['utcDate'].replace('+00:00', 'Z'); f['noTime'] = False; f['competition'] = 'Champions League'; hit = True
                             if ref: f['ref'] = ref
+                    # sin calendario de ClubElo (caído): se crea el partido con el último Elo guardado, si los nombres casan con claridad
+                    if not hit and bh and ba and score(bh, hs) >= 0.75 and score(ba, as_) >= 0.75:
+                        fixtures.setdefault('uefa', []).append({'league': 'UEFA', 'kickoff': g['utcDate'].replace('+00:00', 'Z'), 'noTime': False, 'competition': 'Champions League',
+                                                                'h': h, 'a': a, 'eh': float(elo_of[h]), 'ea': float(elo_of[a]), **({'ref': ref} if ref else {})})
                 continue
             if not ref:
                 continue
