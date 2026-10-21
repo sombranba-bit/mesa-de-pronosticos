@@ -5,6 +5,7 @@
     "equipos": [],
     "competiciones": [],
     "confianza_minima": 0,
-    "incluir_todos": true
+    "incluir_todos": true,
+    "cuotas": true
   }
 }
