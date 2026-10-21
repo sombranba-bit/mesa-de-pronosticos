@@ -103,8 +103,17 @@ const crestUrl = (n, b) => {
 };
 const isB = sp => !!sp && (/^(b|nba|euroliga|eurocup|acb|lega|bbl|lnb|gbl|bsl)$/i.test(sp) || /nba|basket|euroleague|eurocup/i.test(sp));
 const twoLines = (h, a, sp) => `<div class="tline">${crest(h, sp, 'md')}<span>${esc(h)}</span></div><div class="tline">${crest(a, sp, 'md')}<span>${esc(a)}</span></div>`;
+const openAttr = m => `data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}" role="button" tabindex="0"`;
+const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+// tarjeta compacta de un pronóstico (selección recomendada)
+const pcard = (m, res) => `<div class="pcard" ${openAttr(m)}>
+  <div class="pc-head">${flag(m.league)}<span>${esc(m.leagueName)}</span><span class="pc-time">${sportIcon(m.sport)} ${esc(hhmm(m))}</span></div>
+  <div class="pc-body"><div class="pc-teams">${twoLines(m.home, m.away, m.sport)}</div><div class="pc-p"><b>${pct(m.pick.p, 0)}</b></div></div>
+  <div class="pc-pick">${esc(m.pick.label)}${res(m)}</div>
+  ${m.why && m.why.length ? `<div class="pc-why">${esc(m.why.join(' · '))}</div>` : ''}</div>`;
+const bindOpen = root => root.querySelectorAll('[data-open]').forEach(x => { const go = () => openMatch(...JSON.parse(x.dataset.open)); x.addEventListener('click', e => { if (e.target.closest('a')) return; go(); }); x.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
 const vs = (h, a, sp) => `${crest(h, sp, 'md')}${esc(h)} – ${crest(a, sp, 'md')}${esc(a)}`, vsText = (m, sp) => { const p = String(m).split(' – '); return p.length === 2 ? vs(p[0], p[1], sp) : esc(m); };
-const crest = (n, sp, size = '') => { const u = crestUrl(n, isB(sp)); return `<span class="crest ${size}" style="--h:${hue(n)}" aria-hidden="true">${esc(initials(n))}${u ? `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>`; };   // ratings de ClubElo, bajas, noticias y cuotas del día
+const crest = (n, sp, size = '') => { const u = crestUrl(n, isB(sp)); return `<span class="crest ${size}" style="--h:${hue(n)}" aria-hidden="true"><b>${esc(initials(n))}</b>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onload="this.parentNode.classList.add('ok')" onerror="this.remove()">` : ''}</span>`; };   // ratings de ClubElo, bajas, noticias y cuotas del día
 function buildFB() {
   FB = Fd.date.map((d, k) => { const r = { d, div: Fd.divs[Fd.div[k]], h: Fd.teams[Fd.h[k]], a: Fd.teams[Fd.a[k]], hg: Fd.hg[k], ag: Fd.ag[k] };
     for (const f of FB_FIELDS) r[f] = Fd[f] ? Fd[f][k] : null; return r; });
@@ -535,23 +544,20 @@ function dailyRender() {
   const rate = o => o && o.n ? `${o.hits} de ${o.n} (${pct(o.hits / o.n, 0)})` : 'aún sin datos';
   const T = PF && PF.daily, b = D.bet, P = D.picks || [];
   let h = `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
-    <div class="mc"><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)}</span></div>
+    <div class="mc" ${openAttr(b)}><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)} ${esc(when(b))}</span></div>
       <div class="mc-body"><div class="mc-team">${crest(b.home, b.sport, 'xl')}<span>${esc(b.home)}</span></div>
-        <div class="mc-mid"><div class="mc-time">${esc(when(b))}</div><div class="mc-p">${pct(b.pick.p, 0)}</div><div class="mc-pick">${esc(b.pick.label)}</div>${res(b)}</div>
+        <div class="mc-mid"><div class="mc-p">${pct(b.pick.p, 0)}</div><div class="mc-pick">${esc(b.pick.label)}</div>${res(b)}</div>
         <div class="mc-team">${crest(b.away, b.sport, 'xl')}<span>${esc(b.away)}</span></div></div>
-      <div class="mc-foot">${open(b)}</div></div>
-    ${b.why && b.why.length ? `<ul class="why">${b.why.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`;
+      <div class="mc-foot">Toca para ver todos los mercados ›</div></div>
+    ${b.why && b.why.length ? `<div class="whybox"><b>Por qué</b><ul class="why">${b.why.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}`;
   if (P.length >= 2) {
     const all = P.reduce((x, m) => x * m.pick.p, 1);
-    h += `<h3>Selección recomendada</h3><div>${P.map(m => `<div class="match"><div class="when">${esc(when(m))}</div>
-      <div class="teams">${twoLines(m.home, m.away, m.sport)}<small>${sportIcon(m.sport)} ${flag(m.league)}${esc(m.leagueName)} · ${open(m)}</small>${m.why && m.why.length ? `<small class="why1">${esc(m.why.join(' · '))}</small>` : ''}</div>
-      <div class="pick"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span>${res(m)}</div></div>`).join('')}</div>
+    h += `<h3>Selección recomendada</h3><div class="pcards">${P.map(m => pcard(m, res)).join('')}</div>
       <div class="combo"><span>Probabilidad de acertar las ${P.length} juntas: <b>${pct(all, 0)}</b> (cuota justa ${nf(1 / all, 2)})</span></div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
   h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · pronósticos de la selección ${rate(T && T.picks)} · selección completa ${rate(T && T.full)}.
     Más probabilidad no significa más valor: la casa paga menos por lo más probable. Compara la cuota justa con la de tu casa.</p>`;
-  box.innerHTML = h;
-  box.querySelectorAll('[data-open]').forEach(x => x.addEventListener('click', () => openMatch(...JSON.parse(x.dataset.open))));
+  box.innerHTML = h; bindOpen(box);
 }
 const dayKey = m => { const t = new Date(m.kickoff); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
 function prRender() {
@@ -576,13 +582,12 @@ function prRender() {
     const nn = (NW?.teams?.[`${m.league}|${m.home}`]?.length || 0) + (NW?.teams?.[`${m.league}|${m.away}`]?.length || 0);
     const chips = (nn ? `<span class="chip warn">${nn} ${nn === 1 ? 'noticia' : 'noticias'}</span> ` : '') + (m.ref ? `<span class="chip">Árbitro: ${esc(m.ref)}</span> ` : '') + (m.injuries && m.injuries.length ? `<span class="chip warn">${m.injuries.length} bajas</span> ` : '') +
       (m.fatigue && (m.fatigue.b2bH || m.fatigue.b2bA) ? `<span class="chip warn">2ª noche seguida: ${esc(m.fatigue.b2bH ? m.home : m.away)}</span> ` : '');
-    html += `<div class="match"><div class="when">${m.noTime ? 'Hora por<br>confirmar' : t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
-      <div class="teams">${twoLines(m.home, m.away, m.sport)}${chips ? `<small>${chips}</small>` : ''}</div>
-      <div class="pick"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span></div>
-      ${bar}<div class="probs">${probs}<button class="linkbtn" data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}">Todos los mercados</button></div></div>`;
+    html += `<div class="mrow" ${openAttr(m)}><div class="mr-time">${m.noTime ? 'Por<br>confirmar' : esc(hhmm(m))}</div>
+      <div class="mr-teams">${twoLines(m.home, m.away, m.sport)}${chips ? `<div class="mr-chips">${chips}</div>` : ''}</div>
+      <div class="mr-p"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span></div>
+      ${bar}<div class="mr-probs">${probs}</div></div>`;
   }
-  out.innerHTML = html;
-  out.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openMatch(...JSON.parse(b.dataset.open))));
+  out.innerHTML = html; bindOpen(out);
 }
 function openMatch(sport, league, h, a, ref) {
   if (sport === 'futbol') { showTab('futbol'); $('fbLeague').value = league; injKey = ''; refSel = ref || ''; fbTeamsFill(h, a); }
