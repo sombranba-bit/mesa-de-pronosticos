@@ -1,0 +1,54 @@
+name: Actualizar pronósticos
+on:
+  schedule:
+    - cron: '23 * * * *'   # cada hora (GitHub puede retrasarlo unos minutos)
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: pip install -r requirements.txt
+      - name: Descargar resultados, calendario y bajas
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+          FOOTBALL_DATA_ORG_KEY: ${{ secrets.FOOTBALL_DATA_ORG_KEY }}
+        run: python pipeline/data.py $([ "$(date -u +%H)" = "04" ] && echo --full)
+      - name: Revisar cuotas (opcional)
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python pipeline/odds.py
+      - name: Comprobaciones del modelo
+        run: node tests/test_model.mjs
+      - name: Calcular pronósticos y evaluar aciertos
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: node pipeline/predict.mjs
+      - name: Construir la app
+        run: python app/build.py
+      - name: Guardar cambios
+        run: |
+          git config user.name "mesa-de-pronosticos"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs data
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -q -m "Pronósticos $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase -q && git push -q
