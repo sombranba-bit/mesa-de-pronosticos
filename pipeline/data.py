@@ -225,7 +225,8 @@ def update_football():
 # Calendario completo de cada grupo en una página. Los equipos que vienen de Segunda se enlazan con su histórico de
 # football-data (p. ej. «Real Zaragoza» -> «Zaragoza»), así el modelo de España cubre las tres categorías juntas.
 SP3_FIXTURES = None
-SP3_COMPS = {2026: (26708, 26709), 2025: (22269, 22270)}   # temporada -> (grupo 1, grupo 2) en lapreferente.com
+# shortcut: desactivado, lapreferente.com bloquea a los servidores de GitHub (403); reactivar con {2026: (26708, 26709), 2025: (22269, 22270)} si cambia
+SP3_COMPS = {}
 DAYS_ES = {'L': 0, 'M': 1, 'X': 2, 'J': 3, 'V': 4, 'S': 5, 'D': 6}
 def parse_lapreferente(page):
     """[(fecha jornada, hora 'L-HH:MM' o None, local, visitante, goles local o None, goles visitante o None)]."""
@@ -263,6 +264,8 @@ def sp3_name(raw, known):
     return pick_team(raw, known) or raw
 def update_sp3(rows):
     """Resultados y próximos partidos de Primera Federación (cada 3 horas; la temporada anterior, una sola vez)."""
+    if not SP3_COMPS:
+        return []
     have_prev = any(r['div'] == 'SP3' and r['d'] < day(dt.date(season_start(), 7, 1)) for r in rows.values())
     if not daily_once('sp3Date', 3) and any(r['div'] == 'SP3' for r in rows.values()):   # fuera de tramo: calendario anterior
         return [f for f in (load('fixtures.json') or {}).get('football', []) if f['league'] == 'SP3' and f['kickoff'] > (NOW - dt.timedelta(hours=3)).isoformat()[:16]]
@@ -676,9 +679,14 @@ ESPN_SLUGS = {'SP1': 'esp.1', 'SP2': 'esp.2', 'E0': 'eng.1', 'E1': 'eng.2', 'I1'
               'UEFA': 'uefa.champions'}
 def update_crests(rows, fixtures):
     """crests.json: {equipo: url del escudo}. Fútbol (17 ligas y Champions) y NBA. Sin escudo, la app pone las iniciales."""
-    if not daily_once('crestsDate'):
-        return
     out, n = load('crests.json') or {}, 0
+    before = len(out)
+    for k, v in EXTRA_CRESTS.items():   # sin peticiones extra: en cada ejecución
+        out.setdefault(k, v)
+    if not daily_once('crestsDate'):
+        if len(out) != before:
+            save('crests.json', out); print(f'escudos: {len(out)} equipos')
+        return
     season = day(dt.date(season_start(), 7, 1))
     uefa = {f[k] for f in fixtures.get('uefa', []) for k in ('h', 'a')}
     for div, slug in ESPN_SLUGS.items():
@@ -699,9 +707,25 @@ def update_crests(rows, fixtures):
         for t in js['sports'][0]['leagues'][0]['teams']:
             tm = t['team']; logo = (tm.get('logos') or [{}])[0].get('href')
             if logo:
-                out.setdefault(tm['displayName'].replace('Los Angeles Clippers', 'LA Clippers'), logo)
+                out.pop(tm['displayName'], None)   # versiones antiguas guardaban la NBA sin prefijo
+                out['b:' + tm['displayName'].replace('Los Angeles Clippers', 'LA Clippers')] = logo
     except Exception as e:
         warn(f'escudos NBA: {e}')
+    # todos los clubes de la Euroliga/EuroCup (incluye equipos ACB que han jugado en Europa, con su escudo)
+    off = 0
+    while off < 2000:
+        try:
+            js = json.loads(get(f'https://api-live.euroleague.net/v2/clubs?limit=200&offset={off}'))
+        except Exception as e:
+            warn(f'escudos Euroliga: {e}'); break
+        data = js.get('data') or []
+        for c in data:
+            cr = (c.get('images') or {}).get('crest')
+            if cr and not str(c.get('name', '')).upper().startswith(('U18', 'U16')):
+                out.setdefault('b:' + c['name'], cr)
+        if len(data) < 200:
+            break
+        off += 200
     save('crests.json', out)
     print(f'escudos: {len(out)} equipos ({n} nuevos)')
 
@@ -885,6 +909,7 @@ def update_nba():
     return fixtures if ok else None
 
 
+EXTRA_CRESTS = {}   # escudos que llegan con otras descargas (Euroliga/EuroCup, acb.com)
 def euroleague_games(code, prev_rows):
     """API oficial de Euroliga (E) y EuroCup (U): https://api-live.euroleague.net/v2/competitions/{code}/seasons/{code}{año}/games"""
     rows = {(r['d'], r['h'], r['a']): r for r in prev_rows}
@@ -901,6 +926,9 @@ def euroleague_games(code, prev_rows):
         for g in games:
             try:
                 h, a = g['local']['club']['name'], g['road']['club']['name']
+                for side in ('local', 'road'):   # escudo oficial del club (lo da la propia API)
+                    cr = ((g[side]['club'].get('images') or {}).get('crest'))
+                    if cr: EXTRA_CRESTS.setdefault('b:' + g[side]['club']['name'], cr)   # «b:» = baloncesto
                 raw = g.get('utcDate') or g.get('date')
                 ko = dt.datetime.fromisoformat(raw.replace('Z', '+00:00'))
                 ko = ko.astimezone(dt.timezone.utc) if ko.tzinfo else ko.replace(tzinfo=madrid if 'T' in raw else dt.timezone.utc).astimezone(dt.timezone.utc)
@@ -962,7 +990,13 @@ def parse_acb(page):
     return out
 def acb_games(prev_rows):
     rows = {(r['d'], r['h'], r['a']): r for r in prev_rows}; fx, got = [], 0
-    games = parse_acb(get('https://www.acb.com/es/liga/calendario').decode('utf-8', 'replace'))
+    page = get('https://www.acb.com/es/liga/calendario').decode('utf-8', 'replace')
+    games = parse_acb(page)
+    names = {g[2] for g in games} | {g[3] for g in games}
+    for tag in re.findall(r'<img\b[^>]*>', page):   # escudos de la propia página, si la imagen lleva el nombre del equipo
+        src, alt = re.search(r'\bsrc="([^"]+)"', tag), re.search(r'\b(?:alt|title)="([^"]+)"', tag)
+        if src and alt and alt.group(1).strip() in names:
+            EXTRA_CRESTS.setdefault('b:' + alt.group(1).strip(), requests.compat.urljoin('https://www.acb.com/', src.group(1)))
     if len(games) < 50:   # una temporada tiene 306 partidos: si salen pocos, la página ha cambiado
         raise RuntimeError(f'solo {len(games)} partidos leídos en acb.com (¿ha cambiado la página?)')
     mad = ZoneInfo('Europe/Madrid')

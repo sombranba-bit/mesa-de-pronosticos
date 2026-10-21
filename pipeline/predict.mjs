@@ -205,7 +205,7 @@ export function performance(hist) {
     tally(leagues[e.league] || (leagues[e.league] = { name: e.leagueName, sport: e.sport, n: 0, markets: {} }), e);
   }
   for (const s of Object.values(sports)) s.preds = s.preds.slice(-3000);
-  const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
+  const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), sport: e.sport, home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
   const all = Object.values(hist), daily = { bet: { n: 0, hits: 0 }, picks: { n: 0, hits: 0 }, full: { n: 0, hits: 0 }, recent: [] };
   for (const day of [...new Set(done.map(e => madridDate(Date.parse(e.kickoff))))].sort()) {
     const sel = dailyPicks(all, day);
@@ -233,6 +233,10 @@ async function telegram(text) {
 }
 const html = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const pc = p => Math.round(p * 100) + '%';
+// emojis para Telegram (en el móvil se ven las banderas)
+const FLAG_EMOJI = { SP1: '🇪🇸', SP2: '🇪🇸', SP3: '🇪🇸', E0: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', E1: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', I1: '🇮🇹', I2: '🇮🇹', D1: '🇩🇪', D2: '🇩🇪', F1: '🇫🇷', F2: '🇫🇷', N1: '🇳🇱', P1: '🇵🇹',
+  SC0: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', SC1: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', B1: '🇧🇪', T1: '🇹🇷', G1: '🇬🇷', UEFA: '🇪🇺', nba: '🇺🇸', euroliga: '🇪🇺', eurocup: '🇪🇺', acb: '🇪🇸', lega: '🇮🇹', bbl: '🇩🇪', lnb: '🇫🇷', gbl: '🇬🇷', bsl: '🇹🇷' };
+const tag = m => `${m.sport === 'futbol' ? '⚽' : '🏀'}${FLAG_EMOJI[m.league] || ''}`;
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 // Filtros de config.json -> telegram: equipos, competiciones, confianza mínima
 export function filterForAlerts(matches, cfg = {}) {
@@ -250,15 +254,15 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
   let t = `<b>Pronósticos de hoy</b> (${todays.length} ${todays.length === 1 ? "partido" : "partidos"}${filtered ? ', según tus filtros' : ''})\n`;
   const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff));
   if (sel && sel.day === day) {
-    t += `\n⭐ <b>Apuesta del día:</b> ${html(sel.bet.pick.label)} ${pc(sel.bet.pick.p)} · ${html(sel.bet.home)} – ${html(sel.bet.away)} (${html(sel.bet.leagueName)}, ${when(sel.bet)})\n`;
+    t += `\n⭐ <b>Apuesta del día:</b> ${html(sel.bet.pick.label)} ${pc(sel.bet.pick.p)} · ${tag(sel.bet)} ${html(sel.bet.home)} – ${html(sel.bet.away)} (${html(sel.bet.leagueName)}, ${when(sel.bet)})\n`;
     if (sel.bet.why?.length) t += `<i>Por qué: ${html(sel.bet.why.join(' · '))}</i>\n`;
-    if (sel.picks.length >= 2) t += `<b>Selección recomendada</b> (todas juntas ${pc(sel.picks.reduce((x, e) => x * e.pick.p, 1))})\n` + sel.picks.map(e => `${when(e)} ${html(e.home)} – ${html(e.away)}: <b>${html(e.pick.label)}</b> ${pc(e.pick.p)}`).join('\n') + '\n';
+    if (sel.picks.length >= 2) t += `<b>Selección recomendada</b> (todas juntas ${pc(sel.picks.reduce((x, e) => x * e.pick.p, 1))})\n` + sel.picks.map(e => `${when(e)} ${tag(e)} ${html(e.home)} – ${html(e.away)}: <b>${html(e.pick.label)}</b> ${pc(e.pick.p)}`).join('\n') + '\n';
   }
   if (top.length) t += `\n<b>Más confianza</b>\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 15)
-    .map(m => `${when(m)} ${html(m.home)} – ${html(m.away)}: <b>${html(m.pick.label)}</b> ${pc(m.pick.p)}`).join('\n') + '\n';
+    .map(m => `${when(m)} ${tag(m)} ${html(m.home)} – ${html(m.away)}: <b>${html(m.pick.label)}</b> ${pc(m.pick.p)}`).join('\n') + '\n';
   if (cfg.incluir_todos !== false) t += `\n<b>Todos</b>\n` + todays.slice(0, 40).map(m => m.sport === 'futbol'
-    ? `${when(m)} ${html(m.home)} – ${html(m.away)} · 1 ${pc(m.H)} X ${pc(m.D)} 2 ${pc(m.A)} · +2,5 ${pc(m.o25)}${m.ref ? ' · árbitro ' + html(m.ref) : ''}`
-    : `${when(m)} ${html(m.home)} – ${html(m.away)} · ${html(m.pick.label)} ${pc(m.pick.p)} · ${Math.round(m.ph)}-${Math.round(m.pa)}`).join('\n');
+    ? `${when(m)} ${tag(m)} ${html(m.home)} – ${html(m.away)} · 1 ${pc(m.H)} X ${pc(m.D)} 2 ${pc(m.A)} · +2,5 ${pc(m.o25)}${m.ref ? ' · árbitro ' + html(m.ref) : ''}`
+    : `${when(m)} ${tag(m)} ${html(m.home)} – ${html(m.away)} · ${html(m.pick.label)} ${pc(m.pick.p)} · ${Math.round(m.ph)}-${Math.round(m.pa)}`).join('\n');
   const y = perf.recent.filter(r => r.date < day).slice(0, 30);
   if (y.length) t += `\n\n<b>Últimos resultados:</b> ${y.filter(r => r.hit).length} aciertos de ${y.length}`;
   if (process.env.PAGES_URL) t += `\n\n${process.env.PAGES_URL}`;
