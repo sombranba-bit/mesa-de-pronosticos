@@ -247,7 +247,7 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
   if (!todays.length) return null;
   const topMin = Math.max(0.6, +cfg.confianza_minima || 0), top = todays.filter(m => m.pick.p >= topMin);
   const filtered = (cfg.equipos || []).length || (cfg.competiciones || []).length || +cfg.confianza_minima > 0;
-  let t = `<b>Pronósticos de hoy</b> (${todays.length} partidos${filtered ? ', según tus filtros' : ''})\n`;
+  let t = `<b>Pronósticos de hoy</b> (${todays.length} ${todays.length === 1 ? "partido" : "partidos"}${filtered ? ', según tus filtros' : ''})\n`;
   const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff));
   if (sel && sel.day === day) {
     t += `\n⭐ <b>Apuesta del día:</b> ${html(sel.bet.pick.label)} ${pc(sel.bet.pick.p)} · ${html(sel.bet.home)} – ${html(sel.bet.away)} (${html(sel.bet.leagueName)}, ${when(sel.bet)})\n`;
