@@ -165,5 +165,19 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const J = P2.parseCommands([{ update_id: 4, message: { chat: { id: -100 }, new_chat_members: [{ first_name: 'Ana' }, { first_name: 'Bot', is_bot: true }] } }], ['-100']);
   ok(J.length === 1 && J[0].cmd === 'bienvenida' && J[0].names.join() === 'Ana' && P2.welcomeText(J[0].names).includes('/hoy'), 'bienvenida a los nuevos con los comandos');
 }
+// tenis automático: pronóstico de los partidos próximos y su resultado
+{
+  const players = ['Alto A.', 'Bajo B.', 'Medio C.'], T = { players, date: [], tour: [], surf: [], bo: [], completed: [], w: [], l: [], tourns: ['X'], tourn: [] };
+  for (const c of ['W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 'bW', 'bL', 'pW', 'pL', 'mW', 'mL']) T[c] = [];
+  const add = (d, w, l, sets) => { T.date.push(d); T.tour.push(0); T.surf.push(0); T.bo.push(3); T.completed.push(1); T.w.push(w); T.l.push(l); T.tourn.push(0);
+    for (let i = 1; i <= 5; i++) { T['W' + i].push(sets[i - 1]?.[0] ?? null); T['L' + i].push(sets[i - 1]?.[1] ?? null); } for (const c of ['bW', 'bL', 'pW', 'pL', 'mW', 'mL']) T[c].push(null); };
+  for (let k = 0; k < 14; k++) { add(20000 + k, 0, 1, [[6, 3], [6, 4]]); add(20000 + k, 2, 1, [[6, 4], [3, 6], [6, 2]]); add(20000 + k, 0, 2, [[6, 4], [6, 4]]); }
+  const ko = new Date((20020 + 0.6) * 864e5).toISOString();
+  const P = P2.predictTennis(T, [{ tour: 0, kickoff: ko, a: 'Bajo B.', b: 'Alto A.', tourn: 'Open', surf: 0, bo: 3 }, { tour: 0, kickoff: ko, a: 'Nuevo N.', b: 'Alto A.', tourn: 'Open', surf: 0, bo: 3 }]);
+  ok(P.length === 1 && P[0].pick.code === 'A' && P[0].pick.label === 'Gana Alto A.' && P[0].pick.p > 0.7 && P[0].sport === 'tenis', `tenis: pronóstico (${P[0]?.pick.label} ${P[0]?.pick.p.toFixed(2)})`);
+  add(20020, 0, 1, [[6, 2], [4, 6], [7, 5]]);
+  const r = P2.tennisResult(P[0], T);
+  ok(r && r.hp === 1 && r.ap === 2 && P2.evaluate({ ...P[0], result: r }).pick.hit === true, `tenis: resultado y acierto (${JSON.stringify(r)})`);
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

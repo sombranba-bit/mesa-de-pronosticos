@@ -642,6 +642,7 @@ function prRender() {
     const kv = (k, v) => `<span class="kv"><em>${k}</em><b>${v}</b></span>`;
     const probs = m.sport === 'futbol'
       ? `${kv('1 · X · 2', `${pct(m.H, 0)} · ${pct(m.D, 0)} · ${pct(m.A, 0)}`)}${kv('Más de 2,5', pct(m.o25, 0))}${kv('Ambos marcan', pct(m.btts, 0))}${kv('Goles esperados', `${nf(m.lam, 1)} – ${nf(m.mu, 1)}`)}${m.corners ? kv('Córners', nf(m.corners, 1)) : ''}${m.base ? kv('Sin bajas', `${pct(m.base.H, 0)} · ${pct(m.base.D, 0)} · ${pct(m.base.A, 0)}`) : ''}`
+      : m.sport === 'tenis' ? `${kv('Gana ' + m.home, pct(m.pw, 0))}${kv('Gana ' + m.away, pct(1 - m.pw, 0))}${kv('Superficie', ['Pista dura', 'Tierra', 'Hierba', 'Moqueta'][m.surf] || '—')}${kv('Formato', m.bo === 5 ? '5 sets' : '3 sets')}${m.round ? kv('Ronda', esc(m.round)) : ''}`
       : `${kv('Gana local', pct(m.pw, 0))}${kv('Puntos', `${Math.round(m.ph)} – ${Math.round(m.pa)}`)}${kv('Hándicap justo', nf(-m.margin, 1))}${kv('Total', nf(m.total, 1))}`;
     const bar = m.sport === 'futbol' ? `<div class="tribar" aria-hidden="true"><i style="width:${m.H * 100}%"></i><i style="width:${m.D * 100}%"></i><i style="width:${m.A * 100}%"></i></div>` : '';
     const nn = (NW?.teams?.[`${m.league}|${m.home}`]?.length || 0) + (NW?.teams?.[`${m.league}|${m.away}`]?.length || 0);
@@ -655,7 +656,13 @@ function prRender() {
   out.innerHTML = html; bindOpen(out);
 }
 async function openMatch(sport, league, h, a, ref) {
-  if (READY) { showTab(sport === 'futbol' ? 'futbol' : 'baloncesto'); if (!(await READY)) return; }
+  if (READY) { showTab(sport === 'futbol' ? 'futbol' : sport === 'tenis' ? 'tenis' : 'baloncesto'); if (!(await READY)) return; }
+  if (sport === 'tenis') {   // partido automático de tenis: circuito, jugadores, superficie y formato
+    const m = (PR?.matches || []).find(x => x.sport === 'tenis' && x.home === h && x.away === a) || {};
+    showTab('tenis'); $('tnTour').value = league === 'wta' ? '1' : '0'; tnRefresh();
+    $('tnA').value = h; $('tnB').value = a; if (m.surf != null) $('tnSurf').value = String(Math.min(m.surf, 2)); if (m.bo) $('tnBo').value = String(m.bo); tnPredict();
+    window.scrollTo({ top: 0 }); return;
+  }
   if (sport === 'futbol') { showTab('futbol'); $('fbLeague').value = league; injKey = ''; refSel = ref || ''; refHint = ref ? `${league}|${h}|${a}` : ''; fbTeamsFill(h, a); }
   else { showTab('baloncesto'); $('nbComp').value = sport; bkInit(h, a); }
   window.scrollTo({ top: 0 });

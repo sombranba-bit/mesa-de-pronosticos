@@ -1267,9 +1267,10 @@ def update_tennis_espn(rows):
     have = {}
     for r in rows.values(): have.setdefault((r['w'], r['l']), []).append(r['d'])
     last = max((r['d'] for r in rows.values()), default=day(TODAY) - 30)
-    got, seen = 0, set()
+    got, seen, upcoming = 0, set(), {}
     for tour, slug in ((0, 'atp'), (1, 'wta')):
-        for dd in range(max(last - 6, day(TODAY) - 120), day(TODAY) + 1, 3):   # cada consulta trae los torneos en juego ese día
+        # cada consulta trae los torneos en juego ese día; hoy y mañana siempre, para los partidos próximos
+        for dd in sorted(set(range(max(last - 6, day(TODAY) - 120), day(TODAY) + 1, 3)) | {day(TODAY), day(TODAY) + 1}):
             date = EPOCH + dt.timedelta(days=dd)
             try:
                 js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/tennis/{slug}/scoreboard?dates={date:%Y%m%d}'))
@@ -1282,6 +1283,14 @@ def update_tennis_espn(rows):
                     if (g.get('grouping') or {}).get('slug') not in ('mens-singles', 'womens-singles'): continue
                     for c in g.get('competitions', []):
                         st = (c.get('status') or {}).get('type') or {}
+                        if st.get('state') == 'pre' and c.get('id') not in upcoming:   # partido próximo con los dos jugadores ya conocidos
+                            cs = c.get('competitors') or []
+                            names_ = [((x.get('athlete') or {}).get('displayName') or '') for x in sorted(cs, key=lambda x: x.get('order', 0))]
+                            if len(names_) == 2 and all(n and n.upper() != 'TBD' for n in names_):
+                                upcoming[c.get('id')] = {'tour': tour, 'kickoff': c['date'] if c['date'].endswith('Z') else c['date'] + 'Z', 'noTime': not c.get('timeValid', True),
+                                                         'a': name(names_[0]), 'b': name(names_[1]), 'tourn': tn, 'surf': surf, 'bo': 5 if ev.get('major') and tour == 0 else 3,
+                                                         'round': (c.get('round') or {}).get('displayName', '')}
+                            continue
                         if c.get('id') in seen or not st.get('completed'): continue
                         seen.add(c.get('id'))
                         cs = c.get('competitors') or []
@@ -1295,7 +1304,9 @@ def update_tennis_espn(rows):
                         for i, (sw, sl) in enumerate(zip(W.get('linescores') or [], L.get('linescores') or [])):
                             if i < 5: row[f'W{i + 1}'], row[f'L{i + 1}'] = ival(sw.get('value')), ival(sl.get('value'))
                         rows[(d, w, l)] = row; have.setdefault((w, l), []).append(d); got += 1
-    print(f'tenis ESPN: {got} partidos nuevos')
+    nxt = [f for f in upcoming.values() if dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) > NOW - dt.timedelta(hours=3)]
+    save('tennis_next.json', sorted(nxt, key=lambda f: f['kickoff']))
+    print(f'tenis ESPN: {got} partidos nuevos, {len(nxt)} próximos')
     return got
 
 
@@ -1342,6 +1353,8 @@ def main():
         update_tennis()
     except Exception as e:
         warn(f'tenis: {e}')
+    # partidos de tenis de las próximas 48 h (de ESPN, guardados cada 3 horas)
+    fixtures['tennis'] = [f for f in load('tennis_next.json') or [] if NOW - dt.timedelta(hours=3) < dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) <= NOW + dt.timedelta(hours=48)]
     save('fixtures.json', fixtures)
 
 
