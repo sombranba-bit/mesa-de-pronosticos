@@ -734,14 +734,18 @@ def update_uefa_espn(fixtures):
     res = {(x['d'], x['h'], x['a']): x for x in uefa['results']}
     fx = fixtures.setdefault('uefa', [])
     horizon = NOW + dt.timedelta(days=FIXTURE_DAYS)
-    rng = f"{(TODAY - dt.timedelta(days=3)):%Y%m%d}-{(TODAY + dt.timedelta(days=FIXTURE_DAYS)):%Y%m%d}"
+    # el marcador de fútbol de ESPN no admite rangos de fechas: un día por consulta, y solo martes a jueves (cuando hay competiciones europeas)
+    days = [TODAY + dt.timedelta(days=k) for k in range(-3, FIXTURE_DAYS + 1) if (TODAY + dt.timedelta(days=k)).weekday() in (1, 2, 3)]
     new = upd = done = miss = 0; logos = {}
     for slug, comp in UEFA_ESPN.items():
-        try:
-            js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard?dates={rng}&limit=300'))
-        except Exception as e:
-            warn(f'UEFA ESPN {slug}: {e}'); continue
-        for ev in js.get('events', []):
+        evs = []
+        for dd in days:
+            try:
+                evs += json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard?dates={dd:%Y%m%d}')).get('events', [])
+            except Exception as e:
+                warn(f'UEFA ESPN {slug} {dd}: {e}'); break
+        key = lambda e: e.get('id') or (e.get('date'), str([(c.get('team') or {}).get('displayName') for c in ((e.get('competitions') or [{}])[0].get('competitors') or [])]))
+        for ev in {key(e): e for e in evs}.values():   # un partido puede salir en varias consultas
             c = (ev.get('competitions') or [{}])[0]; cs = {x.get('homeAway'): x for x in c.get('competitors', [])}
             if 'home' not in cs or 'away' not in cs: continue
             h, a = (ce_name((cs[s].get('team') or {}).get('displayName', ''), clubs) for s in ('home', 'away'))
