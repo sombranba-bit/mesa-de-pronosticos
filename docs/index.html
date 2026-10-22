@@ -36,6 +36,55 @@ main .wrap { padding-block: 22px 48px; display: flex; flex-direction: column; ga
 .sub { display: flex; gap: 6px; flex-wrap: wrap; }
 .sub button { font: 600 14px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 7px 14px; border-radius: 999px; cursor: pointer; }
 .sub button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+[hidden] { display: none !important; }
+/* ---------- legibilidad: bloques y títulos de sección ---------- */
+.lead { font-size: 15.5px; color: var(--muted); margin: -6px 0 0; max-width: 70ch; line-height: 1.5; }
+.panel h3.sect, h3.sect { font-family: var(--f-display); font-size: 20px; font-weight: 600; letter-spacing: .02em; text-transform: none; color: var(--ink); margin: 6px 0 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.panel h3.sect .note, h3.sect .note { font-family: var(--f-body); font-size: 13px; letter-spacing: 0; }
+h4.sub4 { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.block + .block, #acOut > .note + .block { margin-top: 14px; }
+.block { border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stats { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+table th.num, .panel table th.num { font-family: var(--f-body); font-size: 11.5px; }
+/* ---------- mercados en tarjetas ---------- */
+.mkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+.mkcard { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.mkcard h4 { margin: 0 0 6px; font-family: var(--f-display); font-size: 17px; font-weight: 600; letter-spacing: .02em; }
+.mkhead, .mkrow { display: grid; grid-template-columns: minmax(0, 1fr) 118px 56px; gap: 10px; align-items: center; }
+.mkhead { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; border-bottom: 1px solid var(--soft); }
+.mkhead span:nth-child(n+2) { text-align: right; }
+.mkrow { padding: 6px 0; border-bottom: 1px solid var(--soft); font-size: 14px; }
+.mkrow:last-child { border-bottom: 0; }
+.mk-l { min-width: 0; overflow-wrap: anywhere; }
+.mk-l small { display: block; font-size: 11.5px; color: var(--muted); }
+.mk-p { position: relative; height: 22px; border-radius: 5px; background: var(--soft); overflow: hidden; display: flex; align-items: center; justify-content: flex-end; }
+.mk-p i { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.mk-p b { position: relative; font-family: var(--f-mono); font-weight: 500; font-size: 13px; padding: 0 7px; }
+.mkrow.hi .mk-p i { background: color-mix(in srgb, var(--pos) 45%, transparent); }
+.mk-o { text-align: right; font-family: var(--f-mono); font-size: 13.5px; }
+/* ---------- próximos: grupos clave/valor ---------- */
+.kv { display: inline-flex; flex-direction: column; gap: 1px; padding: 4px 10px; border-radius: 8px; background: var(--soft); }
+.kv em { font-style: normal; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.kv b { font-family: var(--f-mono); font-weight: 500; font-size: 13px; color: var(--ink); }
+.mr-probs { gap: 6px !important; }
+/* ---------- guía ---------- */
+.guide { gap: 16px; }
+.gcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.gcard { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 14.5px; line-height: 1.5; }
+.gcard h4 { margin: 0 0 6px; font-family: var(--f-display); font-size: 18px; font-weight: 600; letter-spacing: .02em; }
+.gcard p { margin: 0 0 6px; } .gcard ul { margin: 4px 0 8px; padding-left: 18px; } .gcard li { margin: 3px 0; }
+.gtable td { font-size: 14px; } .glist { margin: 0; padding-left: 20px; line-height: 1.55; }
+/* ---------- formulario por pasos ---------- */
+fieldset.step { border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px 16px; margin: 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+fieldset.step legend { font-family: var(--f-display); font-size: 18px; font-weight: 600; padding: 0 6px; display: flex; align-items: center; gap: 8px; }
+fieldset.step legend > span:first-child { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 14px; }
+.controls.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.checkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 14px; }
+fieldset.step > .btn { align-self: flex-start; }
+code { overflow-wrap: anywhere; }
+@media (max-width: 520px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } .block { padding: 12px; } fieldset.step { padding: 10px 12px 14px; }
+  .mkcard { padding: 10px 12px; } .mkhead, .mkrow { grid-template-columns: minmax(0, 1fr) 104px 50px; gap: 8px; } }
+.howto { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; }   /* las subpestañas ocultas no deben verse aunque el panel tenga display propio */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .panel h2 { font-family: var(--f-display); font-size: 22px; font-weight: 600; letter-spacing: .02em; margin: 0; text-transform: uppercase; text-wrap: balance; }
 .panel h3 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
@@ -208,21 +257,29 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
     </div>
     <div data-view="avisos" class="panel" style="margin-top:12px" hidden>
       <h2>Avisos de Telegram</h2>
-      <p class="note">Elige qué quieres recibir. Al terminar, copia el texto de abajo y pégalo en el fichero <code>config.json</code> de tu repositorio de GitHub (ábrelo, pulsa el lápiz, sustituye el contenido y guarda con «Commit changes»).</p>
-      <div class="controls">
-        <div class="field"><label for="avHora">Hora del resumen</label><select id="avHora"></select></div>
-        <div class="field"><label for="avConf">Solo pronósticos de al menos</label><select id="avConf"><option value="0">Cualquier confianza</option><option value="0.55">55%</option><option value="0.6">60%</option><option value="0.65">65%</option><option value="0.7">70%</option><option value="0.75">75%</option></select></div>
-        <div class="field"><label for="avTodos">Lista completa del día</label><select id="avTodos"><option value="1">Incluir</option><option value="0">Solo los de más confianza</option></select></div>
-        <div class="field"><label for="avActivo">Avisos</label><select id="avActivo"><option value="1">Activados</option><option value="0">Desactivados</option></select></div>
-        <div class="field"><label for="avCuotas">Surebets y cuotas anómalas</label><select id="avCuotas"><option value="0">No avisar</option><option value="1">Avisar también</option></select></div>
-        <div class="field"><label for="avBsky">Cuentas de Bluesky a vigilar (separadas por comas)</label><input id="avBsky" type="text" placeholder="periodista.bsky.social, otro.bsky.social"></div>
-        <div class="field"><label for="avTg">Canales públicos de Telegram (separados por comas)</label><input id="avTg" type="text" placeholder="nombre_del_canal"></div>
-      </div>
-      <div class="field"><label for="avTeam">Mis equipos (vacío = todos)</label><div class="row"><input type="text" id="avTeam" list="avTeams" placeholder="Escribe un equipo y pulsa Añadir" style="max-width:320px"><button class="btn ghost" id="avTeamAdd" type="button">Añadir</button></div><datalist id="avTeams"></datalist><div id="avTeamList" class="row"></div></div>
-      <div class="field"><label>Competiciones (ninguna marcada = todas)</label><div id="avComps" class="row" style="gap:6px 14px"></div></div>
-      <p class="note" id="avPreview"></p>
-      <textarea id="avJson" readonly rows="10" style="font:13px var(--f-mono);width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px"></textarea>
-      <button class="btn" id="avCopy" type="button">Copiar configuración</button>
+      <p class="lead">Configura aquí lo que te llega al móvil. Al terminar, copia el texto del paso 5 y pégalo en <code>config.json</code> en GitHub.</p>
+      <fieldset class="step"><legend><span>1</span> Resumen diario</legend>
+        <div class="controls">
+          <div class="field"><label for="avActivo">Avisos</label><select id="avActivo"><option value="1">Activados</option><option value="0">Desactivados</option></select></div>
+          <div class="field"><label for="avHora">Hora del resumen</label><select id="avHora"></select></div>
+          <div class="field"><label for="avTodos">Lista completa del día</label><select id="avTodos"><option value="1">Incluir</option><option value="0">Solo los de más confianza</option></select></div>
+          <div class="field"><label for="avConf">Solo pronósticos de al menos</label><select id="avConf"><option value="0">Cualquier confianza</option><option value="0.55">55%</option><option value="0.6">60%</option><option value="0.65">65%</option><option value="0.7">70%</option><option value="0.75">75%</option></select></div>
+        </div></fieldset>
+      <fieldset class="step"><legend><span>2</span> Qué partidos</legend>
+        <div class="field"><label for="avTeam">Mis equipos <span class="note">(vacío = todos)</span></label><div class="row"><input type="text" id="avTeam" list="avTeams" placeholder="Escribe un equipo y pulsa Añadir" style="max-width:320px"><button class="btn ghost" id="avTeamAdd" type="button">Añadir</button></div><datalist id="avTeams"></datalist><div id="avTeamList" class="row"></div></div>
+        <div class="field"><label>Competiciones <span class="note">(ninguna marcada = todas)</span></label><div id="avComps" class="checkgrid"></div></div>
+        <p class="note" id="avPreview"></p></fieldset>
+      <fieldset class="step"><legend><span>3</span> Cuotas</legend>
+        <div class="controls"><div class="field"><label for="avCuotas">Surebets y cuotas anómalas</label><select id="avCuotas"><option value="0">No avisar</option><option value="1">Avisar también</option></select></div></div></fieldset>
+      <fieldset class="step"><legend><span>4</span> Redes que vigilar <span class="note">(opcional)</span></legend>
+        <div class="controls two">
+          <div class="field"><label for="avBsky">Cuentas de Bluesky, separadas por comas</label><input id="avBsky" type="text" placeholder="periodista.bsky.social, otro.bsky.social"></div>
+          <div class="field"><label for="avTg">Canales públicos de Telegram, separados por comas</label><input id="avTg" type="text" placeholder="nombre_del_canal"></div>
+        </div></fieldset>
+      <fieldset class="step"><legend><span>5</span> Copiar y pegar en GitHub</legend>
+        <ol class="howto"><li>Pulsa «Copiar configuración».</li><li>En GitHub abre <code>config.json</code> y pulsa el lápiz.</li><li>Selecciona todo, pega y guarda con «Commit changes».</li></ol>
+        <textarea id="avJson" readonly rows="10" style="font:13px var(--f-mono);width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px"></textarea>
+        <button class="btn" id="avCopy" type="button">Copiar configuración</button></fieldset>
     </div>
     <div data-view="cuotas" class="panel" style="margin-top:12px" hidden>
       <h2>Cuotas: surebets, valor y errores</h2>
@@ -348,40 +405,87 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
 
   <!-- ===== GUÍA ===== -->
   <section id="sec-guia" data-sec="guia" hidden>
-    <div class="panel prose">
-      <h2>Cómo se calculan los pronósticos</h2>
-      <ul>
-        <li><b>Fútbol (17 ligas):</b> conjunto de tres modelos. Dixon-Coles con decaimiento temporal (como penaltyblog) predice el marcador; un Elo por resultados y los pi-ratings de Constantinou y Fenton afinan el 1X2. Descanso, córners y tarjetas usan el mismo método sobre esos datos.</li>
-        <li><b>xG:</b> en las cinco grandes ligas, los mercados de goles salen de un modelo que mezcla goles y goles esperados de Understat; mejora el más/menos 2,5 en la validación. Para el 1X2 no mejoraba y no se usa.</li>
-        <li><b>Competiciones europeas:</b> el Elo de ClubElo, que compara clubes de todas las ligas, se traduce a goles esperados con una fórmula ajustada en 23.000 partidos. Sirve para Champions, Europa League, Conference y cualquier cruce entre clubes de distintos países.</li>
-        <li><b>Bajas:</b> cada día se descargan los lesionados y sancionados (si hay clave de API-Football) y se resta a cada equipo la mitad del peso goleador de los ausentes, con un máximo del 25%. También puedes ajustarlo a mano. Es una estimación: no hay histórico gratuito de bajas para validarla, así que la pestaña de aciertos compara el pronóstico con y sin este ajuste.</li>
-        <li><b>Árbitro:</b> se muestra si es tarjetero (tarjetas por partido frente a la media de su liga). Probado en la Premier League 2022-26, ajustar el pronóstico por el árbitro no lo mejoraba; lo que sí mejora es seguir la tendencia de tarjetas de cada liga (log-loss 0,6348 → 0,6244), y eso se aplica siempre.</li>
-        <li><b>Baloncesto:</b> NBA, Euroliga, EuroCup y, con la clave de API-Sports, ACB, Lega A, BBL, Betclic Élite, liga griega y liga turca. Rating de ataque y defensa por equipo con factor cancha. En la NBA se ajusta por cansancio: jugar la segunda noche seguida resta 2,8 puntos de margen, y también cuentan los días de descanso y los kilómetros de viaje. Validado en 2025-26.</li>
-        <li><b>Tenis:</b> Elo general y por superficie, calibrado para que lo que pronostica al 75% se cumpla en torno al 75%. Se traduce a puntos ganados al saque para calcular sets, juegos y tie-breaks.</li>
-        <li><b>Noticias:</b> cada día se buscan en Google Noticias titulares de las últimas 48 horas sobre bajas, sanciones, dudas, alineaciones o cambios de entrenador de cada equipo que juega pronto. Se muestran en la ficha del partido para que los tengas en cuenta; no cambian el pronóstico porque no hay forma gratuita de validar ese ajuste. Twitter/X no se usa: leer publicaciones es de pago.</li>
-        <li><b>Probado y descartado:</b> el descanso entre partidos de liga en fútbol empeoraba los pronósticos; el cansancio de jugar en Europa entre semana no se puede medir sin un histórico de esos partidos.
-          Tampoco mejoraron (17 ligas, prueba desde julio de 2025): reajustar los pesos del conjunto, calibrar por temperatura, ni apilar una regresión logística o gradient boosting con forma reciente y xG. En tenis, Glicko-2 empata con el Elo actual (0,6190 frente a 0,6188).</li>
-        <li><b>Primera Federación:</b> los dos grupos, desde el calendario de lapreferente.com. Los equipos que vienen de Segunda (Zaragoza, Huesca, Cartagena, Mirandés…) conservan su historial, así que se valoran desde el primer día; los demás empiezan sin historial y el modelo es menos fiable con ellos las primeras jornadas. No hay cuotas ni tiros a puerta de esta categoría, así que usa Dixon-Coles, Elo y pi-ratings.</li>
-        <li><b>Tenis con cuotas pasadas:</b> el Elo se mezcla con un rating que sigue lo que decían las cuotas de Pinnacle en los partidos anteriores de cada jugador (prueba 2024-26: log-loss 0,6239 → 0,6172).</li>
-        <li><b>Redes:</b> se pueden seguir cuentas de Bluesky y canales públicos de Telegram (se configuran en <i>Avisos de Telegram</i>); sus mensajes sobre bajas, sanciones o alineaciones de equipos que juegan en 48 horas salen junto a las noticias. X/Twitter e Instagram no se leen: su acceso es de pago y prohíben leerlas automáticamente. Solo se usa información publicada.</li>
-        <li><b>Probado y descartado en esta revisión:</b> ratings de cuotas con memoria más corta (peor: 1,0129 → 1,0191).</li>
-        <li><b>Imágenes:</b> escudos de la lista pública de equipos de ESPN, banderas de flagpedia.net (flagcdn.com).</li>
-        <li><b>Ratings de tiros a puerta (GAP) y de cuotas pasadas:</b> el 1X2 combina ahora cinco modelos: Dixon-Coles, Elo, pi-ratings, GAP (valora a cada equipo por los tiros a puerta que genera y concede, en casa y fuera) y ratings sacados de los goles que las cuotas de Bet365 esperaban en sus partidos ya jugados (las cuotas recogen bajas, forma y noticias). Probado en 17 ligas con la temporada 2025-26 sin verla antes: 1X2 1,0130 → 1,0083 de log-loss (acierto del favorito 48,6% → 49,4%; las casas, 50,4%); más/menos 2,5 0,6843 → 0,6806.</li>
-        <li><b>Apuesta del día y selección, con cuotas reales de Bet365 (2025-26):</b> apuesta del día 71% de acierto (antes 69%, y ahora la probabilidad que muestra coincide con lo que se acierta); selección de 65% o más: 78% de acierto (antes 69%) y rentabilidad +0,1% (antes −5,6%); con 75% o más: 84% y +1,2%. Es decir, ya no se pierde dinero apostando a lo más probable, pero tampoco se gana de forma clara: la casa paga poco por lo seguro.</li>
-        <li><b>Bajas automáticas:</b> Premier desde el Fantasy oficial (con probabilidad de jugar) y otras 14 ligas desde sportsgambler.com (lesionados y sancionados con su fecha prevista de vuelta), cada 3 horas.</li>
-        <li><b>Añadido en la última revisión:</b> córners y tarjetas con binomial negativa (córners 0,719 → 0,690 de log-loss), y calibración del más/menos 2,5 en ligas sin xG (0,689 → 0,685).</li>
-        <li><b>Cuota justa:</b> es el mismo pronóstico expresado como cuota (1 entre la probabilidad).</li>
+    <div class="panel guide">
+      <h2>Guía</h2>
+      <p class="lead">Cómo se calculan los pronósticos, de dónde salen los datos, qué se ha comprobado y cómo leer cada pantalla.</p>
+
+      <h3 class="sect">Cómo se calcula cada deporte</h3>
+      <div class="gcards">
+        <article class="gcard"><h4>⚽ Fútbol · 17 ligas</h4>
+          <p>El 1X2 combina cinco modelos:</p>
+          <ul><li><b>Dixon-Coles</b>: predice el marcador con los goles, dando más peso a lo reciente.</li>
+            <li><b>Elo</b> y <b>pi-ratings</b>: valoran a cada equipo por sus resultados.</li>
+            <li><b>GAP</b>: valora los tiros a puerta que genera y concede cada equipo, en casa y fuera.</li>
+            <li><b>Ratings de cuotas</b>: los goles que esperaban las cuotas de Bet365 en sus partidos ya jugados (recogen bajas, forma y noticias).</li></ul>
+          <p>Goles, descanso, córners y tarjetas salen de la misma tabla de marcadores. En las cinco grandes ligas, los goles usan también el xG de Understat.</p></article>
+        <article class="gcard"><h4>🇪🇺 Competiciones europeas</h4>
+          <p>Champions, Europa League y Conference: el Elo de ClubElo (que compara clubes de todas las ligas) se traduce a goles esperados con una fórmula ajustada en 23.000 partidos. La hora y el árbitro de la Champions vienen de football-data.org.</p></article>
+        <article class="gcard"><h4>🏀 Baloncesto</h4>
+          <p>NBA, Euroliga, EuroCup y Liga ACB. Rating de ataque y defensa de cada equipo con ventaja de jugar en casa.</p>
+          <p>En la NBA también cuenta el cansancio: jugar la segunda noche seguida resta 2,8 puntos, y suman los días de descanso y los kilómetros de viaje.</p></article>
+        <article class="gcard"><h4>🎾 Tenis</h4>
+          <p>Elo general y por superficie, mezclado con un rating que sigue lo que decían las cuotas de Pinnacle en los partidos anteriores de cada jugador. De ahí se calculan sets, juegos y tie-breaks. Se pronostica a demanda: eliges los dos jugadores.</p></article>
+      </div>
+
+      <h3 class="sect">Cómo leer la app</h3>
+      <div class="gcards">
+        <article class="gcard"><h4>Apuesta del día</h4><p>El pronóstico más probable del día entre todos los deportes, con sus motivos.</p></article>
+        <article class="gcard"><h4>Selección recomendada</h4><p>Los pronósticos del día con un 65% o más (hasta 5). Debajo, la probabilidad de acertarlos todos juntos.</p></article>
+        <article class="gcard"><h4>Cuota justa</h4><p>El mismo pronóstico en forma de cuota (1 entre la probabilidad). Si tu casa paga menos, la apuesta no tiene valor aunque sea probable.</p></article>
+        <article class="gcard"><h4>Aciertos</h4><p>Cada pronóstico se guarda antes del partido y se compara con el resultado. Un buen modelo acierta en la proporción que dice: los del 70%, unos 7 de cada 10.</p></article>
+      </div>
+
+      <h3 class="sect">De dónde salen los datos</h3>
+      <div class="tablewrap"><table class="gtable"><thead><tr><th>Dato</th><th>Fuente</th><th>Cada cuánto</th></tr></thead><tbody>
+        <tr><td>Resultados, calendario, córners, tarjetas, tiros y cuotas de fútbol</td><td>football-data.co.uk</td><td>Cada hora</td></tr>
+        <tr><td>xG (cinco grandes ligas)</td><td>Understat</td><td>Cada hora</td></tr>
+        <tr><td>Elo de clubes europeos</td><td>ClubElo</td><td>Cada hora</td></tr>
+        <tr><td>Árbitros (8 ligas) y Champions</td><td>football-data.org</td><td>Cada 3 horas</td></tr>
+        <tr><td>Bajas de la Premier</td><td>Fantasy oficial de la Premier League</td><td>Cada hora</td></tr>
+        <tr><td>Bajas de otras 13 ligas</td><td>sportsgambler.com</td><td>Cada 3 horas</td></tr>
+        <tr><td>Noticias</td><td>Google Noticias + Bluesky y Telegram que elijas</td><td>Cada 3 horas</td></tr>
+        <tr><td>NBA</td><td>fixturedownload.com</td><td>Cada hora</td></tr>
+        <tr><td>Euroliga y EuroCup</td><td>API oficial de la Euroliga</td><td>Cada hora</td></tr>
+        <tr><td>Liga ACB</td><td>acb.com</td><td>Cada hora</td></tr>
+        <tr><td>Tenis</td><td>tennis-data.co.uk (copia en GitHub como respaldo)</td><td>Cada hora</td></tr>
+        <tr><td>Escudos y banderas</td><td>ESPN, API de la Euroliga y flagpedia.net</td><td>Una vez al día</td></tr>
+      </tbody></table></div>
+
+      <h3 class="sect">Qué se ha comprobado</h3>
+      <p class="note">Medido con partidos que el modelo no había visto (fútbol: temporada 2025-26 de 17 ligas). En log-loss, cuanto más bajo, mejor.</p>
+      <div class="tablewrap"><table class="gtable"><thead><tr><th>Cambio</th><th>Antes → después</th><th>Estado</th></tr></thead><tbody>
+        <tr><td>GAP (tiros a puerta) en el 1X2</td><td class="num">1,0130 → 1,0105</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Ratings de cuotas pasadas en el 1X2</td><td class="num">1,0105 → 1,0083</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Ratings de cuotas en más/menos 2,5</td><td class="num">0,6843 → 0,6806</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Córners con binomial negativa</td><td class="num">0,719 → 0,690</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Tendencia de tarjetas de cada liga (Premier)</td><td class="num">0,6348 → 0,6244</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Cansancio en la NBA</td><td class="num">0,6011 → 0,5996</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Tenis con cuotas pasadas</td><td class="num">0,6239 → 0,6172</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Ajustar las tarjetas por el árbitro</td><td class="num">0,6238 → 0,6245</td><td><span class="chip neg">Descartado</span></td></tr>
+        <tr><td>Descanso entre partidos (fútbol)</td><td class="num">0,9960 → 0,9979</td><td><span class="chip neg">Descartado</span></td></tr>
+        <tr><td>Glicko-2 en tenis</td><td class="num">0,6188 → 0,6190</td><td><span class="chip neg">Descartado</span></td></tr>
+        <tr><td>Regresión logística o gradient boosting apilados</td><td class="num">Peor que el conjunto</td><td><span class="chip neg">Descartado</span></td></tr>
+        <tr><td>Ratings de cuotas con memoria más corta</td><td class="num">1,0129 → 1,0191</td><td><span class="chip neg">Descartado</span></td></tr>
+      </tbody></table></div>
+      <div class="gcards">
+        <article class="gcard"><h4>Apuesta del día (2025-26, cuotas Bet365)</h4><p>Acierto del 71%, y la probabilidad que muestra coincide con lo que se acierta.</p></article>
+        <article class="gcard"><h4>Selección de 65% o más</h4><p>78% de acierto y rentabilidad de +0,1%: no se pierde dinero, pero tampoco se gana de forma clara.</p></article>
+        <article class="gcard"><h4>Frente a las casas</h4><p>El favorito del modelo acierta el 49,4% de los 1X2; el de las casas, el 50,4%. El modelo todavía no supera a la casa.</p></article>
+      </div>
+
+      <h3 class="sect">Límites</h3>
+      <ul class="glist">
+        <li>Bajas de Ligue 2 y segunda escocesa: sin fuente gratuita. Las bajas son una estimación (la mitad del peso goleador del ausente, como mucho −25%).</li>
+        <li>Primera Federación: desactivada, porque lapreferente.com bloquea a los servidores de GitHub.</li>
+        <li>Lega A, BBL, liga francesa, griega y turca de baloncesto: el plan gratuito de API-Basketball no da la temporada actual.</li>
+        <li>Europa League y Conference dependen de ClubElo; si su servidor falla, no salen.</li>
+        <li>X/Twitter e Instagram no se leen: su acceso es de pago y prohíben leerlas automáticamente.</li>
       </ul>
-      <h2>Qué esperar</h2>
-      <p>Un pronóstico del 60% falla 4 de cada 10 veces aunque el modelo sea bueno. Mira la pestaña de aciertos: si los pronósticos al 70% se cumplen alrededor del 70%, el modelo está bien calibrado. En la temporada 2025-26 de las cinco grandes ligas, el favorito del modelo acertó el 52% de los partidos y el favorito de las casas de apuestas el 53,5%. En 1X2 nadie acierta mucho más.</p>
-      <p>Si apuestas, hazlo en casas con licencia de la DGOJ y con dinero que puedas permitirte perder. En <a href="https://www.jugarbien.es" target="_blank" rel="noopener">jugarbien.es</a> hay ayuda.</p>
-      <h2>Fuentes</h2>
-      <ul>
-        <li>Fútbol: football-data.co.uk, vía <a href="https://github.com/xgabora/Club-Football-Match-Data" target="_blank" rel="noopener">xgabora/Club-Football-Match-Data</a> (MIT) para el histórico; xG de Understat (histórico vía <a href="https://github.com/JaseZiv/worldfootballR_data" target="_blank" rel="noopener">worldfootballR_data</a>); ratings europeos de <a href="http://clubelo.com" target="_blank" rel="noopener">ClubElo</a>; bajas de API-Football.</li>
-        <li>Baloncesto: <a href="https://github.com/llimllib/nba_data" target="_blank" rel="noopener">llimllib/nba_data</a>, fixturedownload.com (calendario NBA) y la API oficial de la Euroliga.</li>
-        <li>Tenis: tennis-data.co.uk, vía <a href="https://github.com/nick-benelli/Tennis-Data-Pipeline" target="_blank" rel="noopener">nick-benelli/Tennis-Data-Pipeline</a> (MIT).</li>
-        <li>Métodos: <a href="https://github.com/martineastwood/penaltyblog" target="_blank" rel="noopener">penaltyblog</a>, pi-ratings (Constantinou y Fenton, 2013), Elo por superficie (FiveThirtyEight / Tennis Abstract).</li>
-      </ul>
+
+      <div class="verdict">Un pronóstico del 60% falla 4 de cada 10 veces aunque el modelo sea bueno. Si apuestas, hazlo en casas con licencia de la DGOJ y con dinero que puedas permitirte perder. En jugarbien.es hay ayuda.</div>
+
+      <h3 class="sect">Créditos</h3>
+      <p class="note">Histórico de fútbol: football-data.co.uk vía xgabora/Club-Football-Match-Data (MIT). xG: Understat. Elo europeo: ClubElo. NBA: llimllib/nba_data. Tenis: tennis-data.co.uk vía nick-benelli/Tennis-Data-Pipeline (MIT). Métodos: penaltyblog, pi-ratings (Constantinou y Fenton, 2013), GAP ratings (Wheatcroft, 2020), Elo por superficie (FiveThirtyEight / Tennis Abstract).</p>
     </div>
   </section>
 </div></main>
@@ -962,17 +1066,13 @@ async function loadJSON(id, url) {
 }
 
 // ---------- Tablas ----------
-function marketTable(el, groups) {
-  let html = '<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Probabilidad</th><th class="num">Cuota justa</th></tr></thead><tbody>';
-  for (const g of groups) {
-    html += `<tr class="group"><td colspan="3">${esc(g.title)}</td></tr>`;
-    for (const r of g.rows) {
-      const fair = r.p > 0 ? (1 - (r.push || 0)) / r.p : Infinity;
-      html += `<tr><td>${esc(r.label)}${r.push > 0.005 ? ` <span class="note">(devolución ${pct(r.push, 0)})</span>` : ''}</td>
-        <td class="num">${r.p >= 0.7 ? `<span class="chip pos">${pct(r.p)}</span>` : pct(r.p)}</td><td class="num">${isFinite(fair) && fair < 1000 ? nf(fair) : '—'}</td></tr>`;
-    }
-  }
-  el.innerHTML = html + '</tbody></table></div>';
+// Mercados en tarjetas (una por grupo) con barra de probabilidad y cuota justa: se leen de un vistazo y aprovechan el ancho
+function marketTable(el, groups, extra = '') {
+  const card = g => `<section class="mkcard"><h4>${esc(g.title)}</h4><div class="mkhead"><span></span><span>Prob.</span><span>Cuota</span></div>${g.rows.map(r => {
+    const fair = r.p > 0 ? (1 - (r.push || 0)) / r.p : Infinity, hi = r.p >= 0.7;
+    return `<div class="mkrow${hi ? ' hi' : ''}"><span class="mk-l">${esc(r.label)}${r.push > 0.005 ? `<small>devolución ${pct(r.push, 0)}</small>` : ''}</span>
+      <span class="mk-p"><i style="width:${Math.min(100, r.p * 100).toFixed(1)}%"></i><b>${pct(r.p)}</b></span><span class="mk-o">${isFinite(fair) && fair < 1000 ? nf(fair) : '—'}</span></div>`; }).join('')}</section>`;
+  el.innerHTML = `<h3 class="sect">Todos los mercados <span class="note">· cuota = cuota justa · en verde, 70% o más</span></h3><div class="mkgrid">${groups.map(card).join('')}${extra}</div>`;
 }
 const statBox = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
 // Calibración: agrupa pronósticos {p, hit} por confianza
@@ -1003,7 +1103,7 @@ const flagOf = t => { const x = String(t || '').toLowerCase(); const c = [[/spai
 const flag = (lg, size = '') => FLAG[lg] ? `<img class="flag ${size}" src="https://flagcdn.com/w40/${FLAG[lg]}.png" alt="" loading="lazy" onerror="this.remove()">` : '';
 const sportIcon = sp => sp === 'futbol' ? '⚽' : sp === 'tenis' ? '🎾' : '🏀';
 const initials = n => { const w = String(n).replace(/[.'’]/g, ' ').split(/\s+/).filter(x => x && !/^(c|f|cf|fc|cd|sd|ud|ad|ce|ue|rc|club|de|la|el|the|afc)$/i.test(x));
-  return (w.length ? (w.length === 1 ? w[0].slice(0, 2) : w[0][0] + w[1][0]) : String(n).slice(0, 2)).toUpperCase(); };
+  return (w.length ? (w.length === 1 ? w[0].slice(0, 3) : w[0][0] + w[1][0]) : String(n).slice(0, 3)).toUpperCase(); };
 const hue = n => [...String(n)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 // el mismo club se escribe distinto según la fuente («Bayern» / «Bayern Munich», «Barça» / «FC Barcelona»): búsqueda tolerante
 const normT = n => String(n).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ç/g, 'c').replace(/[.'’]/g, ' ')
@@ -1111,8 +1211,8 @@ function fbPredict() {
     <div class="scoreline"><div class="team">${crest(h, 'futbol', 'xl')}<span>${esc(h)}</span></div><div class="mid">${nf(s.lam)} – ${nf(s.mu)}<small>goles esperados</small></div><div class="team">${crest(a, 'futbol', 'xl')}<span>${esc(a)}</span></div></div>
     <div class="stats">${statBox(`${pct(s.H, 0)} · ${pct(s.D, 0)} · ${pct(s.A, 0)}`, '1 · X · 2')}${statBox(pct(pick.p, 0), 'Pronóstico: ' + esc(pick.label))}${statBox(`${s.score.x}-${s.score.y}`, `marcador más probable (${pct(s.score.p, 0)})`)}${s.corners ? statBox(nf(s.corners, 1), 'córners esperados') : ''}${s.cards ? statBox(nf(s.cards, 1), 'tarjetas esperadas') : ''}</div>
     ${uefa ? '' : fbFicha(div, h, a)}${uefa ? '' : '<div class="panel" style="padding:14px"><h3>Árbitro</h3><div id="refBox"></div></div>'}
-    <div class="grid2"><div id="fbMk" style="min-width:0"></div><div class="panel" style="padding:12px"><h3>Marcador exacto</h3>${heat}</div></div>`;
-  marketTable($('fbMk'), P.groups);
+    <div id="fbMk"></div>`;
+  marketTable($('fbMk'), P.groups, `<section class="mkcard"><h4>Marcador exacto</h4>${heat}</section>`);
   if (!uefa) refRender(div);
 }
 
@@ -1477,10 +1577,9 @@ function dailyRender() {
   if (P.length >= 2) {
     const all = P.reduce((x, m) => x * m.pick.p, 1);
     h += `<h3>Selección recomendada</h3><div class="pcards">${P.map(m => pcard(m, res)).join('')}</div>
-      <div class="combo"><span>Probabilidad de acertar las ${P.length} juntas: <b>${pct(all, 0)}</b> (cuota justa ${nf(1 / all, 2)})</span></div>`;
+      <div class="stats">${statBox(pct(all, 0), `acertar las ${P.length} juntas`)}${statBox(nf(1 / all, 2), 'cuota justa de la combinada')}</div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
-  h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · pronósticos de la selección ${rate(T && T.picks)} · selección completa ${rate(T && T.full)}.
-    Más probabilidad no significa más valor: la casa paga menos por lo más probable. Compara la cuota justa con la de tu casa.</p>`;
+  h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · selección ${rate(T && T.picks)} (detalle en «Aciertos»). Más probabilidad no significa más valor: compara la cuota justa con la de tu casa.</p>`;
   box.innerHTML = h; bindOpen(box);
 }
 const dayKey = m => { const t = new Date(m.kickoff); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
@@ -1499,9 +1598,10 @@ function prRender() {
     const t = new Date(m.kickoff), dkey = t.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
     if (dkey !== cur) { cur = dkey; curL = ''; html += `<h3 class="daylabel">${esc(dkey)}</h3>`; }
     if (m.league !== curL) { curL = m.league; html += `<div class="lghead">${flag(m.league, 'lg')}<span>${esc(m.leagueName)}</span><span class="mc-sp">${sportIcon(m.sport)}</span></div>`; }
+    const kv = (k, v) => `<span class="kv"><em>${k}</em><b>${v}</b></span>`;
     const probs = m.sport === 'futbol'
-      ? `${m.base ? `<span>Sin bajas: 1 <b>${pct(m.base.H, 0)}</b> X <b>${pct(m.base.D, 0)}</b> 2 <b>${pct(m.base.A, 0)}</b></span>` : ''}<span>1 <b>${pct(m.H, 0)}</b></span><span>X <b>${pct(m.D, 0)}</b></span><span>2 <b>${pct(m.A, 0)}</b></span><span>Más 2,5 <b>${pct(m.o25, 0)}</b></span><span>Ambos marcan <b>${pct(m.btts, 0)}</b></span><span>Goles esperados <b>${nf(m.lam, 1)}–${nf(m.mu, 1)}</b></span>${m.corners ? `<span>Córners <b>${nf(m.corners, 1)}</b></span>` : ''}`
-      : `<span>Gana local <b>${pct(m.pw, 0)}</b></span><span>Puntos <b>${Math.round(m.ph)}–${Math.round(m.pa)}</b></span><span>Hándicap justo <b>${nf(-m.margin, 1)}</b></span><span>Total <b>${nf(m.total, 1)}</b></span>`;
+      ? `${kv('1 · X · 2', `${pct(m.H, 0)} · ${pct(m.D, 0)} · ${pct(m.A, 0)}`)}${kv('Más de 2,5', pct(m.o25, 0))}${kv('Ambos marcan', pct(m.btts, 0))}${kv('Goles esperados', `${nf(m.lam, 1)} – ${nf(m.mu, 1)}`)}${m.corners ? kv('Córners', nf(m.corners, 1)) : ''}${m.base ? kv('Sin bajas', `${pct(m.base.H, 0)} · ${pct(m.base.D, 0)} · ${pct(m.base.A, 0)}`) : ''}`
+      : `${kv('Gana local', pct(m.pw, 0))}${kv('Puntos', `${Math.round(m.ph)} – ${Math.round(m.pa)}`)}${kv('Hándicap justo', nf(-m.margin, 1))}${kv('Total', nf(m.total, 1))}`;
     const bar = m.sport === 'futbol' ? `<div class="tribar" aria-hidden="true"><i style="width:${m.H * 100}%"></i><i style="width:${m.D * 100}%"></i><i style="width:${m.A * 100}%"></i></div>` : '';
     const nn = (NW?.teams?.[`${m.league}|${m.home}`]?.length || 0) + (NW?.teams?.[`${m.league}|${m.away}`]?.length || 0);
     const chips = (nn ? `<span class="chip warn">${nn} ${nn === 1 ? 'noticia' : 'noticias'}</span> ` : '') + (m.ref ? `<span class="chip">Árbitro: ${esc(m.ref)}</span> ` : '') + (m.injuries && m.injuries.length ? `<span class="chip warn">${m.injuries.length} bajas</span> ` : '') +
@@ -1521,24 +1621,28 @@ function openMatch(sport, league, h, a, ref) {
 function acRender() {
   const out = $('acOut');
   if (!PF || !PF.sports) { out.innerHTML = '<p class="verdict">El seguimiento empieza cuando la mesa funciona desde GitHub: cada pronóstico se guarda antes del partido y se compara con el resultado. Para ver cómo habría acertado en el pasado, usa «Precisión histórica» en cada deporte.</p>'; return; }
+  const rateBox = (o, l) => statBox(o && o.n ? pct(o.hits / o.n, 0) : '—', `${l}${o && o.n ? ` · ${o.hits} de ${o.n}` : ' · aún sin datos'}`);
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
+  const D = PF.daily;
+  html += `<section class="block"><h3 class="sect">⭐ Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
-    html += `<h3 class="daylabel">${SPORT_NAME[sp] || sp}</h3><div class="stats">${statBox(s.n, 'partidos evaluados')}${Object.entries(s.markets).map(([k, v]) => statBox(v.n ? pct(v.hits / v.n) : '—', `acierto ${k} (${v.n})`)).join('')}</div>`;
-    html += calibTable(s.preds || []);
+    html += `<section class="block"><h3 class="sect">${sportIcon(sp)} ${SPORT_NAME[sp] || sp} <span class="note">· ${s.n} partidos evaluados</span></h3>
+      <div class="stats">${Object.entries(s.markets).map(([k, v]) => statBox(v.n ? pct(v.hits / v.n, 0) : '—', `${k}${v.n ? ` · ${v.n}` : ''}`)).join('')}</div>
+      <h4 class="sub4">¿Se cumple lo que dice el modelo?</h4>${calibTable(s.preds || [])}</section>`;
   }
   if (PF.leagues && Object.keys(PF.leagues).length) {
     const L = Object.entries(PF.leagues).sort((a, b) => b[1].n - a[1].n);
     const mk = ['pronóstico principal', '1X2', 'más/menos 2,5', 'ambos marcan', 'córners más/menos 9,5', 'tarjetas más/menos 4,5', 'ganador'].filter(k => L.some(([, v]) => v.markets[k]));
     const cell = v => !v || !v.n ? '<td class="num">—</td>' : `<td class="num"><span class="chip ${v.hits / v.n >= 0.6 ? 'pos' : v.hits / v.n >= 0.5 ? 'warn' : 'neg'}">${pct(v.hits / v.n, 0)}</span> <span class="note">${v.n}</span></td>`;
-    html += `<h3 class="daylabel">Por competición y mercado</h3><div class="tablewrap"><table><thead><tr><th>Competición</th><th class="num">Partidos</th>${mk.map(k => `<th class="num">${esc(k)}</th>`).join('')}</tr></thead><tbody>
+    html += `<section class="block"><h3 class="sect">Por competición y mercado</h3><div class="tablewrap"><table><thead><tr><th>Competición</th><th class="num">Partidos</th>${mk.map(k => `<th class="num">${esc(k)}</th>`).join('')}</tr></thead><tbody>
       ${L.map(([k, v]) => `<tr><td>${flag(k)}${esc(v.name)}</td><td class="num">${v.n}</td>${mk.map(k => cell(v.markets[k])).join('')}</tr>`).join('')}</tbody></table></div>
-      <p class="note">Porcentaje de aciertos y, en gris, cuántos pronósticos hay detrás. Con menos de 30 todavía es muy pronto para sacar conclusiones.</p>`;
+      <p class="note">Porcentaje de aciertos y, en gris, cuántos pronósticos hay detrás. Con menos de 30 todavía es muy pronto para sacar conclusiones.</p></section>`;
   }
   if (PF.recent && PF.recent.length) {
-    html += `<h3 class="daylabel">Últimos resultados</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Partido</th><th>Pronóstico</th><th class="num">Prob.</th><th>Resultado</th><th></th></tr></thead><tbody>
+    html += `<section class="block"><h3 class="sect">Últimos resultados</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Partido</th><th>Pronóstico</th><th class="num">Prob.</th><th>Resultado</th><th></th></tr></thead><tbody>
       ${PF.recent.map(r => `<tr><td>${esc(r.date)}</td><td>${vs(r.home, r.away, r.sport)}</td><td>${esc(r.label)}</td><td class="num">${pct(r.p, 0)}</td><td>${esc(r.score)}</td><td><span class="chip ${r.hit ? 'pos' : 'neg'}">${r.hit ? 'Acierto' : 'Fallo'}</span></td></tr>`).join('')}
-    </tbody></table></div>`;
+    </tbody></table></div></section>`;
   }
   out.innerHTML = html;
 }
@@ -1550,9 +1654,9 @@ function odRender() {
   const when = s => new Date(s).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const tbl = (head, rows) => rows.length ? `<div class="tablewrap"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<p class="note">Ninguna en la última revisión.</p>';
   out.innerHTML = `<p class="note">Revisado el ${new Date(OD.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}${OD.credits_left != null ? ` · quedan ${Math.round(OD.credits_left)} créditos este mes` : ''}.</p>
-    <h3>Surebets (beneficio seguro si todas las cuotas siguen disponibles)</h3>${tbl(['Partido', 'Mercado', 'Beneficio', 'Apuestas (reparto del total)'], OD.surebets.map(s => `<tr><td>${vsText(s.match, s.sport)}<br><span class="note">${flagOf(s.sport)}${esc(s.sport || '')} · ${when(s.kickoff)}</span></td><td>${esc(s.market)}</td><td class="num"><span class="chip pos">${pct(s.profit)}</span></td><td>${s.legs.map(l => `${esc(l.outcome)} @ ${nf(l.odds)} en ${esc(l.book)} (${pct(l.stake, 0)})`).join('<br>')}</td></tr>`))}
-    <h3>Cuotas anómalas (muy por encima del resto: posible error de la casa)</h3>${tbl(['Partido', 'Mercado', 'Cuota', 'Mediana del resto'], OD.anomalies.map(a => `<tr><td>${vsText(a.match, a.sport)}<br><span class="note">${flagOf(a.sport)}${esc(a.sport || '')} · ${when(a.kickoff)}</span></td><td>${esc(a.market)}: ${esc(a.outcome)}</td><td class="num">${nf(a.odds)} en ${esc(a.book)}</td><td class="num">${nf(a.median)} (×${nf(a.ratio)})</td></tr>`))}
-    <h3>Valor frente a Pinnacle</h3>${tbl(['Partido', 'Mercado', 'Cuota', 'Cuota justa', 'Valor'], OD.value.map(v => `<tr><td>${vsText(v.match, v.sport)}<br><span class="note">${flagOf(v.sport)}${esc(v.sport || '')} · ${when(v.kickoff)}</span></td><td>${esc(v.market)}: ${esc(v.outcome)}</td><td class="num">${nf(v.odds)} en ${esc(v.book)}</td><td class="num">${nf(v.fair)}</td><td class="num"><span class="chip pos">+${pct(v.ev)}</span></td></tr>`))}
+    <section class="block"><h3 class="sect">✅ Surebets</h3><p class="note">Apostando a todos los resultados en estas casas, ganas pase lo que pase (si las cuotas siguen disponibles).</p>${tbl(['Partido', 'Mercado', 'Beneficio', 'Apuestas (reparto del total)'], OD.surebets.map(s => `<tr><td>${vsText(s.match, s.sport)}<br><span class="note">${flagOf(s.sport)}${esc(s.sport || '')} · ${when(s.kickoff)}</span></td><td>${esc(s.market)}</td><td class="num"><span class="chip pos">${pct(s.profit)}</span></td><td>${s.legs.map(l => `${esc(l.outcome)} @ ${nf(l.odds)} en ${esc(l.book)} (${pct(l.stake, 0)})`).join('<br>')}</td></tr>`))}</section>
+    <section class="block"><h3 class="sect">⚠️ Cuotas anómalas</h3><p class="note">Muy por encima del resto de casas: puede ser un error de la casa.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Mediana del resto'], OD.anomalies.map(a => `<tr><td>${vsText(a.match, a.sport)}<br><span class="note">${flagOf(a.sport)}${esc(a.sport || '')} · ${when(a.kickoff)}</span></td><td>${esc(a.market)}: ${esc(a.outcome)}</td><td class="num">${nf(a.odds)} en ${esc(a.book)}</td><td class="num">${nf(a.median)} (×${nf(a.ratio)})</td></tr>`))}</section>
+    <section class="block"><h3 class="sect">📈 Valor frente a Pinnacle</h3><p class="note">Cuotas más altas que el precio de Pinnacle sin margen, la casa más afinada.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Cuota justa', 'Valor'], OD.value.map(v => `<tr><td>${vsText(v.match, v.sport)}<br><span class="note">${flagOf(v.sport)}${esc(v.sport || '')} · ${when(v.kickoff)}</span></td><td>${esc(v.market)}: ${esc(v.outcome)}</td><td class="num">${nf(v.odds)} en ${esc(v.book)}</td><td class="num">${nf(v.fair)}</td><td class="num"><span class="chip pos">+${pct(v.ev)}</span></td></tr>`))}</section>
     <p class="note">«Valor» compara con el precio de Pinnacle sin margen, la casa más afinada. En los datos de tenis de 2023-26 esa comparación dio un +1,9% a largo plazo con muchos altibajos; en fútbol no hay datos con los que medirlo.</p>`;
 }
 
