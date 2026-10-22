@@ -162,6 +162,8 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const U = [{ update_id: 1, message: { chat: { id: -100 }, text: '/hoy@AldanaBot' } }, { update_id: 2, message: { chat: { id: 555 }, text: '/hoy' } }, { update_id: 3, message: { chat: { id: -100 }, text: 'hola' } }];
   const C = P2.parseCommands(U, ['-100']);
   ok(C.length === 1 && C[0].cmd === 'hoy' && C[0].chat === '-100', 'comandos: solo en tus chats');
+  const J = P2.parseCommands([{ update_id: 4, message: { chat: { id: -100 }, new_chat_members: [{ first_name: 'Ana' }, { first_name: 'Bot', is_bot: true }] } }], ['-100']);
+  ok(J.length === 1 && J[0].cmd === 'bienvenida' && J[0].names.join() === 'Ana' && P2.welcomeText(J[0].names).includes('/hoy'), 'bienvenida a los nuevos con los comandos');
 }
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

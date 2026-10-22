@@ -424,10 +424,15 @@ export function weeklySummary(hist, perf, now = NOW) {
 // Comandos que el bot entiende (se contestan en la siguiente ejecución, como mucho en una hora)
 export const COMMANDS = [['hoy', 'Pronósticos de hoy: apuesta del día, selección y combinadas'], ['combinada', 'Combinadas de hoy'],
   ['resultados', 'Cómo van los pronósticos de hoy'], ['semana', 'Resumen de los últimos 7 días'], ['valor', 'Pronósticos con valor ahora mismo'], ['ayuda', 'Lista de comandos']];
+export const helpText = () => '🤖 <b>Comandos de Aldana Bet</b>\n' + COMMANDS.map(([c, d]) => `/${c} · ${d}`).join('\n') + '\n\n<i>Contesto en la siguiente actualización (como mucho en una hora).</i>';
+export const welcomeText = names => `👋 <b>¡Bienvenid${names.length > 1 ? 'os' : 'o/a'}, ${names.map(html).join(', ')}!</b>\n\nEsto es <b>Aldana Bet</b>: pronósticos de fútbol, baloncesto y tenis calculados con datos.\n⭐ Cada mañana a las 8:00: apuesta del día, selección y combinadas.\n🌙 Por la noche: resultados, con aciertos y fallos.\n💎 Avisos cuando aparece una cuota con valor.\n\n${helpText()}\n\n🔞 +18 · Juega con responsabilidad.`;
 export function parseCommands(updates, allowed) {
   const out = [];
-  for (const u of updates) { const m = u.message || u.channel_post; if (!m?.text?.startsWith('/')) continue;
+  for (const u of updates) { const m = u.message || u.channel_post; if (!m) continue;
     if (allowed.length && !allowed.includes(String(m.chat.id))) continue;   // solo responde en tus chats
+    const joined = (m.new_chat_members || []).filter(x => !x.is_bot);
+    if (joined.length) { out.push({ chat: String(m.chat.id), cmd: 'bienvenida', names: joined.map(x => x.first_name || x.username || 'nuevo miembro') }); continue; }
+    if (!m.text?.startsWith('/')) continue;
     const cmd = m.text.slice(1).split(/[\s@]/)[0].toLowerCase(); if (COMMANDS.some(c => c[0] === cmd) || cmd === 'start') out.push({ chat: String(m.chat.id), cmd }); }
   return out;
 }
@@ -499,14 +504,34 @@ async function main() {
   // comandos (/hoy, /combinada, ...): se leen los mensajes nuevos y se contesta en el mismo chat
   if (tg.comandos !== false) {
     if (!st.cmdsSet) { if (await tgApi('setMyCommands', { commands: COMMANDS.map(([command, description]) => ({ command, description })) })) st.cmdsSet = true; }
-    const ups = await tgApi('getUpdates', { offset: (st.tgOffset || 0) + 1, timeout: 0, allowed_updates: ['message', 'channel_post'] }) || [];
+    const ups = await tgApi('getUpdates', { offset: (st.tgOffset || 0) + 1, timeout: 0, allowed_updates: ['message', 'channel_post'] }) || [];   // las altas en el grupo llegan como «message»
     if (ups.length) st.tgOffset = ups[ups.length - 1].update_id;
-    for (const { chat, cmd } of parseCommands(ups, chatIds())) {
+    // mensaje fijo con los comandos en cada grupo (se vuelve a fijar si cambia la lista)
+    const key = COMMANDS.map(c => c[0]).join();
+    st.pinned = st.pinned || {};
+    for (const chat of chatIds().filter(c => c.startsWith('-'))) {
+      let p = st.pinned[chat];
+      if (!p || p.key !== key) {   // se envía una sola vez (y otra si cambia la lista de comandos)
+        const msg = await tgApi('sendMessage', { chat_id: chat, text: helpText().replace(/\n\n<i>.*<\/i>$/, '\n\n📌 <i>Escribe un comando en el grupo y te contesto en la siguiente actualización (como mucho en una hora).</i>'), parse_mode: 'HTML' });
+        if (!msg) continue;
+        p = st.pinned[chat] = { key, id: msg.message_id, ok: false };
+      }
+      if (!p.ok) {   // si el bot aún no puede fijar, lo reintenta cada hora sin volver a enviar el mensaje
+        p.ok = !!(await tgApi('pinChatMessage', { chat_id: chat, message_id: p.id, disable_notification: true }));
+        console.log(p.ok ? `mensaje de comandos fijado en ${chat}` : 'AVISO: no se pudo fijar el mensaje de comandos (haz al bot administrador con permiso para fijar mensajes)');
+      }
+    }
+    const answered = new Set();
+    for (const { chat, cmd, names } of parseCommands(ups, chatIds())) {
+      const k = chat + (cmd === 'start' ? 'ayuda' : cmd);
+      if (cmd !== 'bienvenida' && answered.has(k)) continue;   // el mismo comando varias veces en la misma hora: una sola respuesta
+      answered.add(k);
+      if (cmd === 'bienvenida') { await telegram([welcomeText(names)], [chat]); continue; }
       const full = digest(matches, perf, slate, { ...tg, incluir_todos: false, equipos: [], competiciones: [], confianza_minima: 0 }, sel) || ['Hoy no quedan partidos por jugar.'];
       const ans = cmd === 'hoy' ? full : cmd === 'combinada' ? (full.filter(x => x.includes('COMBINADAS')).length ? full.filter(x => x.includes('COMBINADAS')) : ['Hoy no hay combinadas.'])
         : cmd === 'resultados' ? (nightResults(hist, slate) || ['Aún no hay pronósticos de hoy.']) : cmd === 'semana' ? (weeklySummary(hist, perf) || ['Aún no hay datos de la última semana.'])
         : cmd === 'valor' ? (valueAlerts(matches, {})?.text || ['Ahora mismo no hay pronósticos con valor suficiente.'])
-        : ['🤖 <b>Comandos de Aldana Bet</b>\n' + COMMANDS.map(([c, d]) => `/${c} · ${d}`).join('\n') + '\n\n<i>Contesto en la siguiente actualización (como mucho en una hora).</i>'];
+        : [helpText()];
       await telegram(ans, [chat]);
     }
     if (ups.length) console.log(`comandos de Telegram: ${ups.length} mensajes leídos`);
