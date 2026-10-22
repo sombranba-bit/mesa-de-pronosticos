@@ -41,6 +41,7 @@ def fair(prices):
 def analyse(event):
     """Devuelve surebets, valor frente a Pinnacle y anomalías de un evento de The Odds API."""
     sure, value, anom = [], [], []
+    best_ev = {'sport': event.get('sport_title', ''), 'home': event['home_team'], 'away': event['away_team'], 'kickoff': event['commence_time']}
     markets = {}   # (mercado, línea) -> {resultado: {casa: cuota}}
     fresh = lambda t: not t or (NOW - dt.datetime.fromisoformat(t.replace('Z', '+00:00'))).total_seconds() <= STALE_MIN * 60
     for b in event.get('bookmakers', []):
@@ -80,11 +81,19 @@ def analyse(event):
                 med = statistics.median(others)
                 if price >= ANOMALY * med:
                     anom.append({**base, 'market': label, 'outcome': n, 'book': book, 'odds': price, 'median': round(med, 3), 'ratio': round(price / med, 3)})
+        # mejor cuota por resultado (para los pronósticos), descartando las anómalas: suelen ser errores o cuotas viejas
+        code = ({event['home_team']: 'H', 'Draw': 'D', event['away_team']: 'A'} if mk == 'h2h' else {'Over': 'O', 'Under': 'U'} if point == 2.5 else {})
+        for n in names:
+            if n not in code: continue
+            prices = outs[n]; med = statistics.median(prices.values())
+            ok = {b2: p for b2, p in prices.items() if len(prices) < 3 or p < ANOMALY * med}
+            if ok:
+                b2, p = max(ok.items(), key=lambda x: x[1]); best_ev[code[n]] = [p, b2, len(prices)]
     es = {'Draw': 'Empate', 'Over': 'Más', 'Under': 'Menos'}   # nombres de la fuente en español
     for x in sure:
         for l in x['legs']: l['outcome'] = es.get(l['outcome'], l['outcome'])
     for x in value + anom: x['outcome'] = es.get(x['outcome'], x['outcome'])
-    return sure, value, anom
+    return sure, value, anom, best_ev
 
 
 def main():
@@ -108,7 +117,7 @@ def main():
             counts[sp] = sum(1 for e in ev if NOW < dt.datetime.fromisoformat(e['commence_time'].replace('Z', '+00:00')) <= horizon)
         except Exception as e:
             print('AVISO cuotas', sp, e)
-    remaining, used, out = None, 0, {'surebets': [], 'value': [], 'anomalies': []}
+    remaining, used, out = None, 0, {'surebets': [], 'value': [], 'anomalies': [], 'best': []}
     for sp in sorted((s for s in counts if counts[s]), key=lambda s: (SPORTS.index(s))):
         if remaining is not None:
             days_left = (dt.date(NOW.year + NOW.month // 12, NOW.month % 12 + 1, 1) - NOW.date()).days
@@ -122,10 +131,10 @@ def main():
         remaining = float(r.headers.get('x-requests-remaining', 0) or 0); used += float(r.headers.get('x-requests-last', 2) or 2)
         for ev in r.json():
             if NOW < dt.datetime.fromisoformat(ev['commence_time'].replace('Z', '+00:00')) <= horizon:   # solo antes del partido: en directo las cuotas van con retraso
-                s_, v_, a_ = analyse(ev); out['surebets'] += s_; out['value'] += v_; out['anomalies'] += a_
+                s_, v_, a_, b_ = analyse(ev); out['surebets'] += s_; out['value'] += v_; out['anomalies'] += a_; out['best'].append(b_)
     out = {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'credits_left': remaining,
            'surebets': sorted(out['surebets'], key=lambda x: -x['profit'])[:40], 'value': sorted(out['value'], key=lambda x: -x['ev'])[:60],
-           'anomalies': sorted(out['anomalies'], key=lambda x: -x['ratio'])[:40]}
+           'anomalies': sorted(out['anomalies'], key=lambda x: -x['ratio'])[:40], 'best': out['best']}
     OUT.write_text(json.dumps(out, ensure_ascii=False))
     st['oddsSlot'] = slot; STATE.parent.mkdir(exist_ok=True); STATE.write_text(json.dumps(st))
     print(f"cuotas: {len(out['surebets'])} surebets, {len(out['value'])} con valor, {len(out['anomalies'])} anómalas · créditos restantes {remaining}")
@@ -133,10 +142,18 @@ def main():
     cfg = json.loads((ROOT / 'config.json').read_text()).get('telegram', {}) if (ROOT / 'config.json').exists() else {}
     tok, chat = os.environ.get('TELEGRAM_TOKEN'), os.environ.get('TELEGRAM_CHAT_ID')
     if cfg.get('cuotas') and tok and chat and (out['surebets'] or out['anomalies']):
-        lines = ['<b>Cuotas</b> (comprueba antes en tu casa: cambian rápido)']
-        e = html.escape
-        lines += [f"Surebet {s['profit']:.1%} · {e(s['match'])} · {e(s['market'])}: " + ' / '.join(f"{e(l['outcome'])} {l['odds']} ({e(l['book'])})" for l in s['legs']) for s in out['surebets'][:5]]
-        lines += [f"Cuota anómala · {e(a['match'])} · {e(a['outcome'])} {a['odds']} en {e(a['book'])} (mediana {a['median']})" for a in out['anomalies'][:5]]
+        e, SEP = html.escape, '━━━━━━━━━━━━━━━━'
+        icon = lambda sp: '🏀' if 'basket' in sp.lower() or sp in ('NBA', 'Euroleague') else '⚽'
+        lines = ['💱 <b>CUOTAS</b>', '<i>Comprueba antes en tu casa: cambian en minutos</i>']
+        if out['surebets']:
+            lines += ['', SEP, '✅ <b>SUREBETS</b> <i>(ganancia segura repartiendo la apuesta)</i>']
+            for s_ in out['surebets'][:5]:
+                lines += ['', f"{icon(s_['sport'])} <b>{e(s_['match'])}</b> · {e(s_['market'])}", f"📈 <b>+{s_['profit']:.1%}</b>".replace('.', ',')]
+                lines += [f"   • {e(l['outcome'])}: <b>{l['odds']}</b> en {e(l['book'])} ({l['stake']:.0%} del total)" for l in s_['legs']]
+        if out['anomalies']:
+            lines += ['', SEP, '⚠️ <b>CUOTAS ANÓMALAS</b> <i>(muy por encima del resto: posible error)</i>']
+            for a_ in out['anomalies'][:5]:
+                lines += ['', f"{icon(a_['sport'])} <b>{e(a_['match'])}</b> · {e(a_['market'])}", f"   • {e(a_['outcome'])}: <b>{a_['odds']}</b> en {e(a_['book'])} (mediana {a_['median']})"]
         requests.post(f'https://api.telegram.org/bot{tok}/sendMessage', json={'chat_id': chat, 'text': '\n'.join(lines), 'parse_mode': 'HTML'}, timeout=30)
 
 

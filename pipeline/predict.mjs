@@ -218,11 +218,31 @@ export function performance(hist) {
   return { updated: new Date(NOW).toISOString(), sports, leagues, recent, daily };
 }
 
+// Mejor cuota disponible para el pronóstico principal (de odds.json). En la validación 2025-26, cobrar los pronósticos de 65% o más
+// a la mejor cuota del mercado en vez de a la de Bet365 subía el rendimiento de +0,2% a +2,7%.
+const GENERIC = new Set(['club', 'real', 'sporting', 'city', 'united', 'olympique', 'stade', 'racing', 'deportivo', 'athletic', 'union', 'borussia', 'basket', 'calcio', 'football']);
+const toks = s => norm(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t.length >= 3 && !GENERIC.has(t));
+const sameTeam = (a, b) => { const A = toks(a), B = toks(b); return A.some(x => B.some(y => x === y || (x.length >= 4 && y.length >= 4 && (x.startsWith(y) || y.startsWith(x))))); };
+export function attachBest(matches, odds) {
+  let n = 0;
+  for (const m of matches) {
+    const e = (odds?.best || []).find(e => Math.abs(Date.parse(e.kickoff) - Date.parse(m.kickoff)) <= 3 * 3600e3 && sameTeam(m.home, e.home) && sameTeam(m.away, e.away));
+    const b = e && e[m.pick.code];
+    if (b) { m.best = { odds: b[0], book: b[1] }; n++; }
+  }
+  return n;
+}
+const bestTxt = m => m.best ? ` · mejor cuota ${String(m.best.odds).replace('.', ',')} (${html(m.best.book)})` : '';
+
 async function telegram(text) {
   const token = process.env.TELEGRAM_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) return false;
   const chunks = []; let cur = '';
-  for (const line of text.split('\n')) { if ((cur + line).length > 3800) { chunks.push(cur); cur = ''; } cur += line + '\n'; }
+  const add = part => { if ((cur + part).length > 3800 && cur) { chunks.push(cur); cur = ''; } cur += part + '\n\n'; };
+  for (const sec of Array.isArray(text) ? text : text.split('\n\n')) {
+    if (sec.length <= 3800) { add(sec); continue; }
+    for (const line of sec.replace(/<\/?blockquote[^>]*>/g, '').split('\n')) add(line);   // sección enorme: se parte por líneas (sin desplegable)
+  }
   if (cur.trim()) chunks.push(cur);
   for (const c of chunks) {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -251,22 +271,43 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
   if (!todays.length) return null;
   const topMin = Math.max(0.6, +cfg.confianza_minima || 0), top = todays.filter(m => m.pick.p >= topMin);
   const filtered = (cfg.equipos || []).length || (cfg.competiciones || []).length || +cfg.confianza_minima > 0;
-  let t = `<b>Pronósticos de hoy</b> (${todays.length} ${todays.length === 1 ? "partido" : "partidos"}${filtered ? ', según tus filtros' : ''})\n`;
   const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff));
+  const odds = x => String(x.toFixed(2)).replace('.', ',');
+  const SEP = '━━━━━━━━━━━━━━━━';
+  const sportName = m => m.sport === 'futbol' ? '⚽ FÚTBOL' : '🏀 BALONCESTO';
+  const head = m => `${tag(m)} ${html(m.leagueName)} · 🕒 ${when(m)}`;
+  const pickLine = m => `🎯 <b>${html(m.pick.label)}</b> · ${pc(m.pick.p)}${m.best ? ` · 💰 ${odds(m.best.odds)} en ${html(m.best.book)}` : ''}`;
+  const nFb = todays.filter(m => m.sport === 'futbol').length, nBk = todays.length - nFb;
+  const date = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(Date.parse(day + 'T12:00:00Z')));
+  const S = [];   // secciones: el envío parte el mensaje por secciones, nunca dentro de una
+  S.push(`📅 <b>PRONÓSTICOS DE HOY</b>\n<i>${html(date.charAt(0).toUpperCase() + date.slice(1))}</i>\n${[nFb && `⚽ ${nFb}`, nBk && `🏀 ${nBk}`].filter(Boolean).join(' · ')} · ${todays.length} ${todays.length === 1 ? 'partido' : 'partidos'}${filtered ? ' (según tus filtros)' : ''}`);
   if (sel && sel.day === day) {
-    t += `\n⭐ <b>Apuesta del día:</b> ${html(sel.bet.pick.label)} ${pc(sel.bet.pick.p)} · ${tag(sel.bet)} ${html(sel.bet.home)} – ${html(sel.bet.away)} (${html(sel.bet.leagueName)}, ${when(sel.bet)})\n`;
-    if (sel.bet.why?.length) t += `<i>Por qué: ${html(sel.bet.why.join(' · '))}</i>\n`;
-    if (sel.picks.length >= 2) t += `<b>Selección recomendada</b> (todas juntas ${pc(sel.picks.reduce((x, e) => x * e.pick.p, 1))})\n` + sel.picks.map(e => `${when(e)} ${tag(e)} ${html(e.home)} – ${html(e.away)}: <b>${html(e.pick.label)}</b> ${pc(e.pick.p)}`).join('\n') + '\n';
+    const b = sel.bet;
+    S.push(`${SEP}\n⭐ <b>APUESTA DEL DÍA</b>\n\n${head(b)}\n<b>${html(b.home)} – ${html(b.away)}</b>\n${pickLine(b)}${b.best ? ` (justa ${odds(1 / b.pick.p)})` : ''}`
+      + (b.why?.length ? `\n<blockquote>${b.why.map(w => '• ' + html(w)).join('\n')}</blockquote>` : ''));
+    if (sel.picks.length >= 2) {
+      const all = sel.picks.reduce((x, e) => x * e.pick.p, 1), N = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
+      S.push(`${SEP}\n🧩 <b>SELECCIÓN RECOMENDADA</b>\n<i>Todas juntas: ${pc(all)} · cuota justa ${odds(1 / all)}</i>\n\n`
+        + sel.picks.map((e, k) => `${N[k] || '▫️'} ${head(e)}\n<b>${html(e.home)} – ${html(e.away)}</b>\n${pickLine(e)}`).join('\n\n'));
+    }
   }
-  if (top.length) t += `\n<b>Más confianza</b>\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 15)
-    .map(m => `${when(m)} ${tag(m)} ${html(m.home)} – ${html(m.away)}: <b>${html(m.pick.label)}</b> ${pc(m.pick.p)}`).join('\n') + '\n';
-  if (cfg.incluir_todos !== false) t += `\n<b>Todos</b>\n` + todays.slice(0, 40).map(m => m.sport === 'futbol'
-    ? `${when(m)} ${tag(m)} ${html(m.home)} – ${html(m.away)} · 1 ${pc(m.H)} X ${pc(m.D)} 2 ${pc(m.A)} · +2,5 ${pc(m.o25)}${m.ref ? ' · árbitro ' + html(m.ref) : ''}`
-    : `${when(m)} ${tag(m)} ${html(m.home)} – ${html(m.away)} · ${html(m.pick.label)} ${pc(m.pick.p)} · ${Math.round(m.ph)}-${Math.round(m.pa)}`).join('\n');
-  const y = perf.recent.filter(r => r.date < day).slice(0, 30);
-  if (y.length) t += `\n\n<b>Últimos resultados:</b> ${y.filter(r => r.hit).length} aciertos de ${y.length}`;
-  if (process.env.PAGES_URL) t += `\n\n${process.env.PAGES_URL}`;
-  return t;
+  if (top.length) S.push(`${SEP}\n🔥 <b>MÁS CONFIANZA</b> <i>(${pc(topMin)} o más)</i>\n\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 10)
+    .map(m => `${tag(m)} <code>${when(m)}</code> ${html(m.home)} – ${html(m.away)}\n    ${pickLine(m)}`).join('\n'));
+  if (cfg.incluir_todos !== false) {
+    S.push(`${SEP}\n📋 <b>TODOS LOS PARTIDOS</b> <i>(toca para desplegar)</i>`);
+    for (const sp of ['futbol', 'basket']) {
+      const list = todays.filter(m => (m.sport === 'futbol') === (sp === 'futbol')).slice(0, 40);
+      if (!list.length) continue;
+      const leagues = [...new Map(list.map(m => [m.league, m])).values()];
+      S.push(`<b>${sportName(list[0])}</b>\n<blockquote expandable>` + leagues.map(L => `${FLAG_EMOJI[L.league] || '🏳️'} <u>${html(L.leagueName)}</u>\n` + list.filter(m => m.league === L.league).map(m => m.sport === 'futbol'
+        ? `<code>${when(m)}</code> ${html(m.home)} – ${html(m.away)}\n      1 ${pc(m.H)} · X ${pc(m.D)} · 2 ${pc(m.A)} · +2,5 ${pc(m.o25)}${m.ref ? `\n      🟨 Árbitro: ${html(m.ref)}` : ''}`
+        : `<code>${when(m)}</code> ${html(m.home)} – ${html(m.away)}\n      ${html(m.pick.label)} ${pc(m.pick.p)} · ${Math.round(m.ph)}-${Math.round(m.pa)}`).join('\n')).join('\n\n') + '</blockquote>');
+    }
+  }
+  const y = perf.recent.filter(r => r.date < day).slice(0, 30), hits = y.filter(r => r.hit).length;
+  const foot = [y.length ? `📈 <b>Últimos ${y.length} pronósticos:</b> ${hits} ✅ · ${y.length - hits} ❌ (${pc(hits / y.length)})` : '', process.env.PAGES_URL ? `🔗 ${process.env.PAGES_URL}` : ''].filter(Boolean);
+  if (foot.length) S.push(`${SEP}\n${foot.join('\n')}`);
+  return S;   // lista de secciones
 }
 
 async function main() {
@@ -275,6 +316,7 @@ async function main() {
   const fixtures = read(path.join(DATA, 'fixtures.json'), {}), inj = read(path.join(DATA, 'injuries.json'), {}), cfg = read(path.join(ROOT, 'config.json'), {});
   const U = read(path.join(DATA, 'uefa.json'), { results: [] });
   const { matches, skipped } = predictAll(F, B, fixtures, inj.teams || {});
+  const nBest = attachBest(matches, read(path.join(DATA, 'odds.json'), {}));
   if (skipped.length) console.log(`AVISO: ${skipped.length} partidos sin datos suficientes (equipo nuevo o nombre distinto):`, skipped.slice(0, 10).join(', '));
   // historial: se guarda el último pronóstico antes del inicio
   const histFile = path.join(STATE, 'history.json'), hist = read(histFile, {});
@@ -296,7 +338,7 @@ async function main() {
   const withHit = e => e.eval ? { ...e, hit: e.eval.pick.hit } : e;
   const daily = sel && { day: sel.day, bet: withHit(sel.bet), picks: sel.picks.map(withHit) };
   write(path.join(DATA, 'predictions.json'), { generated: new Date(NOW).toISOString(), daily, matches: matches.filter(m => Date.parse(m.kickoff) > NOW - 3 * 3600e3) });
-  console.log(`pronósticos: ${matches.length} partidos · evaluados ahora: ${evaluated} · historial: ${Object.keys(hist).length}`);
+  console.log(`pronósticos: ${matches.length} partidos · con mejor cuota: ${nBest} · evaluados ahora: ${evaluated} · historial: ${Object.keys(hist).length}`);
   // resumen diario por Telegram, a partir de la hora configurada (8:00 por defecto, hora de Madrid)
   const tg = cfg.telegram || {}, stFile = path.join(STATE, 'state.json'), st = read(stFile, {}), day = madridDate(NOW);
   const hour = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date(NOW));

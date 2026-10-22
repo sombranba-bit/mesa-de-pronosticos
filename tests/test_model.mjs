@@ -101,5 +101,20 @@ const Wo = P2.whyFootball({ home: 'A', away: 'B', lam: 2.1, mu: 0.6, pick: { cod
 ok(Wo[0].includes('2,7') && Wo[1].includes('A 3'), `motivos del más de 2,5 (${Wo.join(' | ')})`);
 const Wb = P2.whyBasket({ home: 'A', away: 'B', ph: 112, pa: 104, margin: 8, pick: { code: 'H' }, fatigue: { b2bA: true } }, Th);
 ok(Wb[0] === 'B juega su segunda noche seguida' && Wb[1].includes('por 8,0'), `motivos del baloncesto (${Wb.join(' | ')})`);
+// mejor cuota: casa los nombres de dos fuentes distintas y no confunde equipos de la misma ciudad
+const MB = [{ home: 'Ath Madrid', away: 'Sevilla', kickoff: '2026-10-25T19:00:00Z', pick: { code: 'H' } }, { home: 'Real Madrid', away: 'Getafe', kickoff: '2026-10-25T14:00:00Z', pick: { code: 'O' } }];
+const nb = P2.attachBest(MB, { best: [{ home: 'Atlético Madrid', away: 'Sevilla FC', kickoff: '2026-10-25T19:00:00Z', H: [1.9, 'Pinnacle', 8] },
+  { home: 'Real Madrid', away: 'Getafe CF', kickoff: '2026-10-25T14:00:00Z', O: [1.8, 'Codere', 6] }] });
+ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor cuota casada (${JSON.stringify(MB.map(m => m.best))})`);
+ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T19:00:00Z', pick: { code: 'H' } }], { best: [{ home: 'Atlético Madrid', away: 'Getafe', kickoff: '2026-10-25T19:00:00Z', H: [2, 'X', 3] }] }) === 0, 'no casa partidos distintos a la misma hora');
+// resumen de Telegram: secciones con título y etiquetas HTML equilibradas
+{
+  const t0 = Date.now() + 3 * 3600e3, day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(t0));
+  const m = { sport: 'futbol', league: 'SP1', leagueName: 'España - LaLiga', kickoff: new Date(t0).toISOString(), home: 'A & B', away: 'C', H: .5, D: .3, A: .2, o25: .6, pick: { label: 'Gana A', p: .7, code: 'H' }, best: { odds: 1.5, book: 'X' } };
+  const S = P2.digest([m], { recent: [] }, day, {}, { day, bet: m, picks: [m] });
+  const T = S.join('\n\n');
+  ok(Array.isArray(S) && T.includes('APUESTA DEL DÍA') && T.includes('TODOS LOS PARTIDOS') && T.includes('A &amp; B') && T.includes('1,50 en X'), 'resumen de Telegram con secciones');
+  ok(S.every(x => (x.match(/<blockquote/g) || []).length === (x.match(/<\/blockquote>/g) || []).length && (x.match(/<b>/g) || []).length === (x.match(/<\/b>/g) || []).length), 'cada sección cierra sus etiquetas');
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

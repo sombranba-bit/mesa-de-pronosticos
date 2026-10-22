@@ -182,7 +182,8 @@ def update_football():
         for div in [x for x in DIVS if x != 'SP3']:
             try:
                 for r in parse_fd_csv(get(f'https://www.football-data.co.uk/mmz4281/{code}/{div}.csv'), div):
-                    rows[(r['d'], r['h'], r['a'])] = r; got += 1
+                    old = rows.get((r['d'], r['h'], r['a']))   # conserva lo que añadieron otras fuentes (árbitro de football-data.org, xG)
+                    rows[(r['d'], r['h'], r['a'])] = {**old, **{k: v for k, v in r.items() if v is not None}} if old else r; got += 1
             except Exception as e:
                 warn(f'fútbol {div} {code}: {e}')
     try:
@@ -617,8 +618,10 @@ def update_fdorg(rows, fixtures):
     Cada 3 horas: los árbitros se designan pocos días (a veces horas) antes del partido."""
     key = os.environ.get('FOOTBALL_DATA_ORG_KEY')
     if not key or not daily_once('fdorgDate', 3):
+        apply_next_refs(fixtures)   # el calendario se rehace cada hora: se reponen los árbitros ya designados
         return
     import time
+    designated = []
     season, refs, nxt = season_start(), 0, 0
     byday = {}
     for r in rows.values():
@@ -654,6 +657,7 @@ def update_fdorg(rows, fixtures):
                         if {f['h'], f['a']} == {h, a} and abs(day(dt.date.fromisoformat(f['kickoff'][:10])) - d) <= 1:
                             f['kickoff'] = g['utcDate'].replace('+00:00', 'Z'); f['noTime'] = False; f['competition'] = 'Champions League'; hit = True
                             if ref: f['ref'] = ref
+                    if ref and h and a: designated.append({'div': 'UEFA', 'd': d, 'h': [h], 'a': [a], 'ref': ref})
                     # sin calendario de ClubElo (caído): se crea el partido con el último Elo guardado, si los nombres casan con claridad
                     if not hit and bh and ba and score(bh, hs) >= 0.75 and score(ba, as_) >= 0.75:
                         fixtures.setdefault('uefa', []).append({'league': 'UEFA', 'kickoff': g['utcDate'].replace('+00:00', 'Z'), 'noTime': False, 'competition': 'Champions League',
@@ -664,13 +668,28 @@ def update_fdorg(rows, fixtures):
             m = best_pair(byday.get((div, d), []) + byday.get((div, d - 1), []) + byday.get((div, d + 1), []), hs, as_)
             if m is not None and not m.get('ref'):
                 m['ref'] = ref; refs += 1
-            for f in fixtures.get('football', []):
-                if f['league'] == div and abs(day(dt.date.fromisoformat(f['kickoff'][:10])) - d) <= 1 and best_pair([f], hs, as_):
-                    f['ref'] = ref; nxt += 1
+            if g['status'] in ('SCHEDULED', 'TIMED') and NOW < ko:
+                designated.append({'div': div, 'd': d, 'h': hs, 'a': as_, 'ref': ref})
+    save('refs_next.json', designated)
+    nxt = apply_next_refs(fixtures)
     save('uefa.json', {'results': sorted(res.values(), key=lambda x: x['d'])[-600:]})
     if refs:
         save('football.json', fb_to_json([r for r in rows.values() if r['d'] >= day(SINCE)]))
     print(f'football-data.org: {refs} árbitros nuevos en partidos jugados, {nxt} en próximos, {len(res)} resultados de Champions')
+
+
+def apply_next_refs(fixtures):
+    n = 0
+    for x in load('refs_next.json') or []:
+        if x['div'] == 'UEFA':
+            for f in fixtures.get('uefa', []):
+                if {f['h'], f['a']} == {x['h'][0], x['a'][0]} and abs(day(dt.date.fromisoformat(f['kickoff'][:10])) - x['d']) <= 1:
+                    f['ref'] = x['ref']; n += 1
+            continue
+        for f in fixtures.get('football', []):
+            if f['league'] == x['div'] and abs(day(dt.date.fromisoformat(f['kickoff'][:10])) - x['d']) <= 1 and best_pair([f], x['h'], x['a']):
+                f['ref'] = x['ref']; n += 1
+    return n
 
 
 # ============================== ESCUDOS (lista pública de equipos de ESPN, una vez al día) ==============================
@@ -1126,14 +1145,74 @@ def update_tennis():
             mirror = f"https://raw.githubusercontent.com/nick-benelli/Tennis-Data-Pipeline/main/data/raw/uk/{'wta' if tour else 'atp'}/uk_{'wta' if tour else 'atp'}_singles_raw_{y}.csv"
             for src, read in [(f'http://www.tennis-data.co.uk/{path}', lambda b: pd.read_excel(io.BytesIO(b))), (mirror, lambda b: pd.read_csv(io.BytesIO(b), low_memory=False))]:
                 try:
-                    for r in parse_tennis(read(get(src)), tour):
+                    new = parse_tennis(read(get(src)), tour); pairs, newk = {}, {(x['d'], x['w'], x['l']) for x in new}
+                    for r in new: pairs.setdefault((r['w'], r['l']), []).append(r['d'])
+                    for k in [k for k, r in rows.items() if r.get('bW') is None and r.get('mW') is None and r.get('pW') is None
+                              and k not in newk and any(abs(x - k[0]) <= 3 for x in pairs.get((k[1], k[2]), []))]:
+                        del rows[k]   # el mismo partido llegó antes desde ESPN
+                    for r in new:
                         rows[(r['d'], r['w'], r['l'])] = r; got += 1
                     break
                 except Exception as e:
                     warn(f'tenis {src}: {e}')
+    try:   # tennis-data y su copia llevan semanas sin actualizar: los resultados recientes se completan con ESPN (sin cuotas)
+        got += update_tennis_espn(rows)
+    except Exception as e:
+        warn(f'tenis ESPN: {e}')
     if got:
         save('tennis.json', tn_to_json([r for r in rows.values() if r['d'] >= day(dt.date(2019, 1, 1))]))
     print(f'tenis: {got} partidos descargados, {len(rows)} en total')
+
+
+CLAY = ('roland garros', 'french open', 'madrid', 'internazionali', 'rome', 'monte', 'barcelona', 'hamburg', 'gstaad', 'umag', 'kitzb', 'bastad', 'båstad', 'estoril',
+        'geneva', 'lyon', 'munich', 'bmw open', 'bucharest', 'houston', 'marrakech', 'rio open', 'argentina open', 'buenos aires', 'chile', 'santiago', 'cordoba', 'charleston',
+        'bogota', 'rabat', 'palermo', 'prague', 'strasbourg', 'parma', 'iasi', 'portoroz', 'lausanne', 'budapest', 'warsaw', 'hamburg')
+GRASS = ('wimbledon', 'halle', "queen's", 'queens', 'hertogenbosch', 'libema', 'eastbourne', 'mallorca', 'newport', 'berlin', 'bad homburg', 'nottingham', 'birmingham', 'stuttgart open')
+
+
+def update_tennis_espn(rows):
+    """Resultados de individuales ATP/WTA del marcador público de ESPN desde el último día que hay datos. Cada 3 horas."""
+    if not daily_once('tnEspn', 3):
+        return 0
+    known = {r['w'] for r in rows.values()} | {r['l'] for r in rows.values()}
+    def name(full):   # «Alejandro Davidovich Fokina» -> «Davidovich Fokina A.» (formato de tennis-data), si ya existe así
+        t = full.replace('.', '').split()
+        if len(t) < 2: return full
+        opts = [f"{' '.join(t[k:])} {t[0][0]}." for k in range(1, len(t))]
+        return next((o for o in opts if o in known), opts[-1])
+    have = {}
+    for r in rows.values(): have.setdefault((r['w'], r['l']), []).append(r['d'])
+    last = max((r['d'] for r in rows.values()), default=day(TODAY) - 30)
+    got, seen = 0, set()
+    for tour, slug in ((0, 'atp'), (1, 'wta')):
+        for dd in range(max(last - 6, day(TODAY) - 120), day(TODAY) + 1, 3):   # cada consulta trae los torneos en juego ese día
+            date = EPOCH + dt.timedelta(days=dd)
+            try:
+                js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/tennis/{slug}/scoreboard?dates={date:%Y%m%d}'))
+            except Exception as e:
+                warn(f'tenis ESPN {slug} {date}: {e}'); break
+            for ev in js.get('events', []):
+                tn = ev.get('name') or ''; low = tn.lower()
+                surf = SURF.index('Clay') if any(x in low for x in CLAY) else SURF.index('Grass') if any(x in low for x in GRASS) else SURF.index('Hard')
+                for g in ev.get('groupings', []):
+                    if (g.get('grouping') or {}).get('slug') not in ('mens-singles', 'womens-singles'): continue
+                    for c in g.get('competitions', []):
+                        st = (c.get('status') or {}).get('type') or {}
+                        if c.get('id') in seen or not st.get('completed'): continue
+                        seen.add(c.get('id'))
+                        cs = c.get('competitors') or []
+                        if len(cs) != 2 or not any(x.get('winner') for x in cs): continue
+                        W, L = (cs[0], cs[1]) if cs[0].get('winner') else (cs[1], cs[0])
+                        w, l = name((W.get('athlete') or {}).get('displayName', '')), name((L.get('athlete') or {}).get('displayName', ''))
+                        d = day(dt.date.fromisoformat(c['date'][:10]))
+                        if not w or not l or any(abs(x - d) <= 3 for x in have.get((w, l), [])): continue   # ya está (también si viene de tennis-data)
+                        row = {'d': d, 'tour': tour, 'surf': surf, 'bo': 5 if ev.get('major') and tour == 0 else 3, 'completed': 1 if st.get('name') == 'STATUS_FINAL' else 0,
+                               'w': w, 'l': l, 'tourn': tn, **{k: None for k in SETS + list(ODDS)}}
+                        for i, (sw, sl) in enumerate(zip(W.get('linescores') or [], L.get('linescores') or [])):
+                            if i < 5: row[f'W{i + 1}'], row[f'L{i + 1}'] = ival(sw.get('value')), ival(sl.get('value'))
+                        rows[(d, w, l)] = row; have.setdefault((w, l), []).append(d); got += 1
+    print(f'tenis ESPN: {got} partidos nuevos')
+    return got
 
 
 # ============================== PRINCIPAL ==============================

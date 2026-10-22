@@ -44,6 +44,41 @@ main .wrap { padding-block: 22px 48px; display: flex; flex-direction: column; ga
 h4.sub4 { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
 .block + .block, #acOut > .note + .block { margin-top: 14px; }
 .block { border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel h3.sect, h3.sect { font-weight: 700; }
+h3.sect::before { content: ""; width: 4px; height: 18px; border-radius: 2px; background: var(--accent); align-self: center; }
+.block > h3.sect:first-child { padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-top: 0; }
+#fbOut > .block, #nbOut > .block { margin-top: 14px; background: var(--surface); }
+#fbInjBox { margin-top: 14px; }
+#fbInjBox > summary { cursor: pointer; list-style: none; }
+#fbInjBox > summary::-webkit-details-marker { display: none; }
+#fbInjBox > summary h3.sect { border-bottom: 0; padding-bottom: 0; }
+#fbInjBox > summary h3.sect::after { content: "▸"; margin-left: auto; color: var(--muted); font-size: 16px; }
+#fbInjBox[open] > summary h3.sect::after { content: "▾"; }
+#fbInjBox[open] > summary h3.sect { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.teamhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 16px; padding-bottom: 6px; }
+.teamhead .note { margin-left: auto; }
+.injgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.injteam { background: var(--soft); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.injlist, .newslist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.injlist li, .newslist li { display: flex; flex-direction: column; gap: 3px; padding: 9px 0; border-top: 1px solid var(--line); min-width: 0; }
+.inj-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.inj-why, .nw-meta { color: var(--muted); font-size: 13.5px; }
+.nw-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.nw-title { color: var(--ink); font-weight: 600; text-decoration: none; line-height: 1.35; overflow-wrap: anywhere; }
+.nw-title:hover { color: var(--accent); text-decoration: underline; }
+table.cmp th[scope=row] { text-align: left; font: 600 15px var(--f-body); text-transform: none; letter-spacing: 0; color: var(--ink); }
+table.cmp th[scope=row] small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+table.cmp thead th { vertical-align: bottom; text-transform: none; letter-spacing: 0; font: 700 15px var(--f-body); color: var(--ink); }
+table.cmp thead th > * { vertical-align: middle; } table.cmp thead th .tn { margin-left: 6px; font-size: 15px; }
+table.cmp td.num { font-size: 15px; }
+table.cmp { width: 100%; } table.cmp th, table.cmp td { white-space: normal; }
+@media (max-width: 520px) { table.cmp thead th .tn { display: block; margin: 4px 0 0; font-size: 13px; }
+  #fbOut .block td, #fbOut .block th, #nbOut td, #nbOut th { padding-left: 5px; padding-right: 5px; } }
+.tline .sc { margin-left: auto; font: 500 15px var(--f-mono); padding-left: 10px; }
+.best { font-size: 13.5px; color: var(--muted); margin-top: 4px; } .best b { color: var(--pos); font-family: var(--f-mono); font-weight: 600; } .mc .best { color: var(--board-dim); } .mc .best b { color: #7ee2a8; }
+#injList { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 36px 16px; margin-top: 14px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
+.empty b { color: var(--ink); font-size: 17px; } .empty-ico { font-size: 34px; }
 .stats { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 table th.num, .panel table th.num { font-family: var(--f-body); font-size: 11.5px; }
 /* ---------- mercados en tarjetas ---------- */
@@ -299,14 +334,14 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <div class="field"><label for="fbAway">Visitante</label><select id="fbAway"></select></div>
         <div class="field"><label for="fbXi">Memoria del modelo</label><select id="fbXi"><option value="0.003">Corta (vida media ~8 meses)</option><option value="0.0015" selected>Media (~15 meses)</option><option value="0.001">Larga (~2 años)</option></select></div>
       </div>
-      <details id="fbInjBox"><summary class="note" style="cursor:pointer">Bajas y lesiones</summary>
+      <details id="fbInjBox" class="block" hidden><summary><h3 class="sect">Bajas y lesiones <span id="injCount"></span></h3></summary>
         <div class="controls" style="margin-top:10px">
           <div class="field"><label for="injAttH">Ataque del local</label><select id="injAttH" class="inj"></select></div>
           <div class="field"><label for="injDefH">Defensa del local</label><select id="injDefH" class="inj"></select></div>
           <div class="field"><label for="injAttA">Ataque del visitante</label><select id="injAttA" class="inj"></select></div>
           <div class="field"><label for="injDefA">Defensa del visitante</label><select id="injDefA" class="inj"></select></div>
         </div>
-        <div id="injList" class="note" style="margin-top:8px"></div>
+        <div id="injList"></div>
       </details>
       <div id="fbOut"></div>
     </div>
@@ -432,6 +467,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <article class="gcard"><h4>Apuesta del día</h4><p>El pronóstico más probable del día entre todos los deportes, con sus motivos.</p></article>
         <article class="gcard"><h4>Selección recomendada</h4><p>Los pronósticos del día con un 65% o más (hasta 5). Debajo, la probabilidad de acertarlos todos juntos.</p></article>
         <article class="gcard"><h4>Cuota justa</h4><p>El mismo pronóstico en forma de cuota (1 entre la probabilidad). Si tu casa paga menos, la apuesta no tiene valor aunque sea probable.</p></article>
+        <article class="gcard"><h4>Mejor cuota</h4><p>La cuota más alta que ofrece alguna casa europea para ese pronóstico (de The Odds API, dos veces al día, sin contar las anómalas). En las pruebas con la temporada 2025-26, cobrar los pronósticos del 65% o más a la mejor cuota en vez de a la de Bet365 pasaba de ganar un 0,2% a un 2,7% de lo apostado. Comprueba siempre la cuota antes de apostar: muchas de esas casas no tienen licencia en España.</p></article>
         <article class="gcard"><h4>Aciertos</h4><p>Cada pronóstico se guarda antes del partido y se compara con el resultado. Un buen modelo acierta en la proporción que dice: los del 70%, unos 7 de cada 10.</p></article>
       </div>
 
