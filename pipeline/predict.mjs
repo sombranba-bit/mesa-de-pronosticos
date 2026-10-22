@@ -516,7 +516,8 @@ export function parseCommands(updates, allowed) {
 }
 async function tgApi(method, body) {
   const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/${method}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
-  return r.ok ? (await r.json()).result : null;
+  if (!r.ok) { console.log(`AVISO: Telegram ${method} respondió`, r.status, (await r.text()).slice(0, 200)); return null; }
+  return (await r.json()).result;
 }
 
 async function main() {
@@ -594,6 +595,7 @@ async function main() {
   }
   // porra: encuestas por la mañana en los grupos, cierre antes de cada partido y votos para la clasificación
   const groups = chatIds().filter(c => c.startsWith('-'));
+  console.log(`Telegram: ${chatIds().length} destino(s), ${groups.length} grupo(s)${groups.length ? '' : ' (los ID de grupo empiezan por «-»; sin grupo no hay porra ni mensaje fijo)'}`);
   st.porra = Object.fromEntries(Object.entries(st.porra || {}).filter(([, p]) => NOW - Date.parse(p.kickoff) < 21 * 864e5));
   if (tg.porra !== false && groups.length && sel && sel.day === slate && hour >= (+tg.hora || 8) && hour < 21 && st.lastPorra !== slate) {   // por la mañana (o hasta las 21:00 si el proceso se retrasa)
     for (const m of porraMatches(sel, matches)) {
