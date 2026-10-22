@@ -109,7 +109,7 @@ ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor c
 ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T19:00:00Z', pick: { code: 'H' } }], { best: [{ home: 'Atlético Madrid', away: 'Getafe', kickoff: '2026-10-25T19:00:00Z', H: [2, 'X', 3] }] }) === 0, 'no casa partidos distintos a la misma hora');
 // resumen de Telegram: secciones con título y etiquetas HTML equilibradas
 {
-  const t0 = Date.now() + 3 * 3600e3, day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(t0));
+  const t0 = Date.now() + 3 * 3600e3, day = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(t0 - 6 * 3600e3));   // jornada de 6:00 a 6:00
   const m = { sport: 'futbol', league: 'SP1', leagueName: 'España - LaLiga', kickoff: new Date(t0).toISOString(), home: 'A & B', away: 'C', H: .5, D: .3, A: .2, o25: .6, pick: { label: 'Gana A', p: .7, code: 'H' }, best: { odds: 1.5, book: 'X' } };
   const S = P2.digest([m], { recent: [] }, day, {}, { day, bet: m, picks: [m] });
   const T = S.join('\n\n');
