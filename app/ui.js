@@ -104,13 +104,14 @@ const openAttr = m => `data-open="${esc(JSON.stringify([m.sport, m.league, m.hom
 const night = m => new Date(m.kickoff).getHours() < 6 ? ' 🌙' : '';   // madrugada: cuenta para la jornada de la noche anterior
 const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + night(m);
 // tarjeta compacta de un pronóstico (selección recomendada)
-const bestLine = m => m.best ? `<div class="best">Mejor cuota <b>${nf(m.best.odds)}</b> en ${esc(m.best.book)} <span>· justa ${nf(1 / m.pick.p)}</span></div>` : '';
+const bestLine = m => (m.best ? `<div class="best">Mejor cuota <b>${nf(m.best.odds)}</b> en ${esc(m.best.book)} <span>· justa ${nf(1 / m.pick.p)}</span></div>` : '')
+  + (Date.parse(m.kickoff) > Date.now() ? `<button class="linkbtn betbtn" data-bet-open="${esc(m.id)}">＋ Apuntar apuesta</button>` : '');
 const pcard = (m, res) => `<div class="pcard" ${openAttr(m)}>
   <div class="pc-head">${flag(m.league)}<span>${esc(m.leagueName)}</span><span class="pc-time">${sportIcon(m.sport)} ${esc(hhmm(m))}</span></div>
   <div class="pc-body"><div class="pc-teams">${twoLines(m.home, m.away, m.sport)}</div><div class="pc-p"><b>${pct(m.pick.p, 0)}</b></div></div>
   <div class="pc-pick">${esc(m.pick.label)}${res(m)}</div>${bestLine(m)}
   ${m.why && m.why.length ? `<div class="pc-why">${esc(m.why.join(' · '))}</div>` : ''}</div>`;
-const bindOpen = root => root.querySelectorAll('[data-open]').forEach(x => { const go = () => openMatch(...JSON.parse(x.dataset.open)); x.addEventListener('click', e => { if (e.target.closest('a')) return; go(); }); x.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
+const bindOpen = root => root.querySelectorAll('[data-open]').forEach(x => { const go = () => openMatch(...JSON.parse(x.dataset.open)); x.addEventListener('click', e => { if (e.target.closest('a, [data-bet-open]')) return; go(); }); x.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
 const vs = (h, a, sp) => `${crest(h, sp, 'md')}${esc(h)} – ${crest(a, sp, 'md')}${esc(a)}`, vsText = (m, sp) => { const p = String(m).split(' – '); return p.length === 2 ? vs(p[0], p[1], sp) : esc(m); };
 const crest = (n, sp, size = '') => { const u = crestUrl(n, isB(sp)); return `<span class="crest ${size}" style="--h:${hue(n)}" aria-hidden="true"><b>${esc(initials(n))}</b>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onload="this.parentNode.classList.add('ok')" onerror="this.remove()">` : ''}</span>`; };   // ratings de ClubElo, bajas, noticias y cuotas del día
 function buildFB() {
@@ -664,6 +665,125 @@ function acRender() {
 }
 
 // ============================== CUOTAS ==============================
+// ---------- Mis apuestas: registro, beneficio real, CLV y cuánto apostar ----------
+// Se guardan en este navegador (localStorage); con Exportar/Importar se pasan a otro dispositivo.
+const PHASE_N = 100;                                            // apuestas resueltas para dejar la fase de prueba
+const STAKE = { prueba: { max: 0.5, day: 2 }, normal: { max: 2, day: 5 } };   // en unidades (1 u = 1% del bank)
+const betsGet = () => store.get('mc_bets', []), betsSet = b => store.set('mc_bets', b);
+const betCfg = () => store.get('mc_betcfg', { bank: null });
+const OUTS = m => m.sport === 'futbol'
+  ? [['H', `Gana ${m.home}`], ['D', 'Empate'], ['A', `Gana ${m.away}`], ['O', 'Más de 2,5 goles'], ['U', 'Menos de 2,5 goles'], ['BY', 'Ambos marcan'], ['BN', 'No marcan ambos']]
+  : [['H', `Gana ${m.home}`], ['A', `Gana ${m.away}`]];
+function modelP(m, c) {
+  const v = { H: m.H, D: m.D, A: m.A, O: m.o25, U: m.o25 != null ? 1 - m.o25 : null, BY: m.btts, BN: m.btts != null ? 1 - m.btts : null }[c];
+  if (v != null) return v;
+  return c === m.pick.code ? m.pick.p : (c === 'H' || c === 'A') && (m.pick.code === 'H' || m.pick.code === 'A') ? 1 - m.pick.p : null;
+}
+function betResult(b) {   // 'win' | 'lose' | 'void' | null (pendiente)
+  if (b.manual) return b.manual;
+  let r = PF?.closing?.[b.id]?.result;
+  if (!r && b.sport === 'futbol') { const d0 = Math.floor(Date.parse(b.kickoff) / 864e5); const x = FB.find(x => Math.abs(x.d - d0) <= 1 && x.h === b.home && x.a === b.away); if (x) r = { hg: x.hg, ag: x.ag }; }
+  if (!r && BK[b.sport]) { const d0 = Math.floor(Date.parse(b.kickoff) / 864e5); const x = BK[b.sport].rows.find(x => Math.abs(x.d - d0) <= 1 && x.h === b.home && x.a === b.away); if (x) r = { hp: x.hp, ap: x.ap }; }
+  if (!r) return null;
+  const h = r.hg ?? r.hp, a = r.ag ?? r.ap;
+  const win = { H: h > a, D: h === a, A: a > h, O: h + a > 2.5, U: h + a < 2.5, BY: h > 0 && a > 0, BN: !(h > 0 && a > 0) }[b.code];
+  return win == null ? null : win ? 'win' : 'lose';
+}
+const betProfit = (b, r) => r === 'win' ? b.stake * (b.odds - 1) : r === 'lose' ? -b.stake : 0;
+const betClv = b => { const f = PF?.closing?.[b.id]?.fair?.[b.code] ?? b.fair; return f ? b.odds / f - 1 : null; };
+function betPhase(list) {
+  const done = list.filter(b => betResult(b) && betResult(b) !== 'void');
+  const staked = done.reduce((s, b) => s + b.stake, 0), profit = done.reduce((s, b) => s + betProfit(b, betResult(b)), 0);
+  const cl = done.map(betClv).filter(x => x != null), clv = cl.length ? cl.reduce((s, x) => s + x, 0) / cl.length : null;
+  const ok = done.length >= PHASE_N && profit >= 0 && (clv == null || clv >= 0);
+  return { name: ok ? 'normal' : 'prueba', done: done.length, staked, profit, clv };
+}
+// Probabilidad para decidir: la de Pinnacle sin margen si la hay (el mercado más fino); si no, mitad modelo y mitad la de tu cuota sin margen.
+// No se usa el modelo solo: en la validación, apostar donde el modelo «veía valor» frente a Bet365 perdía entre un 6% y un 11%.
+function stakeFor(m, code, odds, list) {
+  const fair = m.fair?.[code], pm = modelP(m, code);
+  const p = fair ? 1 / fair : pm != null ? (pm + 1 / (1.05 * odds)) / 2 : null;
+  if (!p || !odds || odds <= 1) return null;
+  const edge = p * odds - 1, ph = betPhase(list), lim = STAKE[ph.name];
+  const todayKey = new Date().toDateString(), usedToday = list.filter(b => new Date(b.placed).toDateString() === todayKey).reduce((s, b) => s + (b.units || 0), 0);
+  const kelly = edge > 0 ? edge / (odds - 1) / 4 * 100 : 0;   // cuarto de Kelly, en % del bank
+  const u = Math.max(0, Math.min(kelly, lim.max, lim.day - usedToday));
+  return { p, edge, src: fair ? 'Pinnacle' : 'modelo + tu cuota', u: u > 0 && u < 0.25 ? 0.25 : Math.round(u * 4) / 4, phase: ph.name, left: lim.day - usedToday };
+}
+function mbMatches() { return (PR?.matches || []).filter(m => Date.parse(m.kickoff) > Date.now() - 3 * 3600e3).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff)); }
+function mbInit() {
+  const ms = mbMatches(), cfg = betCfg();
+  $('mbBank').value = cfg.bank ?? '';
+  fillSelect($('mbMatch'), [['', ms.length ? 'Elige partido' : 'No hay partidos próximos'], ...ms.map(m => [m.id, `${new Date(m.kickoff).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} ${hhmm(m)} · ${m.home} – ${m.away} (${m.leagueName})`])], '');
+  mbPick(); mbRender();
+}
+function mbPick() {
+  const m = mbMatches().find(x => x.id === $('mbMatch').value);
+  fillSelect($('mbCode'), m ? OUTS(m) : [['', '—']], m ? m.pick.code : '');
+  if (m && m.best && m.best.odds && !$('mbOdds').value) $('mbOdds').placeholder = `mejor: ${nf(m.best.odds)}`;
+  mbSuggest();
+}
+function mbSuggest() {
+  const m = mbMatches().find(x => x.id === $('mbMatch').value), box = $('mbSug'), odds = fnum($('mbOdds').value), bank = fnum($('mbBank').value);
+  if (!m) { box.innerHTML = '<p class="note">Elige un partido y escribe la cuota que te da tu casa: te digo si compensa y cuánto apostar.</p>'; return; }
+  if (!odds) { box.innerHTML = `<p class="note">Escribe la cuota de tu casa.${m.best ? ` La mejor encontrada para el pronóstico es ${nf(m.best.odds)} en ${esc(m.best.book)}.` : ''}</p>`; return; }
+  const s = stakeFor(m, $('mbCode').value, odds, betsGet());
+  if (!s) { box.innerHTML = '<p class="note">Sin probabilidad para este mercado.</p>'; return; }
+  const eur = u => bank ? ` = <b>${nf(bank * u / 100)} €</b>` : '';
+  box.innerHTML = s.edge <= 0
+    ? `<div class="sug neg"><b>No apostar</b><span>Probabilidad estimada ${pct(s.p, 0)} (${s.src}): a ${nf(odds)} pierdes un ${pct(-s.edge, 1)} a la larga. Cuota mínima para que compense: ${nf(1 / s.p)}.</span></div>`
+    : s.u <= 0 ? `<div class="sug warn"><b>Límite del día alcanzado</b><span>Ya has apostado el máximo de hoy en la fase ${s.phase === 'prueba' ? 'de prueba' : 'normal'}.</span></div>`
+    : `<div class="sug pos"><b>Apuesta sugerida: ${nf(s.u)} u${eur(s.u)}</b><span>Probabilidad ${pct(s.p, 0)} (${s.src}) · ventaja ${pct(s.edge, 1)} · cuarto de Kelly con tope de ${nf(STAKE[s.phase].max, 1)} u por apuesta y ${STAKE[s.phase].day} u al día.</span></div>`;
+  if (s.u > 0 && s.edge > 0 && bank && !$('mbStake').value) $('mbStake').placeholder = nf(bank * s.u / 100);
+}
+function mbAdd() {
+  const m = mbMatches().find(x => x.id === $('mbMatch').value), odds = fnum($('mbOdds').value), bank = fnum($('mbBank').value);
+  let stake = fnum($('mbStake').value);
+  const list = betsGet(), s = m && odds ? stakeFor(m, $('mbCode').value, odds, list) : null;
+  if (!stake && s && bank && s.edge > 0) stake = Math.round(bank * s.u) / 100;
+  if (!m || !odds || odds <= 1 || !stake || stake <= 0) { $('mbMsg').textContent = 'Faltan datos: partido, cuota (mayor que 1) e importe.'; return; }
+  const code = $('mbCode').value;
+  list.push({ id: m.id, sport: m.sport, league: m.leagueName, kickoff: m.kickoff, home: m.home, away: m.away, code, label: OUTS(m).find(o => o[0] === code)[1],
+    odds, stake, units: bank ? stake / bank * 100 : (s?.u || 0), book: $('mbBook').value.trim() || 'Bet365', p: s?.p ?? null, fair: m.fair?.[code] ?? null, placed: new Date().toISOString() });
+  if (!betsSet(list)) { $('mbMsg').textContent = 'Este navegador no deja guardar datos (¿modo privado?).'; return; }
+  $('mbOdds').value = ''; $('mbStake').value = ''; $('mbMsg').textContent = 'Apuesta apuntada.'; mbSuggest(); mbRender();
+}
+function mbRender() {
+  const list = betsGet(), out = $('mbOut'), ph = betPhase(list), money = x => (x < 0 ? '−' : '') + nf(Math.abs(x)) + ' €';
+  const pend = list.filter(b => !betResult(b)).length, won = list.filter(b => betResult(b) === 'win').length;
+  let h = `<div class="sug ${ph.name === 'prueba' ? 'warn' : 'pos'}"><b>${ph.name === 'prueba' ? `Fase de prueba · ${ph.done} de ${PHASE_N} apuestas resueltas` : 'Fase normal'}</b>
+    <span>${ph.name === 'prueba' ? `Apuestas pequeñas (máximo ${nf(STAKE.prueba.max, 1)} u cada una y ${STAKE.prueba.day} u al día) hasta tener ${PHASE_N} apuestas resueltas con beneficio y CLV en positivo.` : `Tienes historial suficiente con beneficio y CLV en positivo: tope de ${STAKE.normal.max} u por apuesta y ${STAKE.normal.day} u al día.`}</span></div>`;
+  h += `<div class="stats">${statBox(String(list.length), `apuestas · ${pend} pendientes`)}${statBox(money(ph.staked), 'apostado (resueltas)')}${statBox(money(ph.profit), 'beneficio')}${statBox(ph.staked ? pct(ph.profit / ph.staked, 1) : '—', 'rendimiento (ROI)')}${statBox(ph.done ? pct(won / ph.done, 0) : '—', 'aciertos')}${statBox(ph.clv == null ? '—' : (ph.clv >= 0 ? '+' : '') + pct(ph.clv, 1), 'CLV medio')}</div>`;
+  if (!list.length) { out.innerHTML = h + '<p class="note">Aún no has apuntado ninguna apuesta.</p>'; return; }
+  const st = r => r === 'win' ? '<span class="chip pos">Ganada</span>' : r === 'lose' ? '<span class="chip neg">Perdida</span>' : r === 'void' ? '<span class="chip">Nula</span>' : '<span class="chip warn">Pendiente</span>';
+  h += `<div class="tablewrap"><table class="bets"><thead><tr><th>Fecha</th><th>Partido y apuesta</th><th class="num">Cuota</th><th class="num">Importe</th><th>Estado</th><th class="num">Beneficio</th><th class="num">CLV</th><th></th></tr></thead><tbody>
+    ${list.map((b, i) => [b, i]).reverse().map(([b, i]) => { const r = betResult(b), c = betClv(b);
+      return `<tr><td>${new Date(b.kickoff).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}</td><td><b>${esc(b.home)} – ${esc(b.away)}</b><br><span class="note">${esc(b.label)} · ${esc(b.book)}</span></td>
+        <td class="num">${nf(b.odds)}</td><td class="num">${nf(b.stake)} €</td><td>${st(r)}</td><td class="num">${r ? money(betProfit(b, r)) : '—'}</td><td class="num">${c == null ? '—' : (c >= 0 ? '+' : '') + pct(c, 1)}</td>
+        <td class="act"><button class="linkbtn" data-bet="${i}" data-set="win" title="Marcar ganada">✓</button><button class="linkbtn" data-bet="${i}" data-set="lose" title="Marcar perdida">✗</button><button class="linkbtn" data-bet="${i}" data-set="void" title="Marcar nula">↺</button><button class="linkbtn" data-bet="${i}" data-set="del" title="Borrar">🗑</button></td></tr>`; }).join('')}
+  </tbody></table></div><p class="note">El estado se rellena solo cuando llega el resultado. Los botones ✓ ✗ ↺ sirven para corregirlo a mano (por ejemplo, si la casa anuló la apuesta). CLV: tu cuota frente a la cuota justa de Pinnacle antes del partido; si es positivo de forma constante, estás apostando mejor que el mercado.</p>`;
+  out.innerHTML = h;
+  out.querySelectorAll('[data-bet]').forEach(x => x.addEventListener('click', () => {
+    const L = betsGet(), i = +x.dataset.bet;
+    if (x.dataset.set === 'del') { if (!confirmDel(x)) return; L.splice(i, 1); }
+    else L[i].manual = L[i].manual === x.dataset.set ? undefined : x.dataset.set;
+    betsSet(L); mbRender();
+  }));
+}
+// borrar pide un segundo toque (sin ventanas del navegador)
+function confirmDel(btn) { if (btn.dataset.armed) return true; btn.dataset.armed = 1; btn.textContent = '¿Borrar?'; setTimeout(() => { delete btn.dataset.armed; btn.textContent = '🗑'; }, 3000); return false; }
+function mbExport() {
+  const blob = new Blob([JSON.stringify({ bets: betsGet(), cfg: betCfg() }, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `mis_apuestas_${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function mbImport(file) {
+  file.text().then(t => { const d = JSON.parse(t); if (!Array.isArray(d.bets)) throw 0;
+    const L = betsGet(), seen = new Set(L.map(b => b.placed + b.id + b.code));
+    for (const b of d.bets) if (!seen.has(b.placed + b.id + b.code)) L.push(b);
+    betsSet(L); if (d.cfg) store.set('mc_betcfg', d.cfg); $('mbMsg').textContent = `Importadas ${d.bets.length} apuestas.`; mbInit(); })
+    .catch(() => { $('mbMsg').textContent = 'Ese fichero no es una copia de «Mis apuestas».'; });
+}
+
 function odRender() {
   const out = $('odOut');
   if (!OD) { out.innerHTML = '<p class="verdict">Sin datos de cuotas. En la versión de GitHub, añade la clave gratuita de The Odds API (secreto <code>ODDS_API_KEY</code>) y se revisarán dos veces al día.</p>'; return; }
@@ -744,6 +864,17 @@ function wire() {
   ['tnA', 'tnB', 'tnSurf', 'tnBo'].forEach(id => $(id).addEventListener('change', tnPredict));
   $('btTnRun').addEventListener('click', tnBacktest);
   ['prSport', 'prLeague', 'prConf'].forEach(id => $(id).addEventListener('change', e => { if (id === 'prSport') $('prLeague').value = ''; prRender(); }));
+  $('mbMatch').addEventListener('change', () => { $('mbOdds').value = ''; $('mbStake').value = ''; mbPick(); });
+  ['mbCode', 'mbOdds', 'mbStake'].forEach(id => $(id).addEventListener('input', mbSuggest));
+  $('mbBank').addEventListener('change', () => { store.set('mc_betcfg', { ...betCfg(), bank: fnum($('mbBank').value) }); mbSuggest(); });
+  $('mbAdd').addEventListener('click', mbAdd);
+  document.addEventListener('click', e => {   // «Apuntar apuesta» desde la apuesta del día y la selección
+    const b = e.target.closest('[data-bet-open]'); if (!b) return;
+    showTab('pronosticos'); document.querySelector('#sub-pronosticos button[data-v="apuestas"]').click();
+    $('mbMatch').value = b.dataset.betOpen; $('mbOdds').value = ''; $('mbStake').value = ''; mbPick(); $('mbOdds').focus(); window.scrollTo({ top: 0 });
+  });
+  $('mbExport').addEventListener('click', mbExport);
+  $('mbImport').addEventListener('change', e => e.target.files[0] && mbImport(e.target.files[0]));
 }
 (async () => {
   wire();
@@ -757,6 +888,6 @@ function wire() {
   buildFB(); for (const k of Object.keys(BK)) buildBK(k);
   bkCompsFill();
   appendTennis(store.get('mc_tn_extra', []));
-  headerInfo(); fbInitControls(); bkInit(); prRender(); acRender(); avInit(); odRender();
+  headerInfo(); fbInitControls(); bkInit(); prRender(); acRender(); avInit(); odRender(); mbInit();
   const h = location.hash.slice(1); showTab(['pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'pronosticos');
 })();

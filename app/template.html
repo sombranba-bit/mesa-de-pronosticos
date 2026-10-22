@@ -76,6 +76,12 @@ table.cmp { width: 100%; } table.cmp th, table.cmp td { white-space: normal; }
   #fbOut .block td, #fbOut .block th, #nbOut td, #nbOut th { padding-left: 5px; padding-right: 5px; } }
 .tline .sc { margin-left: auto; font: 500 15px var(--f-mono); padding-left: 10px; }
 .best { font-size: 13.5px; color: var(--muted); margin-top: 4px; } .best b { color: var(--pos); font-family: var(--f-mono); font-weight: 600; } .mc .best { color: var(--board-dim); } .mc .best b { color: #7ee2a8; }
+.betbtn { margin-top: 6px; font-size: 13.5px; } .mc .betbtn { color: #b9c6ff; }
+.sug { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 12px; margin-top: 10px; }
+.sug b { font-size: 16px; } .sug span { font-size: 14px; color: var(--ink); opacity: .85; }
+.sug.pos { background: var(--pos-bg); } .sug.pos b { color: var(--pos); } .sug.neg { background: var(--neg-bg); } .sug.neg b { color: var(--neg); } .sug.warn { background: var(--warn-bg); } .sug.warn b { color: var(--warn); }
+table.bets td.act { white-space: nowrap; } table.bets td.act .linkbtn { padding: 2px 6px; }
+.filebtn { display: inline-flex; align-items: center; }
 #injList { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 36px 16px; margin-top: 14px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
 .empty b { color: var(--ink); font-size: 17px; } .empty-ico { font-size: 34px; }
@@ -274,7 +280,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
 <main><div class="wrap">
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
   <section id="sec-pronosticos" data-sec="pronosticos">
-    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true">Próximos partidos</button><button data-v="aciertos" aria-pressed="false">Aciertos</button><button data-v="avisos" aria-pressed="false">Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false">Cuotas</button></div>
+    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true">Próximos partidos</button><button data-v="aciertos" aria-pressed="false">Aciertos</button><button data-v="apuestas" aria-pressed="false">Mis apuestas</button><button data-v="avisos" aria-pressed="false">Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false">Cuotas</button></div>
     <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
@@ -289,6 +295,30 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
       <h2>Aciertos de los pronósticos</h2>
       <p class="note">Cada pronóstico se guarda antes del partido y se compara con el resultado. Un buen modelo acierta en la proporción que dice: de los pronósticos al 70%, deberían cumplirse unos 7 de cada 10.</p>
       <div id="acOut"></div>
+    </div>
+    <div data-view="apuestas" class="panel" style="margin-top:12px" hidden>
+      <h2>Mis apuestas</h2>
+      <p class="lead">Apunta lo que apuestas de verdad. La mesa rellena el resultado sola y te dice cuánto ganas, si coges buena cuota (CLV) y cuánto apostar en cada pronóstico.</p>
+      <section class="block"><h3 class="sect">Nueva apuesta</h3>
+        <div class="controls">
+          <div class="field" style="grid-column:1/-1"><label for="mbMatch">Partido</label><select id="mbMatch"></select></div>
+          <div class="field"><label for="mbCode">Apuesta</label><select id="mbCode"></select></div>
+          <div class="field"><label for="mbOdds">Cuota de tu casa</label><input id="mbOdds" type="text" inputmode="decimal" placeholder="1,85"></div>
+          <div class="field"><label for="mbStake">Importe (€)</label><input id="mbStake" type="text" inputmode="decimal" placeholder="2"></div>
+          <div class="field"><label for="mbBook">Casa</label><input id="mbBook" type="text" placeholder="Bet365"></div>
+        </div>
+        <div id="mbSug"></div>
+        <div class="row"><button id="mbAdd" class="btn">Apuntar apuesta</button><span id="mbMsg" class="note" role="status"></span></div>
+      </section>
+      <section class="block"><h3 class="sect">Tu bank <span class="note">opcional</span></h3>
+        <div class="controls"><div class="field"><label for="mbBank">Dinero total para apostar (€)</label><input id="mbBank" type="text" inputmode="decimal" placeholder="Por ejemplo, 100"></div></div>
+        <p class="note">Sin bank, la sugerencia sale en unidades: 1 u es el 1% del dinero que dediques a apostar. Con 100 €, 1 u = 1 €. Puedes cambiarlo cuando quieras.</p>
+      </section>
+      <section class="block"><h3 class="sect">Resultados</h3><div id="mbOut"></div></section>
+      <section class="block"><h3 class="sect">Copia de seguridad</h3>
+        <p class="note">Las apuestas se guardan en este navegador. Para verlas en otro dispositivo, o por si borras los datos del navegador, descarga una copia y cárgala donde quieras.</p>
+        <div class="row"><button id="mbExport" class="btn ghost">Descargar copia</button><label class="btn ghost filebtn">Cargar copia<input id="mbImport" type="file" accept="application/json,.json" hidden></label></div>
+      </section>
     </div>
     <div data-view="avisos" class="panel" style="margin-top:12px" hidden>
       <h2>Avisos de Telegram</h2>
@@ -454,7 +484,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
             <li><b>Ratings de cuotas</b>: los goles que esperaban las cuotas de Bet365 en sus partidos ya jugados (recogen bajas, forma y noticias).</li></ul>
           <p>Goles, descanso, córners y tarjetas salen de la misma tabla de marcadores. En las cinco grandes ligas, los goles usan también el xG de Understat.</p></article>
         <article class="gcard"><h4>🇪🇺 Competiciones europeas</h4>
-          <p>Champions, Europa League y Conference: el Elo de ClubElo (que compara clubes de todas las ligas) se traduce a goles esperados con una fórmula ajustada en 23.000 partidos. La hora y el árbitro de la Champions vienen de football-data.org.</p></article>
+          <p>Champions, Europa League y Conference: el Elo de ClubElo (que compara clubes de todas las ligas) se traduce a goles esperados con una fórmula ajustada en 23.000 partidos. La hora exacta, la competición y los resultados vienen del marcador público de ESPN; el árbitro de la Champions, de football-data.org. Si ClubElo está caído se usa su último Elo guardado.</p></article>
         <article class="gcard"><h4>🏀 Baloncesto</h4>
           <p>NBA, Euroliga, EuroCup y Liga ACB. Rating de ataque y defensa de cada equipo con ventaja de jugar en casa.</p>
           <p>En la NBA también cuenta el cansancio: jugar la segunda noche seguida resta 2,8 puntos, y suman los días de descanso y los kilómetros de viaje.</p></article>
@@ -467,6 +497,8 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <article class="gcard"><h4>Apuesta del día</h4><p>El pronóstico más probable del día entre todos los deportes, con sus motivos.</p></article>
         <article class="gcard"><h4>Selección recomendada</h4><p>Los pronósticos del día con un 65% o más (hasta 5). Debajo, la probabilidad de acertarlos todos juntos.</p></article>
         <article class="gcard"><h4>Cuota justa</h4><p>El mismo pronóstico en forma de cuota (1 entre la probabilidad). Si tu casa paga menos, la apuesta no tiene valor aunque sea probable.</p></article>
+        <article class="gcard"><h4>Mis apuestas y CLV</h4><p>Apunta lo que apuestas y la mesa calcula tu beneficio real. El CLV compara tu cuota con la cuota justa de Pinnacle antes del partido: si sale positivo de forma constante, estás cogiendo mejor precio que el mercado, que es la mejor señal de que se puede ganar a la larga.</p></article>
+        <article class="gcard"><h4>Cuánto apostar</h4><p>Cuarto de Kelly sobre la probabilidad de Pinnacle (o, si no la hay, mitad modelo y mitad tu cuota). Si la cuota no compensa, dice «No apostar» aunque el pronóstico sea muy probable. Hasta tener 100 apuestas resueltas con beneficio y CLV positivos, como mucho 0,5 u por apuesta y 2 u al día (1 u = 1% de tu bank).</p></article>
         <article class="gcard"><h4>Mejor cuota</h4><p>La cuota más alta que ofrece alguna casa europea para ese pronóstico (de The Odds API, dos veces al día, sin contar las anómalas). En las pruebas con la temporada 2025-26, cobrar los pronósticos del 65% o más a la mejor cuota en vez de a la de Bet365 pasaba de ganar un 0,2% a un 2,7% de lo apostado. Comprueba siempre la cuota antes de apostar: muchas de esas casas no tienen licencia en España.</p></article>
         <article class="gcard"><h4>Aciertos</h4><p>Cada pronóstico se guarda antes del partido y se compara con el resultado. Un buen modelo acierta en la proporción que dice: los del 70%, unos 7 de cada 10.</p></article>
       </div>
@@ -477,6 +509,8 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <tr><td>xG (cinco grandes ligas)</td><td>Understat</td><td>Cada hora</td></tr>
         <tr><td>Elo de clubes europeos</td><td>ClubElo</td><td>Cada hora</td></tr>
         <tr><td>Árbitros (8 ligas) y Champions</td><td>football-data.org</td><td>Cada 3 horas</td></tr>
+        <tr><td>Champions, Europa League y Conference (horarios y resultados)</td><td>ESPN</td><td>Cada hora</td></tr>
+        <tr><td>Resultados recientes de tenis (si tennis-data se retrasa)</td><td>ESPN</td><td>Cada 3 horas</td></tr>
         <tr><td>Bajas de la Premier</td><td>Fantasy oficial de la Premier League</td><td>Cada hora</td></tr>
         <tr><td>Bajas de otras 13 ligas</td><td>sportsgambler.com</td><td>Cada 3 horas</td></tr>
         <tr><td>Noticias</td><td>Google Noticias + Bluesky y Telegram que elijas</td><td>Cada 3 horas</td></tr>
@@ -514,7 +548,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <li>Bajas de Ligue 2 y segunda escocesa: sin fuente gratuita. Las bajas son una estimación (la mitad del peso goleador del ausente, como mucho −25%).</li>
         <li>Primera Federación: desactivada, porque lapreferente.com bloquea a los servidores de GitHub.</li>
         <li>Lega A, BBL, liga francesa, griega y turca de baloncesto: el plan gratuito de API-Basketball no da la temporada actual.</li>
-        <li>Europa League y Conference dependen de ClubElo; si su servidor falla, no salen.</li>
+        <li>En Europa League y Conference algunos clubes pequeños (Armenia, Chipre, Israel…) no casan con ClubElo y se quedan sin pronóstico.</li>
         <li>X/Twitter e Instagram no se leen: su acceso es de pago y prohíben leerlas automáticamente.</li>
       </ul>
 

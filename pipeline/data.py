@@ -672,7 +672,7 @@ def update_fdorg(rows, fixtures):
                 designated.append({'div': div, 'd': d, 'h': hs, 'a': as_, 'ref': ref})
     save('refs_next.json', designated)
     nxt = apply_next_refs(fixtures)
-    save('uefa.json', {'results': sorted(res.values(), key=lambda x: x['d'])[-600:]})
+    save('uefa.json', {'results': sorted(res.values(), key=lambda x: x['d'])[-1500:]})
     if refs:
         save('football.json', fb_to_json([r for r in rows.values() if r['d'] >= day(SINCE)]))
     print(f'football-data.org: {refs} árbitros nuevos en partidos jugados, {nxt} en próximos, {len(res)} resultados de Champions')
@@ -690,6 +690,86 @@ def apply_next_refs(fixtures):
             if f['league'] == x['div'] and abs(day(dt.date.fromisoformat(f['kickoff'][:10])) - x['d']) <= 1 and best_pair([f], x['h'], x['a']):
                 f['ref'] = x['ref']; n += 1
     return n
+
+
+# ============================== COMPETICIONES EUROPEAS (marcador público de ESPN) ==============================
+UEFA_ESPN = {'uefa.champions': 'Champions League', 'uefa.europa': 'Europa League', 'uefa.europa.conf': 'Conference League'}
+CE_ALIAS = {'sparta prague': 'Sparta Praha', 'slavia prague': 'Slavia Praha', 'union st gilloise': 'St Gillis', 'red star belgrade': 'Crvena Zvezda',
+            'olympiacos': 'Olympiakos', 'psv eindhoven': 'PSV|PSV Eindhoven', 'paris saint germain': 'Paris SG', 'bayern munich': 'Bayern|Bayern Munich', 'internazionale': 'Inter',
+            'inter milan': 'Inter', 'borussia dortmund': 'Dortmund', 'eintracht frankfurt': 'Frankfurt', 'bayer leverkusen': 'Leverkusen',
+            'fc copenhagen': 'FC Kobenhavn', 'copenhagen': 'FC Kobenhavn', 'bodo glimt': 'Bodoe/Glimt|Bodoe Glimt', 'stade rennais': 'Rennes', 'atletico madrid': 'Atletico|Atletico Madrid', 'sporting cp': 'Sporting|Sporting CP', 'qarabag': 'Karabakh Agdam',
+            'athletic club': 'Bilbao', 'manchester city': 'Man City', 'manchester united': 'Man United', 'tottenham hotspur': 'Tottenham',
+            'nottingham forest': "Forest|Nott'm Forest|Nottm Forest", 'newcastle united': 'Newcastle', 'olympique lyonnais': 'Lyon', 'shakhtar donetsk': 'Shakhtar',
+            'dynamo kyiv': 'Dynamo Kyiv', 'ferencvaros': 'Ferencvaros', 'young boys': 'Young Boys', 'red bull salzburg': 'Salzburg', 'rb salzburg': 'Salzburg'}
+CE_GENERIC = {'fc', 'sc', 'sk', 'ac', 'as', 'rb', 'cf', 'afc', 'club', 'de', 'fk', 'nk', 'ss', 'ssc', 'cd', 'ud', 'sv', 'bk', 'if', 'ff', 'kv', 'krc', 'rsc', 'pfc', 'gnk', 'hnk'}
+
+
+def ce_name(name, clubs):
+    """Nombre de ESPN -> nombre de ClubElo (o None si no hay uno claro)."""
+    key = team_key(re.sub(r'[-/]', ' ', name))
+    for al in (CE_ALIAS.get(key) or '').split('|'):
+        if al in clubs: return al
+    keys = {team_key(re.sub(r'[-/]', ' ', c)): c for c in clubs}
+    if key in keys: return keys[key]
+    toks = set(key.split()) - CE_GENERIC
+    best = None
+    for k, c in keys.items():
+        ct = set(k.split()) - CE_GENERIC
+        if ct and ct <= toks and 2 * len(ct) >= len(toks):   # «Sociedad» en «Real Sociedad», pero no «Paris» en «Paris Saint Germain»
+            sc = (len(ct), clubs[c])
+            if not best or sc > best[0]: best = (sc, c)
+    if best: return best[1]
+    m = difflib.get_close_matches(key, list(keys), n=1, cutoff=0.85)
+    return keys[m[0]] if m and m[0][0] == key[:1] else None
+
+
+def update_uefa_espn(fixtures):
+    """Champions, Europa League y Conference: hora exacta y competición de los partidos próximos (y los que falten si ClubElo está caído),
+    y resultados para evaluar los pronósticos. Pronóstico con el último Elo guardado de ClubElo."""
+    ce = load('clubelo.json') or {'clubs': []}
+    clubs = {c[0]: c[2] for c in ce['clubs']}
+    if not clubs:
+        return
+    uefa = load('uefa.json') or {'results': []}
+    res = {(x['d'], x['h'], x['a']): x for x in uefa['results']}
+    fx = fixtures.setdefault('uefa', [])
+    horizon = NOW + dt.timedelta(days=FIXTURE_DAYS)
+    rng = f"{(TODAY - dt.timedelta(days=3)):%Y%m%d}-{(TODAY + dt.timedelta(days=FIXTURE_DAYS)):%Y%m%d}"
+    new = upd = done = miss = 0; logos = {}
+    for slug, comp in UEFA_ESPN.items():
+        try:
+            js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard?dates={rng}&limit=300'))
+        except Exception as e:
+            warn(f'UEFA ESPN {slug}: {e}'); continue
+        for ev in js.get('events', []):
+            c = (ev.get('competitions') or [{}])[0]; cs = {x.get('homeAway'): x for x in c.get('competitors', [])}
+            if 'home' not in cs or 'away' not in cs: continue
+            h, a = (ce_name((cs[s].get('team') or {}).get('displayName', ''), clubs) for s in ('home', 'away'))
+            if not h or not a or h == a:
+                miss += 1; continue
+            for n, s_ in ((h, 'home'), (a, 'away')):
+                if (cs[s_].get('team') or {}).get('logo'): logos[n] = cs[s_]['team']['logo']
+            ko = dt.datetime.fromisoformat(ev['date'].replace('Z', '+00:00')); d = day(ko.date())
+            st = ((c.get('status') or ev.get('status') or {}).get('type') or {})
+            if st.get('completed'):
+                try:
+                    res[(d, h, a)] = {**res.get((d, h, a), {}), 'd': d, 'h': h, 'a': a, 'hg': int(cs['home']['score']), 'ag': int(cs['away']['score'])}; done += 1
+                except (TypeError, ValueError, KeyError):
+                    pass
+                continue
+            if not (NOW < ko <= horizon): continue
+            kick = ko.isoformat().replace('+00:00', 'Z')
+            f = next((f for f in fx if f['h'] == h and f['a'] == a and abs(day(dt.date.fromisoformat(f['kickoff'][:10])) - d) <= 1), None)
+            if f:
+                f.update(kickoff=kick, noTime=False, competition=comp); upd += 1
+            else:
+                fx.append({'league': 'UEFA', 'kickoff': kick, 'noTime': False, 'competition': comp, 'h': h, 'a': a, 'eh': float(clubs[h]), 'ea': float(clubs[a])}); new += 1
+    fx.sort(key=lambda f: f['kickoff'])
+    save('uefa.json', {'results': sorted(res.values(), key=lambda x: x['d'])[-1500:]})
+    cr = load('crests.json') or {}
+    add = {n: u for n, u in logos.items() if n not in cr}
+    if add: save('crests.json', {**cr, **add})   # escudos de los clubes europeos que no están en las 17 ligas
+    print(f'UEFA (ESPN): {new} partidos nuevos, {upd} con hora exacta, {done} resultados, {miss} sin casar con ClubElo')
 
 
 # ============================== ESCUDOS (lista pública de equipos de ESPN, una vez al día) ==============================
@@ -1234,6 +1314,10 @@ def main():
             fn(fixtures['football'], FB_ROWS)
         except Exception as e:
             warn(f'{fn.__name__}: {e}')
+    try:
+        update_uefa_espn(fixtures)
+    except Exception as e:
+        warn(f'UEFA ESPN: {e}')
     try:
         update_fdorg(FB_ROWS, fixtures)
     except Exception as e:

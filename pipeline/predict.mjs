@@ -218,7 +218,11 @@ export function performance(hist) {
     if (sel.picks.length >= 2 && sel.picks.every(e => e.eval)) { daily.full.n++; daily.full.hits += sel.picks.every(e => e.eval.pick.hit); }
   }
   daily.recent = daily.recent.slice(0, 30);
-  return { updated: new Date(NOW).toISOString(), sports, leagues, recent, daily };
+  // última cuota justa de Pinnacle vista antes de empezar cada partido (para el CLV del registro de apuestas) y resultado
+  const closing = {};
+  for (const e of Object.values(hist)) if (NOW - Date.parse(e.kickoff) < 120 * 864e5 && (e.fair || e.result))
+    closing[e.id] = { ...(e.fair ? { fair: e.fair } : {}), ...(e.result ? { result: e.result } : {}) };
+  return { updated: new Date(NOW).toISOString(), sports, leagues, recent, daily, closing };
 }
 
 // Mejor cuota disponible para el pronóstico principal (de odds.json). En la validación 2025-26, cobrar los pronósticos de 65% o más
@@ -231,7 +235,8 @@ export function attachBest(matches, odds) {
   for (const m of matches) {
     const e = (odds?.best || []).find(e => Math.abs(Date.parse(e.kickoff) - Date.parse(m.kickoff)) <= 3 * 3600e3 && sameTeam(m.home, e.home) && sameTeam(m.away, e.away));
     const b = e && e[m.pick.code];
-    if (b) { m.best = { odds: b[0], book: b[1] }; n++; }
+    if (b) { m.best = { odds: b[0], book: b[1], ...(e.fair?.[m.pick.code] ? { fair: e.fair[m.pick.code] } : {}) }; n++; }
+    if (e?.fair) m.fair = e.fair;   // cuotas justas de Pinnacle de todos los resultados (para el registro de apuestas)
   }
   return n;
 }

@@ -122,5 +122,11 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const sel = P2.dailyPicks([e, f], '2026-10-22');
   ok(sel && sel.bet === e && sel.picks.length === 2 && !P2.dailyPicks([e], '2026-10-23'), 'la madrugada cuenta para la jornada anterior');
 }
+// el registro de apuestas recibe la cuota justa de cierre y el resultado de cada partido pronosticado
+{
+  const k = new Date(Date.now() - 864e5).toISOString();
+  const pf = P2.performance({ x: { id: 'x', sport: 'futbol', league: 'SP1', leagueName: 'L', kickoff: k, home: 'A', away: 'B', pick: { p: .6, code: 'H', label: 'Gana A' }, fair: { H: 1.8, D: 3.6, A: 4.5 }, result: { hg: 2, ag: 1 } } });
+  ok(pf.closing.x && pf.closing.x.fair.H === 1.8 && pf.closing.x.result.hg === 2, 'cierre y resultado para el registro');
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);
