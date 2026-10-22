@@ -38,17 +38,13 @@ async function loadJSON(id, url) {
 }
 
 // ---------- Tablas ----------
-function marketTable(el, groups) {
-  let html = '<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Probabilidad</th><th class="num">Cuota justa</th></tr></thead><tbody>';
-  for (const g of groups) {
-    html += `<tr class="group"><td colspan="3">${esc(g.title)}</td></tr>`;
-    for (const r of g.rows) {
-      const fair = r.p > 0 ? (1 - (r.push || 0)) / r.p : Infinity;
-      html += `<tr><td>${esc(r.label)}${r.push > 0.005 ? ` <span class="note">(devolución ${pct(r.push, 0)})</span>` : ''}</td>
-        <td class="num">${r.p >= 0.7 ? `<span class="chip pos">${pct(r.p)}</span>` : pct(r.p)}</td><td class="num">${isFinite(fair) && fair < 1000 ? nf(fair) : '—'}</td></tr>`;
-    }
-  }
-  el.innerHTML = html + '</tbody></table></div>';
+// Mercados en tarjetas (una por grupo) con barra de probabilidad y cuota justa: se leen de un vistazo y aprovechan el ancho
+function marketTable(el, groups, extra = '') {
+  const card = g => `<section class="mkcard"><h4>${esc(g.title)}</h4><div class="mkhead"><span></span><span>Prob.</span><span>Cuota</span></div>${g.rows.map(r => {
+    const fair = r.p > 0 ? (1 - (r.push || 0)) / r.p : Infinity, hi = r.p >= 0.7;
+    return `<div class="mkrow${hi ? ' hi' : ''}"><span class="mk-l">${esc(r.label)}${r.push > 0.005 ? `<small>devolución ${pct(r.push, 0)}</small>` : ''}</span>
+      <span class="mk-p"><i style="width:${Math.min(100, r.p * 100).toFixed(1)}%"></i><b>${pct(r.p)}</b></span><span class="mk-o">${isFinite(fair) && fair < 1000 ? nf(fair) : '—'}</span></div>`; }).join('')}</section>`;
+  el.innerHTML = `<h3 class="sect">Todos los mercados <span class="note">· cuota = cuota justa · en verde, 70% o más</span></h3><div class="mkgrid">${groups.map(card).join('')}${extra}</div>`;
 }
 const statBox = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
 // Calibración: agrupa pronósticos {p, hit} por confianza
@@ -79,7 +75,7 @@ const flagOf = t => { const x = String(t || '').toLowerCase(); const c = [[/spai
 const flag = (lg, size = '') => FLAG[lg] ? `<img class="flag ${size}" src="https://flagcdn.com/w40/${FLAG[lg]}.png" alt="" loading="lazy" onerror="this.remove()">` : '';
 const sportIcon = sp => sp === 'futbol' ? '⚽' : sp === 'tenis' ? '🎾' : '🏀';
 const initials = n => { const w = String(n).replace(/[.'’]/g, ' ').split(/\s+/).filter(x => x && !/^(c|f|cf|fc|cd|sd|ud|ad|ce|ue|rc|club|de|la|el|the|afc)$/i.test(x));
-  return (w.length ? (w.length === 1 ? w[0].slice(0, 2) : w[0][0] + w[1][0]) : String(n).slice(0, 2)).toUpperCase(); };
+  return (w.length ? (w.length === 1 ? w[0].slice(0, 3) : w[0][0] + w[1][0]) : String(n).slice(0, 3)).toUpperCase(); };
 const hue = n => [...String(n)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 // el mismo club se escribe distinto según la fuente («Bayern» / «Bayern Munich», «Barça» / «FC Barcelona»): búsqueda tolerante
 const normT = n => String(n).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ç/g, 'c').replace(/[.'’]/g, ' ')
@@ -187,8 +183,8 @@ function fbPredict() {
     <div class="scoreline"><div class="team">${crest(h, 'futbol', 'xl')}<span>${esc(h)}</span></div><div class="mid">${nf(s.lam)} – ${nf(s.mu)}<small>goles esperados</small></div><div class="team">${crest(a, 'futbol', 'xl')}<span>${esc(a)}</span></div></div>
     <div class="stats">${statBox(`${pct(s.H, 0)} · ${pct(s.D, 0)} · ${pct(s.A, 0)}`, '1 · X · 2')}${statBox(pct(pick.p, 0), 'Pronóstico: ' + esc(pick.label))}${statBox(`${s.score.x}-${s.score.y}`, `marcador más probable (${pct(s.score.p, 0)})`)}${s.corners ? statBox(nf(s.corners, 1), 'córners esperados') : ''}${s.cards ? statBox(nf(s.cards, 1), 'tarjetas esperadas') : ''}</div>
     ${uefa ? '' : fbFicha(div, h, a)}${uefa ? '' : '<div class="panel" style="padding:14px"><h3>Árbitro</h3><div id="refBox"></div></div>'}
-    <div class="grid2"><div id="fbMk" style="min-width:0"></div><div class="panel" style="padding:12px"><h3>Marcador exacto</h3>${heat}</div></div>`;
-  marketTable($('fbMk'), P.groups);
+    <div id="fbMk"></div>`;
+  marketTable($('fbMk'), P.groups, `<section class="mkcard"><h4>Marcador exacto</h4>${heat}</section>`);
   if (!uefa) refRender(div);
 }
 
@@ -553,10 +549,9 @@ function dailyRender() {
   if (P.length >= 2) {
     const all = P.reduce((x, m) => x * m.pick.p, 1);
     h += `<h3>Selección recomendada</h3><div class="pcards">${P.map(m => pcard(m, res)).join('')}</div>
-      <div class="combo"><span>Probabilidad de acertar las ${P.length} juntas: <b>${pct(all, 0)}</b> (cuota justa ${nf(1 / all, 2)})</span></div>`;
+      <div class="stats">${statBox(pct(all, 0), `acertar las ${P.length} juntas`)}${statBox(nf(1 / all, 2), 'cuota justa de la combinada')}</div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
-  h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · pronósticos de la selección ${rate(T && T.picks)} · selección completa ${rate(T && T.full)}.
-    Más probabilidad no significa más valor: la casa paga menos por lo más probable. Compara la cuota justa con la de tu casa.</p>`;
+  h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · selección ${rate(T && T.picks)} (detalle en «Aciertos»). Más probabilidad no significa más valor: compara la cuota justa con la de tu casa.</p>`;
   box.innerHTML = h; bindOpen(box);
 }
 const dayKey = m => { const t = new Date(m.kickoff); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
@@ -575,9 +570,10 @@ function prRender() {
     const t = new Date(m.kickoff), dkey = t.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
     if (dkey !== cur) { cur = dkey; curL = ''; html += `<h3 class="daylabel">${esc(dkey)}</h3>`; }
     if (m.league !== curL) { curL = m.league; html += `<div class="lghead">${flag(m.league, 'lg')}<span>${esc(m.leagueName)}</span><span class="mc-sp">${sportIcon(m.sport)}</span></div>`; }
+    const kv = (k, v) => `<span class="kv"><em>${k}</em><b>${v}</b></span>`;
     const probs = m.sport === 'futbol'
-      ? `${m.base ? `<span>Sin bajas: 1 <b>${pct(m.base.H, 0)}</b> X <b>${pct(m.base.D, 0)}</b> 2 <b>${pct(m.base.A, 0)}</b></span>` : ''}<span>1 <b>${pct(m.H, 0)}</b></span><span>X <b>${pct(m.D, 0)}</b></span><span>2 <b>${pct(m.A, 0)}</b></span><span>Más 2,5 <b>${pct(m.o25, 0)}</b></span><span>Ambos marcan <b>${pct(m.btts, 0)}</b></span><span>Goles esperados <b>${nf(m.lam, 1)}–${nf(m.mu, 1)}</b></span>${m.corners ? `<span>Córners <b>${nf(m.corners, 1)}</b></span>` : ''}`
-      : `<span>Gana local <b>${pct(m.pw, 0)}</b></span><span>Puntos <b>${Math.round(m.ph)}–${Math.round(m.pa)}</b></span><span>Hándicap justo <b>${nf(-m.margin, 1)}</b></span><span>Total <b>${nf(m.total, 1)}</b></span>`;
+      ? `${kv('1 · X · 2', `${pct(m.H, 0)} · ${pct(m.D, 0)} · ${pct(m.A, 0)}`)}${kv('Más de 2,5', pct(m.o25, 0))}${kv('Ambos marcan', pct(m.btts, 0))}${kv('Goles esperados', `${nf(m.lam, 1)} – ${nf(m.mu, 1)}`)}${m.corners ? kv('Córners', nf(m.corners, 1)) : ''}${m.base ? kv('Sin bajas', `${pct(m.base.H, 0)} · ${pct(m.base.D, 0)} · ${pct(m.base.A, 0)}`) : ''}`
+      : `${kv('Gana local', pct(m.pw, 0))}${kv('Puntos', `${Math.round(m.ph)} – ${Math.round(m.pa)}`)}${kv('Hándicap justo', nf(-m.margin, 1))}${kv('Total', nf(m.total, 1))}`;
     const bar = m.sport === 'futbol' ? `<div class="tribar" aria-hidden="true"><i style="width:${m.H * 100}%"></i><i style="width:${m.D * 100}%"></i><i style="width:${m.A * 100}%"></i></div>` : '';
     const nn = (NW?.teams?.[`${m.league}|${m.home}`]?.length || 0) + (NW?.teams?.[`${m.league}|${m.away}`]?.length || 0);
     const chips = (nn ? `<span class="chip warn">${nn} ${nn === 1 ? 'noticia' : 'noticias'}</span> ` : '') + (m.ref ? `<span class="chip">Árbitro: ${esc(m.ref)}</span> ` : '') + (m.injuries && m.injuries.length ? `<span class="chip warn">${m.injuries.length} bajas</span> ` : '') +
@@ -597,24 +593,28 @@ function openMatch(sport, league, h, a, ref) {
 function acRender() {
   const out = $('acOut');
   if (!PF || !PF.sports) { out.innerHTML = '<p class="verdict">El seguimiento empieza cuando la mesa funciona desde GitHub: cada pronóstico se guarda antes del partido y se compara con el resultado. Para ver cómo habría acertado en el pasado, usa «Precisión histórica» en cada deporte.</p>'; return; }
+  const rateBox = (o, l) => statBox(o && o.n ? pct(o.hits / o.n, 0) : '—', `${l}${o && o.n ? ` · ${o.hits} de ${o.n}` : ' · aún sin datos'}`);
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
+  const D = PF.daily;
+  html += `<section class="block"><h3 class="sect">⭐ Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
-    html += `<h3 class="daylabel">${SPORT_NAME[sp] || sp}</h3><div class="stats">${statBox(s.n, 'partidos evaluados')}${Object.entries(s.markets).map(([k, v]) => statBox(v.n ? pct(v.hits / v.n) : '—', `acierto ${k} (${v.n})`)).join('')}</div>`;
-    html += calibTable(s.preds || []);
+    html += `<section class="block"><h3 class="sect">${sportIcon(sp)} ${SPORT_NAME[sp] || sp} <span class="note">· ${s.n} partidos evaluados</span></h3>
+      <div class="stats">${Object.entries(s.markets).map(([k, v]) => statBox(v.n ? pct(v.hits / v.n, 0) : '—', `${k}${v.n ? ` · ${v.n}` : ''}`)).join('')}</div>
+      <h4 class="sub4">¿Se cumple lo que dice el modelo?</h4>${calibTable(s.preds || [])}</section>`;
   }
   if (PF.leagues && Object.keys(PF.leagues).length) {
     const L = Object.entries(PF.leagues).sort((a, b) => b[1].n - a[1].n);
     const mk = ['pronóstico principal', '1X2', 'más/menos 2,5', 'ambos marcan', 'córners más/menos 9,5', 'tarjetas más/menos 4,5', 'ganador'].filter(k => L.some(([, v]) => v.markets[k]));
     const cell = v => !v || !v.n ? '<td class="num">—</td>' : `<td class="num"><span class="chip ${v.hits / v.n >= 0.6 ? 'pos' : v.hits / v.n >= 0.5 ? 'warn' : 'neg'}">${pct(v.hits / v.n, 0)}</span> <span class="note">${v.n}</span></td>`;
-    html += `<h3 class="daylabel">Por competición y mercado</h3><div class="tablewrap"><table><thead><tr><th>Competición</th><th class="num">Partidos</th>${mk.map(k => `<th class="num">${esc(k)}</th>`).join('')}</tr></thead><tbody>
+    html += `<section class="block"><h3 class="sect">Por competición y mercado</h3><div class="tablewrap"><table><thead><tr><th>Competición</th><th class="num">Partidos</th>${mk.map(k => `<th class="num">${esc(k)}</th>`).join('')}</tr></thead><tbody>
       ${L.map(([k, v]) => `<tr><td>${flag(k)}${esc(v.name)}</td><td class="num">${v.n}</td>${mk.map(k => cell(v.markets[k])).join('')}</tr>`).join('')}</tbody></table></div>
-      <p class="note">Porcentaje de aciertos y, en gris, cuántos pronósticos hay detrás. Con menos de 30 todavía es muy pronto para sacar conclusiones.</p>`;
+      <p class="note">Porcentaje de aciertos y, en gris, cuántos pronósticos hay detrás. Con menos de 30 todavía es muy pronto para sacar conclusiones.</p></section>`;
   }
   if (PF.recent && PF.recent.length) {
-    html += `<h3 class="daylabel">Últimos resultados</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Partido</th><th>Pronóstico</th><th class="num">Prob.</th><th>Resultado</th><th></th></tr></thead><tbody>
+    html += `<section class="block"><h3 class="sect">Últimos resultados</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Partido</th><th>Pronóstico</th><th class="num">Prob.</th><th>Resultado</th><th></th></tr></thead><tbody>
       ${PF.recent.map(r => `<tr><td>${esc(r.date)}</td><td>${vs(r.home, r.away, r.sport)}</td><td>${esc(r.label)}</td><td class="num">${pct(r.p, 0)}</td><td>${esc(r.score)}</td><td><span class="chip ${r.hit ? 'pos' : 'neg'}">${r.hit ? 'Acierto' : 'Fallo'}</span></td></tr>`).join('')}
-    </tbody></table></div>`;
+    </tbody></table></div></section>`;
   }
   out.innerHTML = html;
 }
@@ -626,9 +626,9 @@ function odRender() {
   const when = s => new Date(s).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const tbl = (head, rows) => rows.length ? `<div class="tablewrap"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<p class="note">Ninguna en la última revisión.</p>';
   out.innerHTML = `<p class="note">Revisado el ${new Date(OD.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}${OD.credits_left != null ? ` · quedan ${Math.round(OD.credits_left)} créditos este mes` : ''}.</p>
-    <h3>Surebets (beneficio seguro si todas las cuotas siguen disponibles)</h3>${tbl(['Partido', 'Mercado', 'Beneficio', 'Apuestas (reparto del total)'], OD.surebets.map(s => `<tr><td>${vsText(s.match, s.sport)}<br><span class="note">${flagOf(s.sport)}${esc(s.sport || '')} · ${when(s.kickoff)}</span></td><td>${esc(s.market)}</td><td class="num"><span class="chip pos">${pct(s.profit)}</span></td><td>${s.legs.map(l => `${esc(l.outcome)} @ ${nf(l.odds)} en ${esc(l.book)} (${pct(l.stake, 0)})`).join('<br>')}</td></tr>`))}
-    <h3>Cuotas anómalas (muy por encima del resto: posible error de la casa)</h3>${tbl(['Partido', 'Mercado', 'Cuota', 'Mediana del resto'], OD.anomalies.map(a => `<tr><td>${vsText(a.match, a.sport)}<br><span class="note">${flagOf(a.sport)}${esc(a.sport || '')} · ${when(a.kickoff)}</span></td><td>${esc(a.market)}: ${esc(a.outcome)}</td><td class="num">${nf(a.odds)} en ${esc(a.book)}</td><td class="num">${nf(a.median)} (×${nf(a.ratio)})</td></tr>`))}
-    <h3>Valor frente a Pinnacle</h3>${tbl(['Partido', 'Mercado', 'Cuota', 'Cuota justa', 'Valor'], OD.value.map(v => `<tr><td>${vsText(v.match, v.sport)}<br><span class="note">${flagOf(v.sport)}${esc(v.sport || '')} · ${when(v.kickoff)}</span></td><td>${esc(v.market)}: ${esc(v.outcome)}</td><td class="num">${nf(v.odds)} en ${esc(v.book)}</td><td class="num">${nf(v.fair)}</td><td class="num"><span class="chip pos">+${pct(v.ev)}</span></td></tr>`))}
+    <section class="block"><h3 class="sect">✅ Surebets</h3><p class="note">Apostando a todos los resultados en estas casas, ganas pase lo que pase (si las cuotas siguen disponibles).</p>${tbl(['Partido', 'Mercado', 'Beneficio', 'Apuestas (reparto del total)'], OD.surebets.map(s => `<tr><td>${vsText(s.match, s.sport)}<br><span class="note">${flagOf(s.sport)}${esc(s.sport || '')} · ${when(s.kickoff)}</span></td><td>${esc(s.market)}</td><td class="num"><span class="chip pos">${pct(s.profit)}</span></td><td>${s.legs.map(l => `${esc(l.outcome)} @ ${nf(l.odds)} en ${esc(l.book)} (${pct(l.stake, 0)})`).join('<br>')}</td></tr>`))}</section>
+    <section class="block"><h3 class="sect">⚠️ Cuotas anómalas</h3><p class="note">Muy por encima del resto de casas: puede ser un error de la casa.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Mediana del resto'], OD.anomalies.map(a => `<tr><td>${vsText(a.match, a.sport)}<br><span class="note">${flagOf(a.sport)}${esc(a.sport || '')} · ${when(a.kickoff)}</span></td><td>${esc(a.market)}: ${esc(a.outcome)}</td><td class="num">${nf(a.odds)} en ${esc(a.book)}</td><td class="num">${nf(a.median)} (×${nf(a.ratio)})</td></tr>`))}</section>
+    <section class="block"><h3 class="sect">📈 Valor frente a Pinnacle</h3><p class="note">Cuotas más altas que el precio de Pinnacle sin margen, la casa más afinada.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Cuota justa', 'Valor'], OD.value.map(v => `<tr><td>${vsText(v.match, v.sport)}<br><span class="note">${flagOf(v.sport)}${esc(v.sport || '')} · ${when(v.kickoff)}</span></td><td>${esc(v.market)}: ${esc(v.outcome)}</td><td class="num">${nf(v.odds)} en ${esc(v.book)}</td><td class="num">${nf(v.fair)}</td><td class="num"><span class="chip pos">+${pct(v.ev)}</span></td></tr>`))}</section>
     <p class="note">«Valor» compara con el precio de Pinnacle sin margen, la casa más afinada. En los datos de tenis de 2023-26 esa comparación dio un +1,9% a largo plazo con muchos altibajos; en fútbol no hay datos con los que medirlo.</p>`;
 }
 
