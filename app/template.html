@@ -75,7 +75,14 @@ table.cmp { width: 100%; } table.cmp th, table.cmp td { white-space: normal; }
 @media (max-width: 520px) { table.cmp thead th .tn { display: block; margin: 4px 0 0; font-size: 13px; }
   #fbOut .block td, #fbOut .block th, #nbOut td, #nbOut th { padding-left: 5px; padding-right: 5px; } }
 .tline .sc { margin-left: auto; font: 500 15px var(--f-mono); padding-left: 10px; }
-.best { font-size: 13.5px; color: var(--muted); margin-top: 4px; } .best b { color: var(--pos); font-family: var(--f-mono); font-weight: 600; } .mc .best { color: var(--board-dim); } .mc .best b { color: #7ee2a8; }
+.odds { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+.oc { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 12px; border-radius: 10px; background: var(--soft); min-width: 92px; }
+.oc small { font-size: 11.5px; color: var(--muted); letter-spacing: .02em; } .oc b { font: 600 18px var(--f-mono); color: var(--ink); }
+.oc.best { background: var(--pos-bg); } .oc.best b { color: var(--pos); } .oc.none b { color: var(--muted); }
+.pcard .odds { justify-content: flex-start; }
+.mc .oc { background: rgba(255,255,255,.10); } .mc .oc small { color: #c3cbe8; } .mc .oc b { color: #fff; } .mc .oc.best { background: rgba(126,226,168,.18); } .mc .oc.best b { color: #7ee2a8; }
+.mr-p .mr-odds { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; } .mr-p .mr-odds b { font: 600 13px var(--f-mono); color: var(--ink); display: inline; } .mr-p .mr-odds b.g { color: var(--pos); }
+.pcard .betbtn { display: block; margin-left: 0; padding-left: 0; }
 .betbtn { margin-top: 6px; font-size: 13.5px; } .mc .betbtn { color: #b9c6ff; }
 .sug { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 12px; margin-top: 10px; line-height: 1.4; }
 #mbOut { display: flex; flex-direction: column; gap: 14px; } #mbOut > .sug, .block > .sug { margin-top: 0; } #mbOut .stats { margin: 0; }
@@ -242,7 +249,7 @@ a { color: var(--accent); }
   .crest.xl { width: 58px; height: 58px; border-radius: 15px; } .mc-p { font-size: 46px; } .mc-team { font-size: 17px; }
   .mc-body { grid-template-columns: 1fr minmax(100px, auto) 1fr; padding: 20px 10px 8px; gap: 6px; }
   .mrow { grid-template-columns: 46px minmax(0, 1fr) auto; padding: 10px; } .mrow .tribar, .mr-probs { grid-column: 1 / 4; } .mr-p b { font-size: 24px; }
-  .pcards { grid-template-columns: 1fr; } .tline span { white-space: normal; } .mr-p span { max-width: 96px; } }
+  .pcards { grid-template-columns: 1fr; } .tline span { white-space: normal; } .mr-p span { max-width: 96px; } .mr-p .mr-odds { max-width: 96px; margin-left: auto; } }
 .flag { width: 16px; height: 12px; object-fit: cover; border-radius: 2px; vertical-align: -1px; margin-right: 5px; box-shadow: 0 0 0 1px var(--line); }
 .daily { border-left: 4px solid var(--accent); }
 .daily .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; }

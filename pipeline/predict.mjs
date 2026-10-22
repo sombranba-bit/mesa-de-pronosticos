@@ -297,14 +297,14 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
   const SEP = '━━━━━━━━━━━━━━━━';
   const sportName = m => m.sport === 'futbol' ? '⚽ FÚTBOL' : '🏀 BALONCESTO';
   const head = m => `${tag(m)} ${html(m.leagueName)} · 🕒 ${when(m)}`;
-  const pickLine = m => `🎯 <b>${html(m.pick.label)}</b> · ${pc(m.pick.p)}${m.best && Date.parse(m.kickoff) > NOW ? ` · 💰 ${odds(m.best.odds)} en ${html(m.best.book)}` : ''}${state(m)}`;
+  const pickLine = m => `🎯 <b>${html(m.pick.label)}</b> · ${pc(m.pick.p)} · justa ${odds(1 / m.pick.p)}${m.best && Date.parse(m.kickoff) > NOW ? ` · 💰 ${odds(m.best.odds)} en ${html(m.best.book)}` : ''}${state(m)}`;
   const nFb = todays.filter(m => m.sport === 'futbol').length, nBk = todays.length - nFb;
   const date = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(Date.parse(day + 'T12:00:00Z')));
   const S = [];   // secciones: el envío parte el mensaje por secciones, nunca dentro de una
   S.push(`📅 <b>PRONÓSTICOS DE HOY</b>\n<i>${html(date.charAt(0).toUpperCase() + date.slice(1))}</i>\n${[nFb && `⚽ ${nFb}`, nBk && `🏀 ${nBk}`].filter(Boolean).join(' · ')} · ${todays.length} ${todays.length === 1 ? 'partido' : 'partidos'}${filtered ? ' (según tus filtros)' : ''}`);
   if (sel && sel.day === day) {
     const b = sel.bet;
-    S.push(`${SEP}\n⭐ <b>APUESTA DEL DÍA</b>\n\n${head(b)}\n<b>${html(b.home)} – ${html(b.away)}</b>\n${pickLine(b)}${b.best ? ` (justa ${odds(1 / b.pick.p)})` : ''}`
+    S.push(`${SEP}\n⭐ <b>APUESTA DEL DÍA</b>\n\n${head(b)}\n<b>${html(b.home)} – ${html(b.away)}</b>\n${pickLine(b)}`
       + (b.why?.length ? `\n<blockquote>${b.why.map(w => '• ' + html(w)).join('\n')}</blockquote>` : ''));
     if (sel.picks.length >= 2) {
       const all = sel.picks.reduce((x, e) => x * e.pick.p, 1), N = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];

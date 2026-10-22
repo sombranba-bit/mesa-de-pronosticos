@@ -104,7 +104,9 @@ const openAttr = m => `data-open="${esc(JSON.stringify([m.sport, m.league, m.hom
 const night = m => new Date(m.kickoff).getHours() < 6 ? ' 🌙' : '';   // madrugada: cuenta para la jornada de la noche anterior
 const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + night(m);
 // tarjeta compacta de un pronóstico (selección recomendada)
-const bestLine = m => (m.best ? `<div class="best">Mejor cuota <b>${nf(m.best.odds)}</b> en ${esc(m.best.book)} <span>· justa ${nf(1 / m.pick.p)}</span></div>` : '')
+const oddsChips = m => `<div class="odds"><span class="oc"><small>Cuota justa</small><b>${nf(1 / m.pick.p)}</b></span>${m.best
+  ? `<span class="oc best"><small>Mejor cuota · ${esc(m.best.book)}</small><b>${nf(m.best.odds)}</b></span>` : '<span class="oc none"><small>Mejor cuota</small><b>—</b></span>'}</div>`;
+const bestLine = m => oddsChips(m)
   + (Date.parse(m.kickoff) > Date.now() ? `<button class="linkbtn betbtn" data-bet-open="${esc(m.id)}">＋ Apuntar apuesta</button>` : '');
 const pcard = (m, res) => `<div class="pcard" ${openAttr(m)}>
   <div class="pc-head">${flag(m.league)}<span>${esc(m.leagueName)}</span><span class="pc-time">${sportIcon(m.sport)} ${esc(hhmm(m))}</span></div>
@@ -621,11 +623,11 @@ function prRender() {
       : `${kv('Gana local', pct(m.pw, 0))}${kv('Puntos', `${Math.round(m.ph)} – ${Math.round(m.pa)}`)}${kv('Hándicap justo', nf(-m.margin, 1))}${kv('Total', nf(m.total, 1))}`;
     const bar = m.sport === 'futbol' ? `<div class="tribar" aria-hidden="true"><i style="width:${m.H * 100}%"></i><i style="width:${m.D * 100}%"></i><i style="width:${m.A * 100}%"></i></div>` : '';
     const nn = (NW?.teams?.[`${m.league}|${m.home}`]?.length || 0) + (NW?.teams?.[`${m.league}|${m.away}`]?.length || 0);
-    const chips = (nn ? `<span class="chip warn">${nn} ${nn === 1 ? 'noticia' : 'noticias'}</span> ` : '') + (m.ref ? `<span class="chip">Árbitro: ${esc(m.ref)}</span> ` : '') + (m.best ? `<span class="chip pos">Mejor cuota ${nf(m.best.odds)} · ${esc(m.best.book)}</span> ` : '') + (m.injuries && m.injuries.length ? `<span class="chip warn">${m.injuries.length} bajas</span> ` : '') +
+    const chips = (nn ? `<span class="chip warn">${nn} ${nn === 1 ? 'noticia' : 'noticias'}</span> ` : '') + (m.ref ? `<span class="chip">Árbitro: ${esc(m.ref)}</span> ` : '') + (m.injuries && m.injuries.length ? `<span class="chip warn">${m.injuries.length} bajas</span> ` : '') +
       (m.fatigue && (m.fatigue.b2bH || m.fatigue.b2bA) ? `<span class="chip warn">2ª noche seguida: ${esc(m.fatigue.b2bH ? m.home : m.away)}</span> ` : '');
     html += `<div class="mrow" ${openAttr(m)}><div class="mr-time">${m.noTime ? 'Por<br>confirmar' : esc(hhmm(m))}</div>
       <div class="mr-teams">${twoLines(m.home, m.away, m.sport)}${chips ? `<div class="mr-chips">${chips}</div>` : ''}</div>
-      <div class="mr-p"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span></div>
+      <div class="mr-p"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span><small class="mr-odds">justa <b>${nf(1 / m.pick.p)}</b>${m.best ? ` · mejor <b class="g">${nf(m.best.odds)}</b>` : ''}</small></div>
       ${bar}<div class="mr-probs">${probs}</div></div>`;
   }
   out.innerHTML = html; bindOpen(out);
