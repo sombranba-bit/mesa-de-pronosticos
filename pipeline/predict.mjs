@@ -275,9 +275,11 @@ export function attachBest(matches, odds) {
 }
 const bestTxt = m => m.best ? ` · mejor cuota ${String(m.best.odds).replace('.', ',')} (${html(m.best.book)})` : '';
 
-async function telegram(text) {
-  const token = process.env.TELEGRAM_TOKEN, chat = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chat) return false;
+// TELEGRAM_CHAT_ID admite varios destinos separados por comas (tu chat privado y el grupo, por ejemplo)
+const chatIds = () => String(process.env.TELEGRAM_CHAT_ID || '').split(',').map(s => s.trim()).filter(Boolean);
+async function telegram(text, chats = chatIds()) {
+  const token = process.env.TELEGRAM_TOKEN;
+  if (!token || !chats.length) return false;
   const chunks = []; let cur = '';
   const add = part => { if ((cur + part).length > 3800 && cur) { chunks.push(cur); cur = ''; } cur += part + '\n\n'; };
   for (const sec of Array.isArray(text) ? text : text.split('\n\n')) {
@@ -285,12 +287,13 @@ async function telegram(text) {
     for (const line of sec.replace(/<\/?blockquote[^>]*>/g, '').split('\n')) add(line);   // sección enorme: se parte por líneas (sin desplegable)
   }
   if (cur.trim()) chunks.push(cur);
-  for (const c of chunks) {
+  let ok = true;
+  for (const chat of chats) for (const c of chunks) {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: chat, text: c, parse_mode: 'HTML', disable_web_page_preview: true }) });
-    if (!r.ok) { console.log('AVISO: Telegram respondió', r.status, (await r.text()).slice(0, 200)); return false; }
+    if (!r.ok) { console.log('AVISO: Telegram respondió', r.status, (await r.text()).slice(0, 200)); ok = false; break; }
   }
-  return true;
+  return ok;
 }
 const html = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const pc = p => Math.round(p * 100) + '%';
@@ -359,6 +362,80 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
   return S;   // lista de secciones
 }
 
+// ---------- Más mensajes del bot: resultados de la noche, avisos de valor, resumen semanal y comandos ----------
+const odds2 = x => x.toFixed(2).replace('.', ',');
+const dayLong = day => { const t = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(Date.parse(day + 'T12:00:00Z'))); return t.charAt(0).toUpperCase() + t.slice(1); };
+const mark = e => !e ? '⏳' : e.eval ? (e.eval.pick.hit ? '✅' : '❌') : '⏳';
+const score = e => e?.result ? ` <i>(${e.result.hg ?? e.result.hp}-${e.result.ag ?? e.result.ap})</i>` : '';
+const rateTxt = (h, n) => n ? `${h} de ${n} (${pc(h / n)})` : 'sin datos';
+export const valueEdge = e => { if (!e.best?.odds) return -1; return e.best.odds / Math.max(1 / e.pick.p, e.fair?.[e.pick.code] || 0) - 1; };
+
+// Resultados de la jornada (por la noche): apuesta del día, selección, combinadas y todos los pronósticos
+export function nightResults(hist, day) {
+  const all = Object.values(hist), sel = dailyPicks(all, day);
+  if (!sel) return null;
+  const d = all.filter(e => slateDay(Date.parse(e.kickoff)) === day), done = d.filter(e => e.eval), byId = Object.fromEntries(all.map(e => [e.id, e]));
+  const line = e => `${mark(e)} ${tag(e)} ${html(e.home)} – ${html(e.away)}${score(e)}\n      ${html(e.pick.label)} · ${pc(e.pick.p)}`;
+  const S = [`🌙 <b>RESULTADOS DE HOY</b>\n<i>${html(dayLong(day))}</i>`];
+  S.push(`━━━━━━━━━━━━━━━━\n⭐ <b>APUESTA DEL DÍA</b>\n${line(sel.bet)}`);
+  if (sel.picks.length >= 2) { const ok = sel.picks.filter(e => e.eval?.pick.hit).length, fin = sel.picks.filter(e => e.eval).length;
+    S.push(`━━━━━━━━━━━━━━━━\n🧩 <b>SELECCIÓN</b> · ${ok} de ${fin} acertados${fin < sel.picks.length ? ` · ${sel.picks.length - fin} ⏳ pendientes` : ''}\n` + sel.picks.map(line).join('\n')); }
+  const cLine = (t, c) => { if (!c) return null; const L = c.ids.map(id => byId[id]); const st = L.some(e => e?.eval && !e.eval.pick.hit) ? '❌ fallada' : L.every(e => e?.eval?.pick.hit) ? '✅ acertada' : '⏳ en juego';
+    return `${t}: <b>${st}</b> · acertarla era un ${pc(c.p)}${c.odds ? ` · cuota ${odds2(c.odds)}` : ''}`; };
+  const cs = [cLine('🛡️ Segura', sel.combos.safe), cLine('💎 Con valor', sel.combos.value)].filter(Boolean);
+  if (cs.length) S.push(`━━━━━━━━━━━━━━━━\n🎰 <b>COMBINADAS</b>\n${cs.join('\n')}`);
+  const h = done.filter(e => e.eval.pick.hit).length;
+  S.push(`━━━━━━━━━━━━━━━━\n📊 <b>Todos los pronósticos del día:</b> ${rateTxt(h, done.length)}${d.length > done.length ? ` · ${d.length - done.length} ⏳ por jugar (cuentan mañana)` : ''}`);
+  return S;
+}
+
+// Avisos de valor: pronósticos de las próximas 30 h cuya mejor cuota paga un 3% más que la justa (y que Pinnacle). Uno por partido.
+export const VALUE_ALERT = 0.03;
+export function valueAlerts(matches, alerted = {}, now = NOW) {
+  const c = matches.filter(m => !alerted[m.id] && m.pick.p >= 0.5 && Date.parse(m.kickoff) > now + 20 * 60e3 && Date.parse(m.kickoff) < now + 30 * 3600e3 && valueEdge(m) >= VALUE_ALERT)
+    .sort((a, b) => valueEdge(b) - valueEdge(a)).slice(0, 6);
+  if (!c.length) return null;
+  const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff));
+  return { ids: c.map(m => m.id), text: [`💎 <b>AVISO DE VALOR</b>\n<i>La mejor cuota paga más que la cuota justa del modelo${c.some(m => m.fair) ? ' y que Pinnacle' : ''}</i>`,
+    ...c.map(m => `${tag(m)} ${html(m.leagueName)} · 🕒 ${when(m)}\n<b>${html(m.home)} – ${html(m.away)}</b>\n🎯 <b>${html(m.pick.label)}</b> · ${pc(m.pick.p)} · justa ${odds2(1 / m.pick.p)}\n💰 ${odds2(m.best.odds)} en ${html(m.best.book)} <b>(+${(valueEdge(m) * 100).toFixed(1).replace('.', ',')}%)</b>`),
+    `<i>Antes de apostar, mira la cuota de tu casa: si paga menos de la justa, no compensa.</i>`] };
+}
+
+// Resumen semanal (lunes): los 7 días anteriores
+export function weeklySummary(hist, perf, now = NOW) {
+  const all = Object.values(hist), today = slateDay(now), days = [];
+  for (let k = 7; k >= 1; k--) days.push(slateDay(now - k * 864e5));
+  let bet = [0, 0], pk = [0, 0], pSum = 0, safe = [0, 0], val = [0, 0], prof = 0, nOdds = 0;
+  const byId = Object.fromEntries(all.map(e => [e.id, e]));
+  for (const day of days) {
+    const sel = dailyPicks(all, day); if (!sel) continue;
+    if (sel.bet.eval) { bet[1]++; bet[0] += sel.bet.eval.pick.hit; }
+    for (const e of sel.picks) if (e.eval) { pk[1]++; pk[0] += e.eval.pick.hit; pSum += e.pick.p; if (e.best?.odds > 1) { nOdds++; prof += e.eval.pick.hit ? e.best.odds - 1 : -1; } }
+    for (const [o, c] of [[safe, sel.combos.safe], [val, sel.combos.value]]) if (c && c.ids.every(id => byId[id]?.eval)) { o[1]++; o[0] += c.ids.every(id => byId[id].eval.pick.hit); }
+  }
+  if (!pk[1] && !bet[1]) return null;
+  const sm = perf?.daily?.sim, f = d => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(new Date(Date.parse(d + 'T12:00:00Z')));
+  return [`📅 <b>RESUMEN SEMANAL</b>\n<i>${f(days[0])} – ${f(days[6])}</i>`,
+    `━━━━━━━━━━━━━━━━\n⭐ Apuesta del día: <b>${rateTxt(...bet)}</b>\n🧩 Selección: <b>${rateTxt(...pk)}</b>${pk[1] ? ` · el modelo esperaba ${pc(pSum / pk[1])}` : ''}\n🎰 Combinada segura: ${rateTxt(...safe)} · con valor: ${rateTxt(...val)}`
+      + (nOdds ? `\n💰 Rendimiento a la mejor cuota: <b>${prof >= 0 ? '+' : ''}${(prof / nOdds * 100).toFixed(1).replace('.', ',')}%</b> en ${nOdds} pronósticos` : ''),
+    sm ? `━━━━━━━━━━━━━━━━\n🧪 Simulación total: ${sm.ready.ok ? '✅ lista para apostar' : `${Math.min(sm.picks.withOdds, sm.ready.need)} de ${sm.ready.need} pronósticos con cuota para fiarse`}` : ''].filter(Boolean);
+}
+
+// Comandos que el bot entiende (se contestan en la siguiente ejecución, como mucho en una hora)
+export const COMMANDS = [['hoy', 'Pronósticos de hoy: apuesta del día, selección y combinadas'], ['combinada', 'Combinadas de hoy'],
+  ['resultados', 'Cómo van los pronósticos de hoy'], ['semana', 'Resumen de los últimos 7 días'], ['valor', 'Pronósticos con valor ahora mismo'], ['ayuda', 'Lista de comandos']];
+export function parseCommands(updates, allowed) {
+  const out = [];
+  for (const u of updates) { const m = u.message || u.channel_post; if (!m?.text?.startsWith('/')) continue;
+    if (allowed.length && !allowed.includes(String(m.chat.id))) continue;   // solo responde en tus chats
+    const cmd = m.text.slice(1).split(/[\s@]/)[0].toLowerCase(); if (COMMANDS.some(c => c[0] === cmd) || cmd === 'start') out.push({ chat: String(m.chat.id), cmd }); }
+  return out;
+}
+async function tgApi(method, body) {
+  const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/${method}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+  return r.ok ? (await r.json()).result : null;
+}
+
 async function main() {
   const F = read(path.join(DATA, 'football.json'));
   const B = { nba: read(path.join(DATA, 'nba.json')), euroliga: read(path.join(DATA, 'euroliga.json')), extra: read(path.join(DATA, 'basket_extra.json')) };
@@ -396,6 +473,44 @@ async function main() {
   if (tg.activo !== false && hour >= (+tg.hora || 8) && st.lastDigest !== day) {
     const t = digest(matches, perf, slateDay(NOW), tg, sel);
     if (t && await telegram(t)) { st.lastDigest = day; write(stFile, st); console.log('resumen enviado a Telegram'); }
+  }
+  if (tg.activo === false || !process.env.TELEGRAM_TOKEN) return;
+  const slate = slateDay(NOW), save = () => write(stFile, st);
+  // resultados de la noche (a partir de las 23:00)
+  if (tg.resultados !== false && hour >= 23 && st.lastNight !== slate) {
+    const t = nightResults(hist, slate);
+    if (t && await telegram(t)) console.log('resultados de la noche enviados');
+    st.lastNight = slate; save();
+  }
+  // avisos de valor (de 9:00 a 23:00)
+  if (tg.avisos_valor !== false && hour >= 9 && hour < 23) {
+    st.alerted = Object.fromEntries(Object.entries(st.alerted || {}).filter(([, t]) => NOW - t < 3 * 864e5));
+    const a = valueAlerts(matches, st.alerted);
+    if (a && await telegram(a.text)) { for (const id of a.ids) st.alerted[id] = NOW; console.log(`avisos de valor: ${a.ids.length}`); }
+    save();
+  }
+  // resumen semanal (lunes desde las 9:00)
+  const wk = madridDate(NOW - ((new Date(NOW).getUTCDay() + 6) % 7) * 864e5);
+  if (tg.semanal !== false && new Date(NOW).getUTCDay() === 1 && hour >= 9 && st.lastWeekly !== wk) {
+    const t = weeklySummary(hist, perf);
+    if (t && await telegram(t)) console.log('resumen semanal enviado');
+    st.lastWeekly = wk; save();
+  }
+  // comandos (/hoy, /combinada, ...): se leen los mensajes nuevos y se contesta en el mismo chat
+  if (tg.comandos !== false) {
+    if (!st.cmdsSet) { if (await tgApi('setMyCommands', { commands: COMMANDS.map(([command, description]) => ({ command, description })) })) st.cmdsSet = true; }
+    const ups = await tgApi('getUpdates', { offset: (st.tgOffset || 0) + 1, timeout: 0, allowed_updates: ['message', 'channel_post'] }) || [];
+    if (ups.length) st.tgOffset = ups[ups.length - 1].update_id;
+    for (const { chat, cmd } of parseCommands(ups, chatIds())) {
+      const full = digest(matches, perf, slate, { ...tg, incluir_todos: false, equipos: [], competiciones: [], confianza_minima: 0 }, sel) || ['Hoy no quedan partidos por jugar.'];
+      const ans = cmd === 'hoy' ? full : cmd === 'combinada' ? (full.filter(x => x.includes('COMBINADAS')).length ? full.filter(x => x.includes('COMBINADAS')) : ['Hoy no hay combinadas.'])
+        : cmd === 'resultados' ? (nightResults(hist, slate) || ['Aún no hay pronósticos de hoy.']) : cmd === 'semana' ? (weeklySummary(hist, perf) || ['Aún no hay datos de la última semana.'])
+        : cmd === 'valor' ? (valueAlerts(matches, {})?.text || ['Ahora mismo no hay pronósticos con valor suficiente.'])
+        : ['🤖 <b>Comandos de Aldana Bet</b>\n' + COMMANDS.map(([c, d]) => `/${c} · ${d}`).join('\n') + '\n\n<i>Contesto en la siguiente actualización (como mucho en una hora).</i>'];
+      await telegram(ans, [chat]);
+    }
+    if (ups.length) console.log(`comandos de Telegram: ${ups.length} mensajes leídos`);
+    save();
   }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

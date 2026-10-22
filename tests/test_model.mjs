@@ -144,5 +144,24 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   ok(C.value.ids.join() === 'e,b' , `combinada con valor (${C.value?.ids})`);   // d no: Pinnacle 1,62 paga más que 1,60
   ok(P2.combos([e('a', .9, 1.05)]).safe === null && P2.combos([e('a', .9, 1.05), e('b', .8, 1.1)]).value === null, 'sin combinada si no hay dos partidos que cumplan');
 }
+// bot de Telegram: resultados de la noche, avisos de valor, resumen semanal y comandos
+{
+  const now = Date.now(), dayOf = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms - 6 * 3600e3));
+  const past = now - 26 * 3600e3, d0 = dayOf(past);
+  const e = (id, p, hit, k, extra = {}) => ({ id, sport: 'futbol', league: 'SP1', leagueName: 'España - LaLiga', kickoff: new Date(k).toISOString(), home: id + ' FC', away: 'Rival', pick: { p, code: 'H', label: `Gana ${id}` },
+    ...(hit == null ? {} : { result: { hg: hit ? 2 : 0, ag: 1 }, eval: { pick: { p, hit: hit ? 1 : 0 } } }), ...extra });
+  const H = { a: e('a', .8, 1, past), b: e('b', .7, 0, past + 3600e3), c: e('c', .66, null, past + 7200e3) };
+  const N = P2.nightResults(H, d0).join('\n');
+  ok(N.includes('RESULTADOS DE HOY') && N.includes('✅') && N.includes('❌') && N.includes('⏳') && N.includes('1 de 2 acertados'), 'resultados de la noche');
+  const soon = now + 5 * 3600e3, M = [e('v', .6, null, soon, { best: { odds: 1.80, book: 'X' }, fair: { H: 1.70 } }), e('w', .6, null, soon, { best: { odds: 1.70, book: 'X' } }), e('z', .6, null, now + 40 * 3600e3, { best: { odds: 2.5, book: 'X' } })];
+  const A = P2.valueAlerts(M, {}, now);
+  ok(A && A.ids.join() === 'v' && A.text.join().includes('+5,9%'), `avisos de valor (${A?.ids})`);   // w: 1,70 = justa 1,67 · +2%, no llega; z: fuera de las 30 h
+  ok(P2.valueAlerts(M, { v: now }, now) === null, 'no repite avisos ya enviados');
+  const W = P2.weeklySummary(H, null, now + 864e5);
+  ok(W && W.join().includes('RESUMEN SEMANAL') && W.join().includes('1 de 2'), 'resumen semanal');
+  const U = [{ update_id: 1, message: { chat: { id: -100 }, text: '/hoy@AldanaBot' } }, { update_id: 2, message: { chat: { id: 555 }, text: '/hoy' } }, { update_id: 3, message: { chat: { id: -100 }, text: 'hola' } }];
+  const C = P2.parseCommands(U, ['-100']);
+  ok(C.length === 1 && C[0].cmd === 'hoy' && C[0].chat === '-100', 'comandos: solo en tus chats');
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);
