@@ -583,7 +583,9 @@ function dailyRender() {
   const open = m => `<button class="linkbtn" data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}">Ver partido</button>`;
   const rate = o => o && o.n ? `${o.hits} de ${o.n} (${pct(o.hits / o.n, 0)})` : 'aún sin datos';
   const T = PF && PF.daily, b = D.bet, P = D.picks || [];
-  let h = `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
+  const tabs = `<div class="seg" role="tablist">${[['dia', '⭐ Apuesta del día'], ['comb', '🎰 Combinadas']].map(([k, l]) => `<button role="tab" data-dv="${k}" aria-selected="${dailyView === k}">${l}</button>`).join('')}</div>`;
+  if (dailyView === 'comb') { box.innerHTML = tabs + combosHTML(D, dayTxt, when, res); bindOpen(box); bindSeg(box); return; }
+  let h = tabs + `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
     <div class="mc" ${openAttr(b)}><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)} ${esc(when(b))}</span></div>
       <div class="mc-body"><div class="mc-team">${crest(b.home, b.sport, 'xl')}<span>${esc(b.home)}</span></div>
         <div class="mc-mid"><div class="mc-p">${pct(b.pick.p, 0)}</div><div class="mc-pick">${esc(b.pick.label)}</div>${res(b)}${bestLine(b)}</div>
@@ -596,7 +598,27 @@ function dailyRender() {
       <div class="stats">${statBox(pct(all, 0), `acertar las ${P.length} juntas`)}${statBox(nf(1 / all, 2), 'cuota justa de la combinada')}</div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
   h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · selección ${rate(T && T.picks)} (detalle en «Aciertos»). Más probabilidad no significa más valor: compara la cuota justa con la de tu casa.</p>`;
-  box.innerHTML = h; bindOpen(box);
+  box.innerHTML = h; bindOpen(box); bindSeg(box);
+}
+let dailyView = store.get('mc_dv', 'dia');
+const bindSeg = box => box.querySelectorAll('[data-dv]').forEach(x => x.addEventListener('click', () => { dailyView = x.dataset.dv; store.set('mc_dv', dailyView); dailyRender(); }));
+function combosHTML(D, dayTxt, when, res) {
+  const C = D.combos || {}, S = PF?.daily?.sim;
+  const simTxt = o => o && o.n ? `Simulación: ${o.hits} de ${o.n} acertadas (${pct(o.hits / o.n, 0)}, esperaba ${pct(o.pAvg, 0)})${o.withOdds ? ` · rendimiento ${o.roi >= 0 ? '+' : '−'}${pct(Math.abs(o.roi), 1)}` : ''}` : 'Simulación: aún sin combinadas terminadas.';
+  const card = (title, sub, c, empty, o) => {
+    if (!c) return `<section class="cmb none"><div class="cmb-head"><h3 class="sect">${title}</h3><span class="note">${sub}</span></div><p class="note">${empty}</p><p class="note">${simTxt(o)}</p></section>`;
+    const allHit = c.legs.every(m => m.hit === true), anyMiss = c.legs.some(m => m.hit === false);
+    return `<section class="cmb"><div class="cmb-head"><h3 class="sect">${title}${anyMiss ? ' <span class="chip neg">Fallada</span>' : allHit ? ' <span class="chip pos">Acertada</span>' : ''}</h3><span class="note">${sub}</span></div>
+      <ol class="legs">${c.legs.map(m => `<li ${openAttr(m)}><div class="leg-l">${flag(m.league)}<span class="note">${esc(m.leagueName)} · ${esc(when(m))}</span></div>
+        <div class="leg-m">${twoLines(m.home, m.away, m.sport)}</div><div class="leg-r"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span>${res(m)}
+        <small class="mr-odds">justa <b>${nf(1 / m.pick.p)}</b>${m.best ? ` · mejor <b class="g">${nf(m.best.odds)}</b>` : ''}</small></div></li>`).join('')}</ol>
+      <div class="stats">${statBox(pct(c.p, 0), 'acertarla entera')}${statBox(nf(c.fair), 'cuota justa combinada')}${statBox(c.odds ? nf(c.odds) : '—', 'con las mejores cuotas')}${statBox(nf(c.fair * 1.02), 'cuota mínima en tu casa')}</div>
+      <p class="note">${simTxt(o)}</p></section>`;
+  };
+  return `<h2>Combinadas</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · como mucho ${3} partidos distintos</p>
+    ${card('🛡️ Segura', 'los pronósticos más probables (65% o más)', C.safe, 'Hoy no hay dos pronósticos del 65% o más.', S?.safe)}
+    ${card('💎 Con valor', 'solo pronósticos cuya mejor cuota supera la cuota justa (y la de Pinnacle) en un 2% o más', C.value, 'Hoy no hay pronósticos con valor suficiente. También es información: mejor no forzar.', S?.value)}
+    <p class="note">Una combinada se apuesta entera en una sola casa: la cuota que cuenta es la que te dé tu casa al juntarlas. Si es más baja que la «cuota mínima», no compensa. El margen de la casa se multiplica en cada partido que añades; por eso como mucho 3.</p>`;
 }
 const dayKey = m => { const t = new Date(m.kickoff); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
 function prRender() {
@@ -651,6 +673,7 @@ function simBlock(S) {
     <div class="sug ${verdict[0]}"><b>${verdict[1]}</b><span>Hace falta: ${S.ready.need} pronósticos con cuota, rendimiento de 0% o más y aciertos como mínimo a 3 puntos de lo que esperaba el modelo.</span>
       <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${S.ready.need}" aria-valuenow="${P.withOdds}"><i style="width:${(prog * 100).toFixed(1)}%"></i></div><small>${P.withOdds} de ${S.ready.need} pronósticos con cuota</small></div>
     <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
+    ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[['🛡️ segura', S.safe], ['💎 con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
 }
 function acRender() {

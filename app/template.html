@@ -92,6 +92,16 @@ table.cmp { width: 100%; } table.cmp th, table.cmp td { white-space: normal; }
 .sug.pos { background: var(--pos-bg); } .sug.pos b { color: var(--pos); } .sug.neg { background: var(--neg-bg); } .sug.neg b { color: var(--neg); } .sug.warn { background: var(--warn-bg); } .sug.warn b { color: var(--warn); }
 table.bets td.act { white-space: nowrap; } table.bets td.act .linkbtn { padding: 2px 6px; }
 .filebtn { display: inline-flex; align-items: center; }
+.seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--soft); margin-bottom: 14px; align-self: flex-start; }
+.seg button { font: 600 14px var(--f-body); border: 0; background: transparent; color: var(--muted); padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.cmb { border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+.cmb-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line); } .cmb-head h3.sect { margin: 0; }
+.cmb.none { border-style: dashed; }
+.legs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.legs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; padding: 10px 0; border-top: 1px solid var(--soft); cursor: pointer; } .legs li:first-child { border-top: 0; }
+.leg-l { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; } .leg-r { text-align: right; } .leg-r > b { display: block; font: 700 24px var(--f-display); line-height: 1; }
+.leg-r > span { display: block; font-size: 12.5px; color: var(--muted); max-width: 150px; margin-left: auto; } .leg-r .mr-odds { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; } .leg-r .mr-odds b { font: 600 13px var(--f-mono); color: var(--ink); } .leg-r .mr-odds b.g { color: var(--pos); }
 #injList { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 36px 16px; margin-top: 14px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
 .empty b { color: var(--ink); font-size: 17px; } .empty-ico { font-size: 34px; }

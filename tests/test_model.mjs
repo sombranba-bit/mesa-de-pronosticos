@@ -136,5 +136,13 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const sm = P2.performance(H).daily.sim;
   ok(sm.picks.n === 3 && sm.picks.withOdds === 2 && Math.abs(sm.picks.profit - (0.4 - 1)) < 1e-9 && Math.abs(sm.picks.roi + 0.3) < 1e-9 && sm.bet.n === 2 && !sm.ready.ok, `simulación de la selección (${JSON.stringify(sm.picks)})`);
 }
+// combinadas: la segura junta los más probables; la de valor solo los que pagan más que la cuota justa
+{
+  const e = (id, p, odds, pin) => ({ id, pick: { p, code: 'H' }, best: odds ? { odds } : undefined, fair: pin ? { H: pin } : undefined });
+  const C = P2.combos([e('a', .85, 1.15), e('b', .75, 1.45, 1.42), e('c', .7, 1.40), e('d', .66, 1.60, 1.62), e('e', .55, 2.0)]);
+  ok(C.safe.ids.join() === 'a,b,c' && Math.abs(C.safe.p - .85 * .75 * .7) < 1e-12 && Math.abs(C.safe.odds - 1.15 * 1.45 * 1.40) < 1e-9, `combinada segura (${C.safe.ids})`);
+  ok(C.value.ids.join() === 'e,b' , `combinada con valor (${C.value?.ids})`);   // d no: Pinnacle 1,62 paga más que 1,60
+  ok(P2.combos([e('a', .9, 1.05)]).safe === null && P2.combos([e('a', .9, 1.05), e('b', .8, 1.1)]).value === null, 'sin combinada si no hay dos partidos que cumplan');
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

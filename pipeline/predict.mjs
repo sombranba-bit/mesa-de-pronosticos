@@ -187,7 +187,21 @@ export function evaluate(e) {
 export const SEL_MIN = 0.65, SEL_MAX = 5, SIM_N = 100;
 export function dailyPicks(entries, day) {
   const d = entries.filter(e => slateDay(Date.parse(e.kickoff)) === day).sort((a, b) => b.pick.p - a.pick.p);
-  return d.length ? { day, bet: d[0], picks: d.filter(e => e.pick.p >= SEL_MIN).slice(0, SEL_MAX) } : null;
+  return d.length ? { day, bet: d[0], picks: d.filter(e => e.pick.p >= SEL_MIN).slice(0, SEL_MAX), combos: combos(d) } : null;
+}
+// Combinadas de la jornada (máximo 3 partidos distintos):
+// · segura: los pronósticos más probables (65% o más);
+// · con valor: solo pronósticos cuya mejor cuota supera la cuota justa del modelo (y la de Pinnacle, si la hay) en un 2% o más.
+export const COMBO_MAX = 3;
+export function combos(d) {
+  const legs = list => { const L = list.slice(0, COMBO_MAX); if (L.length < 2) return null;
+    const p = L.reduce((x, e) => x * e.pick.p, 1), odds = L.every(e => e.best?.odds) ? L.reduce((x, e) => x * e.best.odds, 1) : null;
+    return { ids: L.map(e => e.id), p, fair: 1 / p, odds }; };
+  const edge = e => { if (!e.best?.odds) return -1; const ref = Math.max(1 / e.pick.p, e.fair?.[e.pick.code] || 0); return e.best.odds / ref - 1; };
+  return {
+    safe: legs(d.filter(e => e.pick.p >= SEL_MIN)),
+    value: legs(d.filter(e => e.pick.p >= 0.5 && edge(e) >= 0.02).sort((a, b) => edge(b) - edge(a))),
+  };
 }
 // Día a mostrar: hoy si queda algún partido por empezar; si no, el siguiente día con partidos.
 export function dailyFor(entries, now = NOW) {
@@ -211,7 +225,13 @@ export function performance(hist) {
   const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), sport: e.sport, home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
   const all = Object.values(hist), daily = { bet: { n: 0, hits: 0 }, picks: { n: 0, hits: 0 }, full: { n: 0, hits: 0 }, recent: [] };
   // Simulación sin dinero: 1 unidad a cada pronóstico de la selección (y a la apuesta del día), cobrada a la mejor cuota vista antes del partido
-  const simNew = () => ({ n: 0, hits: 0, pSum: 0, withOdds: 0, profit: 0, clvSum: 0, clvN: 0 }), sim = { bet: simNew(), picks: simNew() };
+  const simNew = () => ({ n: 0, hits: 0, pSum: 0, withOdds: 0, profit: 0, clvSum: 0, clvN: 0 }), sim = { bet: simNew(), picks: simNew(), safe: simNew(), value: simNew() };
+  const byId = Object.fromEntries(Object.values(hist).map(e => [e.id, e]));
+  const comboAdd = (o, c) => {   // una combinada cuenta cuando se han jugado todos sus partidos
+    if (!c) return; const L = c.ids.map(id => byId[id]); if (L.some(e => !e?.eval)) return;
+    const hit = L.every(e => e.eval.pick.hit); o.n++; o.hits += hit; o.pSum += c.p;
+    if (c.odds) { o.withOdds++; o.profit += hit ? c.odds - 1 : -1; }
+  };
   const simAdd = (o, e) => {
     o.n++; o.hits += e.eval.pick.hit; o.pSum += e.pick.p;
     if (e.best?.odds > 1) { o.withOdds++; o.profit += e.eval.pick.hit ? e.best.odds - 1 : -1; }
@@ -222,6 +242,7 @@ export function performance(hist) {
     if (sel.bet.eval) { daily.bet.n++; daily.bet.hits += sel.bet.eval.pick.hit; simAdd(sim.bet, sel.bet);
       daily.recent.unshift({ date: day, home: sel.bet.home, away: sel.bet.away, label: sel.bet.pick.label, p: sel.bet.pick.p, hit: sel.bet.eval.pick.hit }); }
     for (const e of sel.picks) if (e.eval) { daily.picks.n++; daily.picks.hits += e.eval.pick.hit; simAdd(sim.picks, e); }
+    comboAdd(sim.safe, sel.combos.safe); comboAdd(sim.value, sel.combos.value);
     if (sel.picks.length >= 2 && sel.picks.every(e => e.eval)) { daily.full.n++; daily.full.hits += sel.picks.every(e => e.eval.pick.hit); }
   }
   daily.recent = daily.recent.slice(0, 30);
@@ -312,6 +333,12 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
         + sel.picks.slice().sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff)).map((e, k) => `${N[k] || '▫️'} ${head(e)}\n<b>${html(e.home)} – ${html(e.away)}</b>\n${pickLine(e)}`).join('\n\n'));
     }
   }
+  if (sel && sel.day === day && (sel.combos?.safe || sel.combos?.value)) {
+    const C = (t, c, note) => c ? `<b>${t}</b> · acertarla ${pc(c.p)} · justa ${odds(c.fair)}${c.odds ? ` · mejores cuotas ${odds(c.odds)}` : ''}\n`
+      + c.ids.map(id => sel.picks.concat([sel.bet]).find(e => e.id === id) || matches.find(m => m.id === id)).filter(Boolean)
+        .map(e => `   • ${tag(e)} ${html(e.home)} – ${html(e.away)}: <b>${html(e.pick.label)}</b> ${pc(e.pick.p)}`).join('\n') : `<b>${t}</b>: ${note}`;
+    S.push(`${SEP}\n🎰 <b>COMBINADAS</b> <i>(máx. ${COMBO_MAX} partidos)</i>\n\n${C('🛡️ Segura', sel.combos.safe, 'hoy no hay 2 pronósticos del 65% o más')}\n\n${C('💎 Con valor', sel.combos.value, 'hoy no hay pronósticos con valor suficiente')}`);
+  }
   if (top.length) S.push(`${SEP}\n🔥 <b>MÁS CONFIANZA</b> <i>(${pc(topMin)} o más)</i>\n\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 10)
     .map(m => `${tag(m)} <code>${when(m)}</code> ${html(m.home)} – ${html(m.away)}\n    ${pickLine(m)}`).join('\n'));
   if (cfg.incluir_todos !== false) {
@@ -358,7 +385,9 @@ async function main() {
   write(path.join(DATA, 'performance.json'), perf);
   const sel = dailyFor(Object.values(hist));
   const withHit = e => e.eval ? { ...e, hit: e.eval.pick.hit } : e;
-  const daily = sel && { day: sel.day, bet: withHit(sel.bet), picks: sel.picks.map(withHit) };
+  const byIdAll = Object.fromEntries(Object.values(hist).map(e => [e.id, e]));
+  const comboOut = c => c && { ...c, legs: c.ids.map(id => withHit(byIdAll[id])) };
+  const daily = sel && { day: sel.day, bet: withHit(sel.bet), picks: sel.picks.map(withHit), combos: { safe: comboOut(sel.combos.safe), value: comboOut(sel.combos.value) } };
   write(path.join(DATA, 'predictions.json'), { generated: new Date(NOW).toISOString(), daily, matches: matches.filter(m => Date.parse(m.kickoff) > NOW - 3 * 3600e3) });
   console.log(`pronósticos: ${matches.length} partidos · con mejor cuota: ${nBest} · evaluados ahora: ${evaluated} · historial: ${Object.keys(hist).length}`);
   // resumen diario por Telegram, a partir de la hora configurada (8:00 por defecto, hora de Madrid)
