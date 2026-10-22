@@ -405,7 +405,7 @@ const rateTxt = (h, n) => n ? `${h} de ${n} (${pc(h / n)})` : 'sin datos';
 export const valueEdge = e => { if (!e.best?.odds) return -1; return e.best.odds / Math.max(1 / e.pick.p, e.fair?.[e.pick.code] || 0) - 1; };
 
 // Resultados de la jornada (por la noche): apuesta del día, selección, combinadas y todos los pronósticos
-export function nightResults(hist, day) {
+export function nightResults(hist, day, porra = null) {
   const all = Object.values(hist), sel = dailyPicks(all, day);
   if (!sel) return null;
   const d = all.filter(e => slateDay(Date.parse(e.kickoff)) === day), done = d.filter(e => e.eval), byId = Object.fromEntries(all.map(e => [e.id, e]));
@@ -418,6 +418,9 @@ export function nightResults(hist, day) {
     return `${t}: <b>${st}</b> · acertarla era un ${pc(c.p)}${c.odds ? ` · cuota ${odds2(c.odds)}` : ''}`; };
   const cs = [cLine('🛡️ Segura', sel.combos.safe), cLine('💎 Con valor', sel.combos.value)].filter(Boolean);
   if (cs.length) S.push(`━━━━━━━━━━━━━━━━\n🎰 <b>COMBINADAS</b>\n${cs.join('\n')}`);
+  if (porra) { const t = porraText(porraTable(porra, hist, [day]), '🏆 <b>PORRA DE HOY</b>'); if (t) S.push(`━━━━━━━━━━━━━━━━\n${t}`); }
+  const rk = betStreak(hist, day);
+  if (rk.hit && rk.n >= 3) S.push(`🔥 <b>¡La apuesta del día lleva ${rk.n} aciertos seguidos!</b>`);   // las malas rachas solo en el resumen semanal
   const h = done.filter(e => e.eval.pick.hit).length;
   S.push(`━━━━━━━━━━━━━━━━\n📊 <b>Todos los pronósticos del día:</b> ${rateTxt(h, done.length)}${d.length > done.length ? ` · ${d.length - done.length} ⏳ por jugar (cuentan mañana)` : ''}`);
   return S;
@@ -436,7 +439,7 @@ export function valueAlerts(matches, alerted = {}, now = NOW) {
 }
 
 // Resumen semanal (lunes): los 7 días anteriores
-export function weeklySummary(hist, perf, now = NOW) {
+export function weeklySummary(hist, perf, now = NOW, porra = null) {
   const all = Object.values(hist), today = slateDay(now), days = [];
   for (let k = 7; k >= 1; k--) days.push(slateDay(now - k * 864e5));
   let bet = [0, 0], pk = [0, 0], pSum = 0, safe = [0, 0], val = [0, 0], prof = 0, nOdds = 0;
@@ -452,12 +455,53 @@ export function weeklySummary(hist, perf, now = NOW) {
   return [`📅 <b>RESUMEN SEMANAL</b>\n<i>${f(days[0])} – ${f(days[6])}</i>`,
     `━━━━━━━━━━━━━━━━\n⭐ Apuesta del día: <b>${rateTxt(...bet)}</b>\n🧩 Selección: <b>${rateTxt(...pk)}</b>${pk[1] ? ` · el modelo esperaba ${pc(pSum / pk[1])}` : ''}\n🎰 Combinada segura: ${rateTxt(...safe)} · con valor: ${rateTxt(...val)}`
       + (nOdds ? `\n💰 Rendimiento a la mejor cuota: <b>${prof >= 0 ? '+' : ''}${(prof / nOdds * 100).toFixed(1).replace('.', ',')}%</b> en ${nOdds} pronósticos` : ''),
+    (() => { const rk = betStreak(hist, days[6]); return rk.n >= 2 ? `${rk.hit ? '🔥' : '🧊'} Racha de la apuesta del día: ${rk.n} ${rk.hit ? 'aciertos' : 'fallos'} seguidos` : ''; })(),
+    porra ? porraText(porraTable(porra, hist, days), '━━━━━━━━━━━━━━━━\n🏆 <b>CLASIFICACIÓN DE LA PORRA</b>') : '',
     sm ? `━━━━━━━━━━━━━━━━\n🧪 Simulación total: ${sm.ready.ok ? '✅ lista para apostar' : `${Math.min(sm.picks.withOdds, sm.ready.need)} de ${sm.ready.need} pronósticos con cuota para fiarse`}` : ''].filter(Boolean);
 }
 
+// ---------- Rachas ----------
+// Racha de la apuesta del día hasta la última jornada terminada: { n, hit } (n aciertos o fallos seguidos)
+export function betStreak(hist, uptoDay) {
+  const all = Object.values(hist), days = [...new Set(all.map(e => slateDay(Date.parse(e.kickoff))))].filter(d => d <= uptoDay).sort().reverse();
+  let n = 0, hit = null;
+  for (const d of days) { const sel = dailyPicks(all, d); if (!sel?.bet.eval) { if (d === uptoDay) continue; break; }
+    const h = !!sel.bet.eval.pick.hit; if (hit === null) hit = h; if (h !== hit) break; n++; }
+  return { n, hit };
+}
+
+// ---------- Porra: encuestas en el grupo y clasificación con «la máquina» como un jugador más ----------
+export const PORRA_N = 3, MACHINE = '🤖 La máquina';
+const outcomeCode = e => { const r = e.result; if (!r) return null; return r.hg != null ? (r.hg > r.ag ? 'H' : r.hg === r.ag ? 'D' : 'A') : (r.hp > r.ap ? 'H' : 'A'); };
+export function porraMatches(sel, matches, now = NOW) {   // la apuesta del día y los más destacados, de deportes distintos si se puede
+  if (!sel) return [];
+  const up = matches.filter(m => slateDay(Date.parse(m.kickoff)) === sel.day && !m.noTime && Date.parse(m.kickoff) > now + 90 * 60e3).sort((a, b) => b.pick.p - a.pick.p);
+  const out = []; const bet = up.find(m => m.id === sel.bet.id); if (bet) out.push(bet);
+  for (const m of up) if (out.length < PORRA_N && !out.includes(m) && !out.some(x => x.sport === m.sport)) out.push(m);
+  for (const m of up) if (out.length < PORRA_N && !out.includes(m)) out.push(m);
+  return out;
+}
+export function porraPoll(m) {
+  const codes = m.sport === 'futbol' ? ['H', 'D', 'A'] : ['H', 'A'];
+  const machine = m.sport === 'futbol' ? [['H', m.H], ['D', m.D], ['A', m.A]].reduce((b, x) => x[1] > b[1] ? x : b)[0] : m.pick.code;
+  return { codes, machine, question: `🏆 Porra · ${m.home} – ${m.away} (${m.noTime ? '' : madridTime(Date.parse(m.kickoff)) + ', '}${m.leagueName})`.slice(0, 300),
+    options: codes.map(c => c === 'D' ? 'Empate' : `Gana ${c === 'H' ? m.home : m.away}`.slice(0, 100)) };
+}
+// puntos por jugador en las jornadas indicadas (1 por acierto); la máquina juega con el resultado más probable del modelo
+export function porraTable(porra, hist, days) {
+  const T = {}, add = (name, pt) => { const x = T[name] || (T[name] = { pts: 0, n: 0 }); x.n++; x.pts += pt; };
+  for (const p of Object.values(porra || {})) {
+    if (!days.includes(p.day)) continue; const y = outcomeCode(hist[p.id] || {}); if (!y) continue;
+    add(MACHINE, p.machine === y ? 1 : 0);
+    for (const v of Object.values(p.votes || {})) add(v.name, v.code === y ? 1 : 0);
+  }
+  return Object.entries(T).sort((a, b) => b[1].pts - a[1].pts || a[1].n - b[1].n);
+}
+export const porraText = (rows, title) => rows.length ? `${title}\n` + rows.map(([n, x], i) => `${['🥇', '🥈', '🥉'][i] || '▫️'} ${html(n)}: <b>${x.pts}</b> de ${x.n}`).join('\n') : '';
+
 // Comandos que el bot entiende (se contestan en la siguiente ejecución, como mucho en una hora)
 export const COMMANDS = [['hoy', 'Pronósticos de hoy: apuesta del día, selección y combinadas'], ['combinada', 'Combinadas de hoy'],
-  ['resultados', 'Cómo van los pronósticos de hoy'], ['semana', 'Resumen de los últimos 7 días'], ['valor', 'Pronósticos con valor ahora mismo'], ['ayuda', 'Lista de comandos']];
+  ['resultados', 'Cómo van los pronósticos de hoy'], ['semana', 'Resumen de los últimos 7 días'], ['valor', 'Pronósticos con valor ahora mismo'], ['porra', 'Clasificación de la porra de la semana'], ['ayuda', 'Lista de comandos']];
 export const helpText = () => '🤖 <b>Comandos de Aldana Bet</b>\n' + COMMANDS.map(([c, d]) => `/${c} · ${d}`).join('\n') + '\n\n<i>Contesto en la siguiente actualización (como mucho en una hora).</i>';
 export const welcomeText = names => `👋 <b>¡Bienvenid${names.length > 1 ? 'os' : 'o/a'}, ${names.map(html).join(', ')}!</b>\n\nEsto es <b>Aldana Bet</b>: pronósticos de fútbol, baloncesto y tenis calculados con datos.\n⭐ Cada mañana a las 8:00: apuesta del día, selección y combinadas.\n🌙 Por la noche: resultados, con aciertos y fallos.\n💎 Avisos cuando aparece una cuota con valor.\n\n${helpText()}\n\n🔞 +18 · Juega con responsabilidad.`;
 export function parseCommands(updates, allowed) {
@@ -520,7 +564,7 @@ async function main() {
   const slate = slateDay(NOW), save = () => write(stFile, st);
   // resultados de la noche (a partir de las 23:00)
   if (tg.resultados !== false && hour >= 23 && st.lastNight !== slate) {
-    const t = nightResults(hist, slate);
+    const t = nightResults(hist, slate, st.porra);
     if (t && await telegram(t)) console.log('resultados de la noche enviados');
     st.lastNight = slate; save();
   }
@@ -534,14 +578,44 @@ async function main() {
   // resumen semanal (lunes desde las 9:00)
   const wk = madridDate(NOW - ((new Date(NOW).getUTCDay() + 6) % 7) * 864e5);
   if (tg.semanal !== false && new Date(NOW).getUTCDay() === 1 && hour >= 9 && st.lastWeekly !== wk) {
-    const t = weeklySummary(hist, perf);
+    const t = weeklySummary(hist, perf, NOW, st.porra);
     if (t && await telegram(t)) console.log('resumen semanal enviado');
     st.lastWeekly = wk; save();
   }
-  // comandos (/hoy, /combinada, ...): se leen los mensajes nuevos y se contesta en el mismo chat
-  if (tg.comandos !== false) {
-    if (!st.cmdsSet) { if (await tgApi('setMyCommands', { commands: COMMANDS.map(([command, description]) => ({ command, description })) })) st.cmdsSet = true; }
-    const ups = await tgApi('getUpdates', { offset: (st.tgOffset || 0) + 1, timeout: 0, allowed_updates: ['message', 'channel_post'] }) || [];   // las altas en el grupo llegan como «message»
+  // recordatorio de la apuesta del día (entre 30 y 90 minutos antes; el proceso va por horas)
+  if (tg.recordatorio !== false && sel && sel.day === slate && !sel.bet.noTime && st.reminded !== sel.bet.id) {
+    const b = sel.bet, mins = (Date.parse(b.kickoff) - NOW) / 60e3;
+    if (mins > 25 && mins <= 95) {
+      const t = [`⏰ <b>En ${Math.round(mins)} minutos empieza la apuesta del día</b>`,
+        `${tag(b)} ${html(b.leagueName)} · 🕒 ${madridTime(Date.parse(b.kickoff))}\n<b>${html(b.home)} – ${html(b.away)}</b>\n🎯 <b>${html(b.pick.label)}</b> · ${pc(b.pick.p)} · justa ${odds2(1 / b.pick.p)}${b.best ? `\n💰 Mejor cuota ${odds2(b.best.odds)} en ${html(b.best.book)}` : ''}`,
+        `<i>Si tu casa paga menos de ${odds2(1 / b.pick.p)}, no compensa.</i>`];
+      if (await telegram(t)) { st.reminded = b.id; save(); console.log('recordatorio de la apuesta del día enviado'); }
+    }
+  }
+  // porra: encuestas por la mañana en los grupos, cierre antes de cada partido y votos para la clasificación
+  const groups = chatIds().filter(c => c.startsWith('-'));
+  st.porra = Object.fromEntries(Object.entries(st.porra || {}).filter(([, p]) => NOW - Date.parse(p.kickoff) < 21 * 864e5));
+  if (tg.porra !== false && groups.length && sel && sel.day === slate && hour >= (+tg.hora || 8) && hour < 21 && st.lastPorra !== slate) {   // por la mañana (o hasta las 21:00 si el proceso se retrasa)
+    for (const m of porraMatches(sel, matches)) {
+      const q = porraPoll(m);
+      for (const chat of groups) {
+        const msg = await tgApi('sendPoll', { chat_id: chat, question: q.question, options: q.options.map(text => ({ text })), is_anonymous: false });
+        if (msg?.poll) st.porra[msg.poll.id] = { day: slate, chat, msg: msg.message_id, id: m.id, kickoff: m.kickoff, codes: q.codes, machine: q.machine, votes: {} };
+      }
+    }
+    st.lastPorra = slate; save(); console.log('porra del día enviada');
+  }
+  for (const p of Object.values(st.porra)) if (!p.closed && Date.parse(p.kickoff) < NOW + 65 * 60e3) {   // se cierra en la última pasada antes del partido
+    await tgApi('stopPoll', { chat_id: p.chat, message_id: p.msg }); p.closed = true; save();
+  }
+  // comandos (/hoy, /combinada, ...) y votos de la porra: se leen los mensajes nuevos y se contesta en el mismo chat
+  if (tg.comandos !== false || tg.porra !== false) {
+    const cmdKey = COMMANDS.map(c => c[0]).join();   // se vuelve a registrar el menú si cambia la lista
+    if (st.cmdsSet !== cmdKey) { if (await tgApi('setMyCommands', { commands: COMMANDS.map(([command, description]) => ({ command, description })) })) st.cmdsSet = cmdKey; }
+    const ups = await tgApi('getUpdates', { offset: (st.tgOffset || 0) + 1, timeout: 0, allowed_updates: ['message', 'channel_post', 'poll_answer'] }) || [];
+    for (const u of ups) { const a = u.poll_answer, p = a && st.porra[a.poll_id]; if (!p || p.closed) continue;   // votos (se puede cambiar de voto hasta el cierre)
+      const k = String(a.user?.id ?? a.voter_chat?.id), nm = a.user ? [a.user.first_name, a.user.last_name].filter(Boolean).join(' ') || a.user.username || 'Anónimo' : 'Anónimo';
+      if (!a.option_ids?.length) delete p.votes[k]; else p.votes[k] = { name: nm, code: p.codes[a.option_ids[0]] }; }   // las altas en el grupo llegan como «message»
     if (ups.length) st.tgOffset = ups[ups.length - 1].update_id;
     // mensaje fijo con los comandos en cada grupo (se vuelve a fijar si cambia la lista)
     const key = COMMANDS.map(c => c[0]).join();
@@ -559,14 +633,15 @@ async function main() {
       }
     }
     const answered = new Set();
-    for (const { chat, cmd, names } of parseCommands(ups, chatIds())) {
+    for (const { chat, cmd, names } of tg.comandos === false ? [] : parseCommands(ups, chatIds())) {
       const k = chat + (cmd === 'start' ? 'ayuda' : cmd);
       if (cmd !== 'bienvenida' && answered.has(k)) continue;   // el mismo comando varias veces en la misma hora: una sola respuesta
       answered.add(k);
       if (cmd === 'bienvenida') { await telegram([welcomeText(names)], [chat]); continue; }
       const full = digest(matches, perf, slate, { ...tg, incluir_todos: false, equipos: [], competiciones: [], confianza_minima: 0 }, sel) || ['Hoy no quedan partidos por jugar.'];
       const ans = cmd === 'hoy' ? full : cmd === 'combinada' ? (full.filter(x => x.includes('COMBINADAS')).length ? full.filter(x => x.includes('COMBINADAS')) : ['Hoy no hay combinadas.'])
-        : cmd === 'resultados' ? (nightResults(hist, slate) || ['Aún no hay pronósticos de hoy.']) : cmd === 'semana' ? (weeklySummary(hist, perf) || ['Aún no hay datos de la última semana.'])
+        : cmd === 'resultados' ? (nightResults(hist, slate, st.porra) || ['Aún no hay pronósticos de hoy.']) : cmd === 'semana' ? (weeklySummary(hist, perf, NOW, st.porra) || ['Aún no hay datos de la última semana.'])
+        : cmd === 'porra' ? [porraText(porraTable(st.porra, hist, [0, 1, 2, 3, 4, 5, 6].map(k => slateDay(NOW - k * 864e5))), '🏆 <b>PORRA · ÚLTIMOS 7 DÍAS</b>') || 'Todavía no hay partidos de la porra terminados.']
         : cmd === 'valor' ? (valueAlerts(matches, {})?.text || ['Ahora mismo no hay pronósticos con valor suficiente.'])
         : [helpText()];
       await telegram(ans, [chat]);

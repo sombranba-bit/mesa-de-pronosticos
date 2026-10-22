@@ -179,5 +179,25 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const r = P2.tennisResult(P[0], T);
   ok(r && r.hp === 1 && r.ap === 2 && P2.evaluate({ ...P[0], result: r }).pick.hit === true, `tenis: resultado y acierto (${JSON.stringify(r)})`);
 }
+// rachas y porra
+{
+  const day = k => new Date((20000 + k) * 864e5 + 18 * 3600e3).toISOString();
+  const e = (id, k, hit, extra = {}) => ({ id, sport: 'futbol', league: 'SP1', leagueName: 'L', kickoff: day(k), home: id, away: 'Z', H: .6, D: .25, A: .15, pick: { p: .8, code: 'H', label: 'Gana' },
+    result: { hg: hit ? 2 : 0, ag: hit ? 0 : 1 }, eval: { pick: { p: .8, hit: hit ? 1 : 0 } }, ...extra });
+  const H = { a: e('a', 0, 0), b: e('b', 1, 1), c: e('c', 2, 1), d: e('d', 3, 1) };
+  const sd = k => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(Date.parse(day(k)) - 6 * 3600e3));
+  const rk = P2.betStreak(H, sd(3));
+  ok(rk.n === 3 && rk.hit === true, `racha de aciertos (${JSON.stringify(rk)})`);
+  ok(P2.nightResults(H, sd(3)).join().includes('3 aciertos seguidos'), 'la racha sale en los resultados de la noche');
+  const m = { id: 'x', sport: 'futbol', home: 'Betis', away: 'Cádiz', leagueName: 'LaLiga', kickoff: day(5), H: .5, D: .3, A: .2, pick: { code: 'H', p: .5 } };
+  const q = P2.porraPoll(m);
+  ok(q.options.join() === 'Gana Betis,Empate,Gana Cádiz' && q.machine === 'H', 'porra: encuesta de fútbol');
+  const porra = { p1: { day: sd(3), id: 'd', codes: ['H', 'D', 'A'], machine: 'A', kickoff: day(3), votes: { 1: { name: 'Ana', code: 'H' }, 2: { name: 'Luis', code: 'D' } } } };
+  const T = P2.porraTable(porra, H, [sd(3)]);
+  ok(T[0][0] === 'Ana' && T[0][1].pts === 1 && T.find(r => r[0] === P2.MACHINE)[1].pts === 0, `porra: clasificación (${JSON.stringify(T)})`);
+  const sel = { day: sd(5), bet: { id: 'x' } };
+  const PM = P2.porraMatches(sel, [m, { ...m, id: 'y', sport: 'nba', pick: { p: .9, code: 'H' } }, { ...m, id: 'z', pick: { p: .7, code: 'H' } }, { ...m, id: 'w', pick: { p: .6, code: 'H' } }], Date.parse(day(5)) - 5 * 3600e3);
+  ok(PM.map(x => x.id).join() === 'x,y,z', `porra: partidos elegidos (${PM.map(x => x.id)})`);
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);
