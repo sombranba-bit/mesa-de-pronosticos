@@ -244,7 +244,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
       <div class="controls">
-        <div class="field"><label for="prSport">Deporte</label><select id="prSport"><option value="">Todos</option><option value="futbol">Fútbol</option><option value="nba">NBA</option><option value="euroliga">Euroliga</option></select></div>
+        <div class="field"><label for="prSport">Deporte</label><select id="prSport"><option value="">Todos</option><option value="futbol">⚽ Fútbol</option><option value="baloncesto">🏀 Baloncesto</option></select></div>
         <div class="field"><label for="prLeague">Competición</label><select id="prLeague"><option value="">Todas</option></select></div>
         <div class="field"><label for="prConf">Confianza del pronóstico</label><select id="prConf"><option value="0">Todos</option><option value="0.6">60% o más</option><option value="0.7">70% o más</option><option value="0.8">80% o más</option></select></div>
       </div>
@@ -1587,11 +1587,14 @@ function prRender() {
   dailyRender();
   const out = $('prOut');
   if (!PR || !PR.matches) { out.innerHTML = `<p class="verdict">Aquí aparecen los pronósticos de los próximos partidos cuando la mesa funciona desde GitHub, que los calcula sola cada hora. Mientras tanto, usa las pestañas de cada deporte para pronosticar el partido que quieras.</p>`; return; }
-  fillSelect($('prSport'), [['', 'Todos'], ...[...new Set(PR.matches.map(m => m.sport))].map(s => [s, SPORT_NAME[s] || s])]);
-  const sp = $('prSport').value, lg = $('prLeague').value, conf = +$('prConf').value, now = Date.now();
-  const leagues = [...new Map(PR.matches.filter(m => !sp || m.sport === sp).map(m => [m.league, m.leagueName])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
+  // «Deporte» agrupa (fútbol, baloncesto, tenis); las ligas van en «Competición»
+  const GROUP_NAME = { futbol: '⚽ Fútbol', baloncesto: '🏀 Baloncesto', tenis: '🎾 Tenis' };
+  const group = m => m.sport === 'futbol' ? 'futbol' : m.sport === 'tenis' ? 'tenis' : 'baloncesto';
+  fillSelect($('prSport'), [['', 'Todos'], ...Object.keys(GROUP_NAME).filter(g => PR.matches.some(m => group(m) === g)).map(g => [g, GROUP_NAME[g]])]);
+  const sp = $('prSport').value, conf = +$('prConf').value, now = Date.now();
+  const leagues = [...new Map(PR.matches.filter(m => !sp || group(m) === sp).map(m => [m.league, `${m.leagueName}`])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
   fillSelect($('prLeague'), [['', 'Todas'], ...leagues]);
-  const list = PR.matches.filter(m => (!sp || m.sport === sp) && (!$('prLeague').value || m.league === $('prLeague').value) && m.pick.p >= conf && Date.parse(m.kickoff) > now - 2 * 3600e3)
+  const list = PR.matches.filter(m => (!sp || group(m) === sp) && (!$('prLeague').value || m.league === $('prLeague').value) && m.pick.p >= conf && Date.parse(m.kickoff) > now - 2 * 3600e3)
     .sort((a, b) => dayKey(a) - dayKey(b) || a.leagueName.localeCompare(b.leagueName, 'es') || Date.parse(a.kickoff) - Date.parse(b.kickoff));
   let html = `<p class="note">Calculados el ${new Date(PR.generated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}. ${list.length} partidos.</p>`, cur = '', curL = '';
   for (const m of list.slice(0, 300)) {
