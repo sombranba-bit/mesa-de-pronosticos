@@ -128,5 +128,13 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const pf = P2.performance({ x: { id: 'x', sport: 'futbol', league: 'SP1', leagueName: 'L', kickoff: k, home: 'A', away: 'B', pick: { p: .6, code: 'H', label: 'Gana A' }, fair: { H: 1.8, D: 3.6, A: 4.5 }, result: { hg: 2, ag: 1 } } });
   ok(pf.closing.x && pf.closing.x.fair.H === 1.8 && pf.closing.x.result.hg === 2, 'cierre y resultado para el registro');
 }
+// simulación sin dinero de la selección: 1 u a la mejor cuota
+{
+  const mk = (id, d, p, hit, odds) => ({ id, sport: 'futbol', league: 'SP1', leagueName: 'L', kickoff: `2026-10-${d}T18:00:00Z`, home: id, away: 'Z', pick: { p, code: 'H', label: 'Gana' },
+    best: odds ? { odds } : undefined, fair: { H: 1.5 }, result: { hg: hit ? 1 : 0, ag: 0 }, eval: { pick: { p, hit: hit ? 1 : 0 } } });
+  const H = { a: mk('a', 10, .8, 1, 1.4), b: mk('b', 10, .7, 0, 1.6), c: mk('c', 11, .75, 1, null) };
+  const sm = P2.performance(H).daily.sim;
+  ok(sm.picks.n === 3 && sm.picks.withOdds === 2 && Math.abs(sm.picks.profit - (0.4 - 1)) < 1e-9 && Math.abs(sm.picks.roi + 0.3) < 1e-9 && sm.bet.n === 2 && !sm.ready.ok, `simulación de la selección (${JSON.stringify(sm.picks)})`);
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

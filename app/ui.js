@@ -635,12 +635,29 @@ function openMatch(sport, league, h, a, ref) {
   else { showTab('baloncesto'); $('nbComp').value = sport; bkInit(h, a); }
   window.scrollTo({ top: 0 });
 }
+// Simulación sin dinero: ¿la selección acierta lo que dice y ganaría a la mejor cuota?
+function simBlock(S) {
+  if (!S) return '';
+  const P = S.picks, B = S.bet, sgn = x => (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1);
+  const rate = o => o.n ? pct(o.hits / o.n, 0) : '—', exp = o => o.pAvg != null ? pct(o.pAvg, 0) : '—';
+  const prog = Math.min(1, P.withOdds / S.ready.need);
+  const verdict = S.ready.ok ? ['pos', '✅ Lista para apostar con dinero (en la fase de prueba de «Mis apuestas»)']
+    : P.withOdds < S.ready.need ? ['warn', `Aún no: faltan ${S.ready.need - P.withOdds} pronósticos con cuota para fiarse`]
+    : ['neg', 'Aún no: con 100 o más pronósticos, el rendimiento o los aciertos no están a la altura'];
+  return `<section class="block"><h3 class="sect">🧪 Simulación antes de apostar</h3>
+    <p class="note">Como si hubieras apostado 1 unidad a cada pronóstico de la selección diaria, cobrado a la mejor cuota encontrada antes del partido. Sin dinero real: sirve para saber si fiarse del modelo.</p>
+    <div class="sug ${verdict[0]}"><b>${verdict[1]}</b><span>Hace falta: ${S.ready.need} pronósticos con cuota, rendimiento de 0% o más y aciertos como mínimo a 3 puntos de lo que esperaba el modelo.</span>
+      <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${S.ready.need}" aria-valuenow="${P.withOdds}"><i style="width:${(prog * 100).toFixed(1)}%"></i></div><small>${P.withOdds} de ${S.ready.need} pronósticos con cuota</small></div>
+    <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
+  </section>`;
+}
 function acRender() {
   const out = $('acOut');
   if (!PF || !PF.sports) { out.innerHTML = '<p class="verdict">El seguimiento empieza cuando la mesa funciona desde GitHub: cada pronóstico se guarda antes del partido y se compara con el resultado. Para ver cómo habría acertado en el pasado, usa «Precisión histórica» en cada deporte.</p>'; return; }
   const rateBox = (o, l) => statBox(o && o.n ? pct(o.hits / o.n, 0) : '—', `${l}${o && o.n ? ` · ${o.hits} de ${o.n}` : ' · aún sin datos'}`);
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
   const D = PF.daily;
+  html += simBlock(D && D.sim);
   html += `<section class="block"><h3 class="sect">⭐ Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
@@ -751,7 +768,9 @@ function mbAdd() {
 function mbRender() {
   const list = betsGet(), out = $('mbOut'), ph = betPhase(list), money = x => (x < 0 ? '−' : '') + nf(Math.abs(x)) + ' €';
   const pend = list.filter(b => !betResult(b)).length, won = list.filter(b => betResult(b) === 'win').length;
-  let h = `<div class="sug ${ph.name === 'prueba' ? 'warn' : 'pos'}"><b>${ph.name === 'prueba' ? `Fase de prueba · ${ph.done} de ${PHASE_N} apuestas resueltas` : 'Fase normal'}</b>
+  const sim = PF?.daily?.sim;
+  let h = sim && !sim.ready.ok ? `<div class="sug neg"><b>Recomendación: espera antes de apostar dinero</b><span>La simulación aún no da luz verde (${sim.picks.withOdds} de ${sim.ready.need} pronósticos con cuota). Puedes apuntar apuestas igualmente para practicar. Detalle en «Aciertos».</span></div>` : '';
+  h += `<div class="sug ${ph.name === 'prueba' ? 'warn' : 'pos'}"><b>${ph.name === 'prueba' ? `Fase de prueba · ${ph.done} de ${PHASE_N} apuestas resueltas` : 'Fase normal'}</b>
     <span>${ph.name === 'prueba' ? `Apuestas pequeñas (máximo ${nf(STAKE.prueba.max, 1)} u cada una y ${STAKE.prueba.day} u al día) hasta tener ${PHASE_N} apuestas resueltas con beneficio y CLV en positivo.` : `Tienes historial suficiente con beneficio y CLV en positivo: tope de ${STAKE.normal.max} u por apuesta y ${STAKE.normal.day} u al día.`}</span></div>`;
   h += `<div class="stats">${statBox(String(list.length), `apuestas · ${pend} pendientes`)}${statBox(money(ph.staked), 'apostado (resueltas)')}${statBox(money(ph.profit), 'beneficio')}${statBox(ph.staked ? pct(ph.profit / ph.staked, 1) : '—', 'rendimiento (ROI)')}${statBox(ph.done ? pct(won / ph.done, 0) : '—', 'aciertos')}${statBox(ph.clv == null ? '—' : (ph.clv >= 0 ? '+' : '') + pct(ph.clv, 1), 'CLV medio')}</div>`;
   if (!list.length) { out.innerHTML = h + '<p class="note">Aún no has apuntado ninguna apuesta.</p>'; return; }

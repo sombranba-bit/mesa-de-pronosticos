@@ -184,7 +184,7 @@ export function evaluate(e) {
 }
 // Apuesta del día y selección: los pronósticos de más probabilidad del día (hora de Madrid), uno por partido y de cualquier deporte.
 // Los partidos ya empezados conservan su último pronóstico previo, así la elección es la misma en la app y al medir aciertos.
-export const SEL_MIN = 0.65, SEL_MAX = 5;
+export const SEL_MIN = 0.65, SEL_MAX = 5, SIM_N = 100;
 export function dailyPicks(entries, day) {
   const d = entries.filter(e => slateDay(Date.parse(e.kickoff)) === day).sort((a, b) => b.pick.p - a.pick.p);
   return d.length ? { day, bet: d[0], picks: d.filter(e => e.pick.p >= SEL_MIN).slice(0, SEL_MAX) } : null;
@@ -210,14 +210,26 @@ export function performance(hist) {
   for (const s of Object.values(sports)) s.preds = s.preds.slice(-3000);
   const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), sport: e.sport, home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
   const all = Object.values(hist), daily = { bet: { n: 0, hits: 0 }, picks: { n: 0, hits: 0 }, full: { n: 0, hits: 0 }, recent: [] };
+  // Simulación sin dinero: 1 unidad a cada pronóstico de la selección (y a la apuesta del día), cobrada a la mejor cuota vista antes del partido
+  const simNew = () => ({ n: 0, hits: 0, pSum: 0, withOdds: 0, profit: 0, clvSum: 0, clvN: 0 }), sim = { bet: simNew(), picks: simNew() };
+  const simAdd = (o, e) => {
+    o.n++; o.hits += e.eval.pick.hit; o.pSum += e.pick.p;
+    if (e.best?.odds > 1) { o.withOdds++; o.profit += e.eval.pick.hit ? e.best.odds - 1 : -1; }
+    const f = e.fair?.[e.pick.code]; if (f && e.best?.odds) { o.clvSum += e.best.odds / f - 1; o.clvN++; }
+  };
   for (const day of [...new Set(done.map(e => slateDay(Date.parse(e.kickoff))))].sort()) {
     const sel = dailyPicks(all, day);
-    if (sel.bet.eval) { daily.bet.n++; daily.bet.hits += sel.bet.eval.pick.hit;
+    if (sel.bet.eval) { daily.bet.n++; daily.bet.hits += sel.bet.eval.pick.hit; simAdd(sim.bet, sel.bet);
       daily.recent.unshift({ date: day, home: sel.bet.home, away: sel.bet.away, label: sel.bet.pick.label, p: sel.bet.pick.p, hit: sel.bet.eval.pick.hit }); }
-    for (const e of sel.picks) if (e.eval) { daily.picks.n++; daily.picks.hits += e.eval.pick.hit; }
+    for (const e of sel.picks) if (e.eval) { daily.picks.n++; daily.picks.hits += e.eval.pick.hit; simAdd(sim.picks, e); }
     if (sel.picks.length >= 2 && sel.picks.every(e => e.eval)) { daily.full.n++; daily.full.hits += sel.picks.every(e => e.eval.pick.hit); }
   }
   daily.recent = daily.recent.slice(0, 30);
+  for (const o of Object.values(sim)) Object.assign(o, { pAvg: o.n ? o.pSum / o.n : null, roi: o.withOdds ? o.profit / o.withOdds : null, clv: o.clvN ? o.clvSum / o.clvN : null });
+  // listo para apostar con dinero: 100 pronósticos simulados con cuota, rendimiento no negativo y aciertos a la altura de lo que decía el modelo
+  const P = sim.picks;
+  sim.ready = { need: SIM_N, have: P.withOdds, ok: P.withOdds >= SIM_N && P.roi >= 0 && P.hits / P.n >= P.pAvg - 0.03 };
+  daily.sim = sim;
   // última cuota justa de Pinnacle vista antes de empezar cada partido (para el CLV del registro de apuestas) y resultado
   const closing = {};
   for (const e of Object.values(hist)) if (NOW - Date.parse(e.kickoff) < 120 * 864e5 && (e.fair || e.result))
@@ -313,8 +325,9 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
         : `<code>${when(m)}</code> ${html(m.home)} – ${html(m.away)}\n      ${html(m.pick.label)} ${pc(m.pick.p)} · ${Math.round(m.ph)}-${Math.round(m.pa)}`).join('\n')).join('\n\n') + '</blockquote>');
     }
   }
-  const y = perf.recent.filter(r => r.date < day).slice(0, 30), hits = y.filter(r => r.hit).length;
-  const foot = [y.length ? `📈 <b>Últimos ${y.length} pronósticos:</b> ${hits} ✅ · ${y.length - hits} ❌ (${pc(hits / y.length)})` : '', process.env.PAGES_URL ? `🔗 ${process.env.PAGES_URL}` : ''].filter(Boolean);
+  const y = perf.recent.filter(r => r.date < day).slice(0, 30), hits = y.filter(r => r.hit).length, sm = perf.daily?.sim?.picks;
+  const foot = [y.length ? `📈 <b>Últimos ${y.length} pronósticos:</b> ${hits} ✅ · ${y.length - hits} ❌ (${pc(hits / y.length)})` : '',
+    sm?.n ? `🧪 <b>Simulación de la selección:</b> ${sm.hits} de ${sm.n} (${pc(sm.hits / sm.n)}, el modelo esperaba ${pc(sm.pAvg)})${sm.withOdds ? ` · rendimiento ${sm.roi >= 0 ? '+' : ''}${(sm.roi * 100).toFixed(1).replace('.', ',')}% en ${sm.withOdds} con cuota` : ''} · ${perf.daily.sim.ready.ok ? '✅ lista para apostar' : `${Math.min(sm.withOdds, SIM_N)}/${SIM_N} para fiarse`}` : '', process.env.PAGES_URL ? `🔗 ${process.env.PAGES_URL}` : ''].filter(Boolean);
   if (foot.length) S.push(`${SEP}\n${foot.join('\n')}`);
   return S;   // lista de secciones
 }
