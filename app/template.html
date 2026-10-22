@@ -102,6 +102,7 @@ table.bets td.act { white-space: nowrap; } table.bets td.act .linkbtn { padding:
 .legs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; padding: 10px 0; border-top: 1px solid var(--soft); cursor: pointer; } .legs li:first-child { border-top: 0; }
 .leg-l { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; } .leg-r { text-align: right; } .leg-r > b { display: block; font: 700 24px var(--f-display); line-height: 1; }
 .leg-r > span { display: block; font-size: 12.5px; color: var(--muted); max-width: 150px; margin-left: auto; } .leg-r .mr-odds { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; } .leg-r .mr-odds b { font: 600 13px var(--f-mono); color: var(--ink); } .leg-r .mr-odds b.g { color: var(--pos); }
+@keyframes pulse { 50% { opacity: .45; } } .loading { animation: pulse 1.4s ease-in-out infinite; }
 #injList { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 36px 16px; margin-top: 14px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
 .empty b { color: var(--ink); font-size: 17px; } .empty-ico { font-size: 34px; }
@@ -301,7 +302,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
   <section id="sec-pronosticos" data-sec="pronosticos">
     <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true">Próximos partidos</button><button data-v="aciertos" aria-pressed="false">Aciertos</button><button data-v="apuestas" aria-pressed="false">Mis apuestas</button><button data-v="avisos" aria-pressed="false">Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false">Cuotas</button></div>
-    <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"></div>
+    <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"><p class="note loading">Cargando pronósticos… (la primera vez puede tardar unos segundos: son varios megas de datos)</p></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
       <div class="controls">
@@ -309,7 +310,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <div class="field"><label for="prLeague">Competición</label><select id="prLeague"><option value="">Todas</option></select></div>
         <div class="field"><label for="prConf">Confianza del pronóstico</label><select id="prConf"><option value="0">Todos</option><option value="0.6">60% o más</option><option value="0.7">70% o más</option><option value="0.8">80% o más</option></select></div>
       </div>
-      <div id="prOut"></div>
+      <div id="prOut"><p class="note loading">Cargando…</p></div>
     </div>
     <div data-view="aciertos" class="panel" style="margin-top:12px" hidden>
       <h2>Aciertos de los pronósticos</h2>
@@ -393,7 +394,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         </div>
         <div id="injList"></div>
       </details>
-      <div id="fbOut"></div>
+      <div id="fbOut"><p class="note loading">Cargando históricos…</p></div>
     </div>
     <div data-view="stats" class="panel" style="margin-top:12px" hidden>
       <h2>Estadísticas por equipo</h2>
@@ -435,7 +436,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <div class="field"><label for="nbSpread">Hándicap del local</label><input type="number" id="nbSpread" step="0.5" value="-3.5"></div>
         <div class="field"><label for="nbTotal">Línea de puntos totales</label><input type="number" id="nbTotal" step="0.5" value="225.5"></div>
       </div>
-      <div id="nbOut"></div>
+      <div id="nbOut"><p class="note loading">Cargando históricos…</p></div>
     </div>
     <div data-view="backtest" class="panel" style="margin-top:12px" hidden>
       <h2>Precisión histórica</h2>

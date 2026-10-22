@@ -654,7 +654,8 @@ function prRender() {
   }
   out.innerHTML = html; bindOpen(out);
 }
-function openMatch(sport, league, h, a, ref) {
+async function openMatch(sport, league, h, a, ref) {
+  if (READY) { showTab(sport === 'futbol' ? 'futbol' : 'baloncesto'); if (!(await READY)) return; }
   if (sport === 'futbol') { showTab('futbol'); $('fbLeague').value = league; injKey = ''; refSel = ref || ''; refHint = ref ? `${league}|${h}|${a}` : ''; fbTeamsFill(h, a); }
   else { showTab('baloncesto'); $('nbComp').value = sport; bkInit(h, a); }
   window.scrollTo({ top: 0 });
@@ -886,7 +887,7 @@ let tennisReady = false, statsReady = false;
 function showTab(t) {
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
   document.querySelectorAll('section[data-sec]').forEach(s => s.hidden = s.dataset.sec !== t);
-  if (t === 'tenis' && !tennisReady) { tennisReady = true; tnRefresh(); }
+  if (t === 'tenis' && !tennisReady && Td) { tennisReady = true; tnRefresh(); }
   store.set('mc_tab', t);
 }
 function wire() {
@@ -895,7 +896,7 @@ function wire() {
     const b = e.target.closest('button'); if (!b) return;
     sub.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
     sub.parentElement.querySelectorAll('[data-view]').forEach(v => v.hidden = v.dataset.view !== b.dataset.v);
-    if (b.dataset.v === 'stats' && !statsReady) { statsReady = true; fbStats(); }
+    if (b.dataset.v === 'stats' && !statsReady && FB.length) { statsReady = true; fbStats(); }
   }));
   ['fbHome', 'fbAway', 'fbXi', 'injAttH', 'injDefH', 'injAttA', 'injDefA'].forEach(id => $(id).addEventListener('change', fbPredict));
   $('fbLeague').addEventListener('change', () => fbTeamsFill());
@@ -920,18 +921,30 @@ function wire() {
   $('mbExport').addEventListener('click', mbExport);
   $('mbImport').addEventListener('change', e => e.target.files[0] && mbImport(e.target.files[0]));
 }
+// Arranque en dos tiempos: primero los datos pequeños (pronósticos, aciertos, cuotas) para que la portada salga al momento;
+// después los históricos grandes (unos 8 MB) que necesitan las fichas, las pestañas de cada deporte y el registro de apuestas.
+let READY;
 (async () => {
   wire();
-  let BX;
-  [Fd, BK.nba.raw, BK.euroliga.raw, Td, PR, PF, CE, IJ, BX, NW, OD, CR] = await Promise.all([loadJSON('d-fb', 'data/football.json'), loadJSON('d-nb', 'data/nba.json'), loadJSON('d-el', 'data/euroliga.json'),
-    loadJSON('d-tn', 'data/tennis.json'), loadJSON('d-pr', 'data/predictions.json'), loadJSON('d-pf', 'data/performance.json'), loadJSON('d-ce', 'data/clubelo.json'), loadJSON('d-ij', 'data/injuries.json'),
-    loadJSON('d-bx', 'data/basket_extra.json'), loadJSON('d-nw', 'data/news.json'), loadJSON('d-od', 'data/odds.json'), loadJSON('d-cr', 'data/crests.json')]);
-  BK.eurocup = { raw: null, rows: [], name: 'EuroCup' }; BK.acb = { raw: null, rows: [], name: 'Liga ACB' };
-  for (const [k, v] of Object.entries(BX?.comps || {})) BK[k] = { raw: v, rows: [], name: v.name };
-  if (!Fd || !Td) { $('prOut').innerHTML = '<p class="verdict">No se pudieron cargar los datos. Recarga la página en unos minutos.</p>'; return; }
-  buildFB(); for (const k of Object.keys(BK)) buildBK(k);
-  bkCompsFill();
-  appendTennis(store.get('mc_tn_extra', []));
-  headerInfo(); fbInitControls(); bkInit(); prRender(); acRender(); avInit(); odRender(); mbInit();
-  const h = location.hash.slice(1); showTab(['pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'pronosticos');
+  const h = location.hash.slice(1), first = ['pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'pronosticos';
+  [PR, PF, CE, IJ, NW, OD, CR] = await Promise.all([loadJSON('d-pr', 'data/predictions.json'), loadJSON('d-pf', 'data/performance.json'), loadJSON('d-ce', 'data/clubelo.json'),
+    loadJSON('d-ij', 'data/injuries.json'), loadJSON('d-nw', 'data/news.json'), loadJSON('d-od', 'data/odds.json'), loadJSON('d-cr', 'data/crests.json')]);
+  prRender(); acRender(); odRender(); mbInit();
+  if (first === 'pronosticos' || first === 'guia') showTab(first);
+  READY = (async () => {
+    let BX;
+    [Fd, BK.nba.raw, BK.euroliga.raw, Td, BX] = await Promise.all([loadJSON('d-fb', 'data/football.json'), loadJSON('d-nb', 'data/nba.json'), loadJSON('d-el', 'data/euroliga.json'),
+      loadJSON('d-tn', 'data/tennis.json'), loadJSON('d-bx', 'data/basket_extra.json')]);
+    BK.eurocup = { raw: null, rows: [], name: 'EuroCup' }; BK.acb = { raw: null, rows: [], name: 'Liga ACB' };
+    for (const [k, v] of Object.entries(BX?.comps || {})) BK[k] = { raw: v, rows: [], name: v.name };
+    if (!Fd || !Td) { $('fbOut').innerHTML = '<p class="verdict">No se pudieron cargar los datos. Recarga la página en unos minutos.</p>'; return false; }
+    await new Promise(r => setTimeout(r, 0));   // deja pintar la portada antes del cálculo pesado
+    buildFB(); for (const k of Object.keys(BK)) buildBK(k);
+    bkCompsFill();
+    appendTennis(store.get('mc_tn_extra', []));
+    headerInfo(); fbInitControls(); bkInit(); avInit(); mbRender();
+    const cur = document.querySelector('nav.tabs button[aria-selected="true"]')?.dataset.tab;
+    showTab(first !== 'pronosticos' && first !== 'guia' && (!cur || cur === 'pronosticos') ? first : cur || first);   // rehace la pestaña abierta mientras cargaba
+    return true;
+  })();
 })();

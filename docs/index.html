@@ -102,6 +102,7 @@ table.bets td.act { white-space: nowrap; } table.bets td.act .linkbtn { padding:
 .legs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; padding: 10px 0; border-top: 1px solid var(--soft); cursor: pointer; } .legs li:first-child { border-top: 0; }
 .leg-l { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; } .leg-r { text-align: right; } .leg-r > b { display: block; font: 700 24px var(--f-display); line-height: 1; }
 .leg-r > span { display: block; font-size: 12.5px; color: var(--muted); max-width: 150px; margin-left: auto; } .leg-r .mr-odds { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; } .leg-r .mr-odds b { font: 600 13px var(--f-mono); color: var(--ink); } .leg-r .mr-odds b.g { color: var(--pos); }
+@keyframes pulse { 50% { opacity: .45; } } .loading { animation: pulse 1.4s ease-in-out infinite; }
 #injList { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 36px 16px; margin-top: 14px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
 .empty b { color: var(--ink); font-size: 17px; } .empty-ico { font-size: 34px; }
@@ -301,7 +302,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
   <section id="sec-pronosticos" data-sec="pronosticos">
     <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true">Próximos partidos</button><button data-v="aciertos" aria-pressed="false">Aciertos</button><button data-v="apuestas" aria-pressed="false">Mis apuestas</button><button data-v="avisos" aria-pressed="false">Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false">Cuotas</button></div>
-    <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"></div>
+    <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"><p class="note loading">Cargando pronósticos… (la primera vez puede tardar unos segundos: son varios megas de datos)</p></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
       <div class="controls">
@@ -309,7 +310,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <div class="field"><label for="prLeague">Competición</label><select id="prLeague"><option value="">Todas</option></select></div>
         <div class="field"><label for="prConf">Confianza del pronóstico</label><select id="prConf"><option value="0">Todos</option><option value="0.6">60% o más</option><option value="0.7">70% o más</option><option value="0.8">80% o más</option></select></div>
       </div>
-      <div id="prOut"></div>
+      <div id="prOut"><p class="note loading">Cargando…</p></div>
     </div>
     <div data-view="aciertos" class="panel" style="margin-top:12px" hidden>
       <h2>Aciertos de los pronósticos</h2>
@@ -393,7 +394,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         </div>
         <div id="injList"></div>
       </details>
-      <div id="fbOut"></div>
+      <div id="fbOut"><p class="note loading">Cargando históricos…</p></div>
     </div>
     <div data-view="stats" class="panel" style="margin-top:12px" hidden>
       <h2>Estadísticas por equipo</h2>
@@ -435,7 +436,7 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
         <div class="field"><label for="nbSpread">Hándicap del local</label><input type="number" id="nbSpread" step="0.5" value="-3.5"></div>
         <div class="field"><label for="nbTotal">Línea de puntos totales</label><input type="number" id="nbTotal" step="0.5" value="225.5"></div>
       </div>
-      <div id="nbOut"></div>
+      <div id="nbOut"><p class="note loading">Cargando históricos…</p></div>
     </div>
     <div data-view="backtest" class="panel" style="margin-top:12px" hidden>
       <h2>Precisión histórica</h2>
@@ -1772,7 +1773,8 @@ function prRender() {
   }
   out.innerHTML = html; bindOpen(out);
 }
-function openMatch(sport, league, h, a, ref) {
+async function openMatch(sport, league, h, a, ref) {
+  if (READY) { showTab(sport === 'futbol' ? 'futbol' : 'baloncesto'); if (!(await READY)) return; }
   if (sport === 'futbol') { showTab('futbol'); $('fbLeague').value = league; injKey = ''; refSel = ref || ''; refHint = ref ? `${league}|${h}|${a}` : ''; fbTeamsFill(h, a); }
   else { showTab('baloncesto'); $('nbComp').value = sport; bkInit(h, a); }
   window.scrollTo({ top: 0 });
@@ -2004,7 +2006,7 @@ let tennisReady = false, statsReady = false;
 function showTab(t) {
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
   document.querySelectorAll('section[data-sec]').forEach(s => s.hidden = s.dataset.sec !== t);
-  if (t === 'tenis' && !tennisReady) { tennisReady = true; tnRefresh(); }
+  if (t === 'tenis' && !tennisReady && Td) { tennisReady = true; tnRefresh(); }
   store.set('mc_tab', t);
 }
 function wire() {
@@ -2013,7 +2015,7 @@ function wire() {
     const b = e.target.closest('button'); if (!b) return;
     sub.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
     sub.parentElement.querySelectorAll('[data-view]').forEach(v => v.hidden = v.dataset.view !== b.dataset.v);
-    if (b.dataset.v === 'stats' && !statsReady) { statsReady = true; fbStats(); }
+    if (b.dataset.v === 'stats' && !statsReady && FB.length) { statsReady = true; fbStats(); }
   }));
   ['fbHome', 'fbAway', 'fbXi', 'injAttH', 'injDefH', 'injAttA', 'injDefA'].forEach(id => $(id).addEventListener('change', fbPredict));
   $('fbLeague').addEventListener('change', () => fbTeamsFill());
@@ -2038,20 +2040,32 @@ function wire() {
   $('mbExport').addEventListener('click', mbExport);
   $('mbImport').addEventListener('change', e => e.target.files[0] && mbImport(e.target.files[0]));
 }
+// Arranque en dos tiempos: primero los datos pequeños (pronósticos, aciertos, cuotas) para que la portada salga al momento;
+// después los históricos grandes (unos 8 MB) que necesitan las fichas, las pestañas de cada deporte y el registro de apuestas.
+let READY;
 (async () => {
   wire();
-  let BX;
-  [Fd, BK.nba.raw, BK.euroliga.raw, Td, PR, PF, CE, IJ, BX, NW, OD, CR] = await Promise.all([loadJSON('d-fb', 'data/football.json'), loadJSON('d-nb', 'data/nba.json'), loadJSON('d-el', 'data/euroliga.json'),
-    loadJSON('d-tn', 'data/tennis.json'), loadJSON('d-pr', 'data/predictions.json'), loadJSON('d-pf', 'data/performance.json'), loadJSON('d-ce', 'data/clubelo.json'), loadJSON('d-ij', 'data/injuries.json'),
-    loadJSON('d-bx', 'data/basket_extra.json'), loadJSON('d-nw', 'data/news.json'), loadJSON('d-od', 'data/odds.json'), loadJSON('d-cr', 'data/crests.json')]);
-  BK.eurocup = { raw: null, rows: [], name: 'EuroCup' }; BK.acb = { raw: null, rows: [], name: 'Liga ACB' };
-  for (const [k, v] of Object.entries(BX?.comps || {})) BK[k] = { raw: v, rows: [], name: v.name };
-  if (!Fd || !Td) { $('prOut').innerHTML = '<p class="verdict">No se pudieron cargar los datos. Recarga la página en unos minutos.</p>'; return; }
-  buildFB(); for (const k of Object.keys(BK)) buildBK(k);
-  bkCompsFill();
-  appendTennis(store.get('mc_tn_extra', []));
-  headerInfo(); fbInitControls(); bkInit(); prRender(); acRender(); avInit(); odRender(); mbInit();
-  const h = location.hash.slice(1); showTab(['pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'pronosticos');
+  const h = location.hash.slice(1), first = ['pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'pronosticos';
+  [PR, PF, CE, IJ, NW, OD, CR] = await Promise.all([loadJSON('d-pr', 'data/predictions.json'), loadJSON('d-pf', 'data/performance.json'), loadJSON('d-ce', 'data/clubelo.json'),
+    loadJSON('d-ij', 'data/injuries.json'), loadJSON('d-nw', 'data/news.json'), loadJSON('d-od', 'data/odds.json'), loadJSON('d-cr', 'data/crests.json')]);
+  prRender(); acRender(); odRender(); mbInit();
+  if (first === 'pronosticos' || first === 'guia') showTab(first);
+  READY = (async () => {
+    let BX;
+    [Fd, BK.nba.raw, BK.euroliga.raw, Td, BX] = await Promise.all([loadJSON('d-fb', 'data/football.json'), loadJSON('d-nb', 'data/nba.json'), loadJSON('d-el', 'data/euroliga.json'),
+      loadJSON('d-tn', 'data/tennis.json'), loadJSON('d-bx', 'data/basket_extra.json')]);
+    BK.eurocup = { raw: null, rows: [], name: 'EuroCup' }; BK.acb = { raw: null, rows: [], name: 'Liga ACB' };
+    for (const [k, v] of Object.entries(BX?.comps || {})) BK[k] = { raw: v, rows: [], name: v.name };
+    if (!Fd || !Td) { $('fbOut').innerHTML = '<p class="verdict">No se pudieron cargar los datos. Recarga la página en unos minutos.</p>'; return false; }
+    await new Promise(r => setTimeout(r, 0));   // deja pintar la portada antes del cálculo pesado
+    buildFB(); for (const k of Object.keys(BK)) buildBK(k);
+    bkCompsFill();
+    appendTennis(store.get('mc_tn_extra', []));
+    headerInfo(); fbInitControls(); bkInit(); avInit(); mbRender();
+    const cur = document.querySelector('nav.tabs button[aria-selected="true"]')?.dataset.tab;
+    showTab(first !== 'pronosticos' && first !== 'guia' && (!cur || cur === 'pronosticos') ? first : cur || first);   // rehace la pestaña abierta mientras cargaba
+    return true;
+  })();
 })();
 </script>
 </body></html>
