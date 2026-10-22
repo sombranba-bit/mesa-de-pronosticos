@@ -116,5 +116,11 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   ok(Array.isArray(S) && T.includes('APUESTA DEL DÍA') && T.includes('TODOS LOS PARTIDOS') && T.includes('A &amp; B') && T.includes('1,50 en X'), 'resumen de Telegram con secciones');
   ok(S.every(x => (x.match(/<blockquote/g) || []).length === (x.match(/<\/blockquote>/g) || []).length && (x.match(/<b>/g) || []).length === (x.match(/<\/b>/g) || []).length), 'cada sección cierra sus etiquetas');
 }
+// jornada de 6:00 a 6:00: un NBA a la 1:30 (hora de Madrid) del viernes cuenta para el jueves
+{
+  const e = { kickoff: '2026-10-22T23:30:00Z', pick: { p: 0.8 } }, f = { kickoff: '2026-10-22T18:00:00Z', pick: { p: 0.7 } };
+  const sel = P2.dailyPicks([e, f], '2026-10-22');
+  ok(sel && sel.bet === e && sel.picks.length === 2 && !P2.dailyPicks([e], '2026-10-23'), 'la madrugada cuenta para la jornada anterior');
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

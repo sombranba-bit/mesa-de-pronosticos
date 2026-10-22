@@ -1165,7 +1165,8 @@ const crestUrl = (n, b) => {
 const isB = sp => !!sp && (/^(b|nba|euroliga|eurocup|acb|lega|bbl|lnb|gbl|bsl)$/i.test(sp) || /nba|basket|euroleague|eurocup/i.test(sp));
 const twoLines = (h, a, sp) => `<div class="tline">${crest(h, sp, 'md')}<span>${esc(h)}</span></div><div class="tline">${crest(a, sp, 'md')}<span>${esc(a)}</span></div>`;
 const openAttr = m => `data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}" role="button" tabindex="0"`;
-const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+const night = m => new Date(m.kickoff).getHours() < 6 ? ' 🌙' : '';   // madrugada: cuenta para la jornada de la noche anterior
+const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + night(m);
 // tarjeta compacta de un pronóstico (selección recomendada)
 const bestLine = m => m.best ? `<div class="best">Mejor cuota <b>${nf(m.best.odds)}</b> en ${esc(m.best.book)} <span>· justa ${nf(1 / m.pick.p)}</span></div>` : '';
 const pcard = (m, res) => `<div class="pcard" ${openAttr(m)}>
@@ -1638,7 +1639,7 @@ function dailyRender() {
   const box = $('prDaily'), D = PR && PR.daily;
   if (!D || !D.bet) { box.innerHTML = '<h2>Apuesta del día</h2><p class="verdict">Aparece cuando la mesa funciona desde GitHub: cada hora elige el pronóstico más probable del día entre todos los deportes, y una selección con los más seguros.</p>'; return; }
   const dayTxt = new Date(D.day + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  const when = m => m.noTime ? 'hora por confirmar' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const when = m => m.noTime ? 'hora por confirmar' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + night(m);
   const res = m => m.hit === undefined ? '' : ` <span class="chip ${m.hit ? 'pos' : 'neg'}">${m.hit ? 'Acierto' : 'Fallo'}</span>`;
   const open = m => `<button class="linkbtn" data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}">Ver partido</button>`;
   const rate = o => o && o.n ? `${o.hits} de ${o.n} (${pct(o.hits / o.n, 0)})` : 'aún sin datos';

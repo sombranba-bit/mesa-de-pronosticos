@@ -15,6 +15,9 @@ const COUNTRY = { SP1: 'ES', SP2: 'ES', SP3: 'ES', E0: 'EN', E1: 'EN', I1: 'IT',
 const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg', 'hst', 'ast', 'il', 'im'];
 const usDay = ms => Math.round(Date.parse(new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(ms)) + 'T00:00:00Z') / 864e5);
 const madridDate = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms));   // AAAA-MM-DD
+// «Jornada» de apuestas: de 6:00 a 6:00 (hora de Madrid). Los partidos de NBA de madrugada cuentan para la noche anterior,
+// que es cuando se pueden apostar desde España.
+const slateDay = ms => madridDate(ms - 6 * 3600e3);
 const madridTime = ms => new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
 
 // Competiciones de baloncesto: NBA y Euroliga en sus ficheros; el resto (EuroCup, ACB, ...) en basket_extra.json
@@ -183,12 +186,12 @@ export function evaluate(e) {
 // Los partidos ya empezados conservan su último pronóstico previo, así la elección es la misma en la app y al medir aciertos.
 export const SEL_MIN = 0.65, SEL_MAX = 5;
 export function dailyPicks(entries, day) {
-  const d = entries.filter(e => madridDate(Date.parse(e.kickoff)) === day).sort((a, b) => b.pick.p - a.pick.p);
+  const d = entries.filter(e => slateDay(Date.parse(e.kickoff)) === day).sort((a, b) => b.pick.p - a.pick.p);
   return d.length ? { day, bet: d[0], picks: d.filter(e => e.pick.p >= SEL_MIN).slice(0, SEL_MAX) } : null;
 }
 // Día a mostrar: hoy si queda algún partido por empezar; si no, el siguiente día con partidos.
 export function dailyFor(entries, now = NOW) {
-  const next = entries.filter(e => Date.parse(e.kickoff) > now).map(e => madridDate(Date.parse(e.kickoff))).sort()[0];
+  const next = entries.filter(e => Date.parse(e.kickoff) > now).map(e => slateDay(Date.parse(e.kickoff))).sort()[0];
   return next ? dailyPicks(entries, next) : null;
 }
 export function performance(hist) {
@@ -207,7 +210,7 @@ export function performance(hist) {
   for (const s of Object.values(sports)) s.preds = s.preds.slice(-3000);
   const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), sport: e.sport, home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
   const all = Object.values(hist), daily = { bet: { n: 0, hits: 0 }, picks: { n: 0, hits: 0 }, full: { n: 0, hits: 0 }, recent: [] };
-  for (const day of [...new Set(done.map(e => madridDate(Date.parse(e.kickoff))))].sort()) {
+  for (const day of [...new Set(done.map(e => slateDay(Date.parse(e.kickoff))))].sort()) {
     const sel = dailyPicks(all, day);
     if (sel.bet.eval) { daily.bet.n++; daily.bet.hits += sel.bet.eval.pick.hit;
       daily.recent.unshift({ date: day, home: sel.bet.home, away: sel.bet.away, label: sel.bet.pick.label, p: sel.bet.pick.p, hit: sel.bet.eval.pick.hit }); }
@@ -266,17 +269,18 @@ export function filterForAlerts(matches, cfg = {}) {
     && m.pick.p >= min);
 }
 export function digest(matches, perf, day, cfg = {}, sel = null) {
-  const todays = filterForAlerts(matches.filter(m => madridDate(Date.parse(m.kickoff)) === day && Date.parse(m.kickoff) > NOW), cfg)
+  const todays = filterForAlerts(matches.filter(m => slateDay(Date.parse(m.kickoff)) === day && Date.parse(m.kickoff) > NOW), cfg)
     .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
   if (!todays.length) return null;
   const topMin = Math.max(0.6, +cfg.confianza_minima || 0), top = todays.filter(m => m.pick.p >= topMin);
   const filtered = (cfg.equipos || []).length || (cfg.competiciones || []).length || +cfg.confianza_minima > 0;
-  const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff));
+  const when = m => m.noTime ? '--:--' : madridTime(Date.parse(m.kickoff)) + (madridDate(Date.parse(m.kickoff)) !== day ? ' 🌙' : '');
+  const state = m => Date.parse(m.kickoff) > NOW ? '' : m.eval ? (m.eval.pick.hit ? ' · ✅ acertado' : ' · ❌ fallado') : ' · ⏳ ya empezado';
   const odds = x => String(x.toFixed(2)).replace('.', ',');
   const SEP = '━━━━━━━━━━━━━━━━';
   const sportName = m => m.sport === 'futbol' ? '⚽ FÚTBOL' : '🏀 BALONCESTO';
   const head = m => `${tag(m)} ${html(m.leagueName)} · 🕒 ${when(m)}`;
-  const pickLine = m => `🎯 <b>${html(m.pick.label)}</b> · ${pc(m.pick.p)}${m.best ? ` · 💰 ${odds(m.best.odds)} en ${html(m.best.book)}` : ''}`;
+  const pickLine = m => `🎯 <b>${html(m.pick.label)}</b> · ${pc(m.pick.p)}${m.best && Date.parse(m.kickoff) > NOW ? ` · 💰 ${odds(m.best.odds)} en ${html(m.best.book)}` : ''}${state(m)}`;
   const nFb = todays.filter(m => m.sport === 'futbol').length, nBk = todays.length - nFb;
   const date = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(Date.parse(day + 'T12:00:00Z')));
   const S = [];   // secciones: el envío parte el mensaje por secciones, nunca dentro de una
@@ -288,7 +292,7 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
     if (sel.picks.length >= 2) {
       const all = sel.picks.reduce((x, e) => x * e.pick.p, 1), N = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
       S.push(`${SEP}\n🧩 <b>SELECCIÓN RECOMENDADA</b>\n<i>Todas juntas: ${pc(all)} · cuota justa ${odds(1 / all)}</i>\n\n`
-        + sel.picks.map((e, k) => `${N[k] || '▫️'} ${head(e)}\n<b>${html(e.home)} – ${html(e.away)}</b>\n${pickLine(e)}`).join('\n\n'));
+        + sel.picks.slice().sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff)).map((e, k) => `${N[k] || '▫️'} ${head(e)}\n<b>${html(e.home)} – ${html(e.away)}</b>\n${pickLine(e)}`).join('\n\n'));
     }
   }
   if (top.length) S.push(`${SEP}\n🔥 <b>MÁS CONFIANZA</b> <i>(${pc(topMin)} o más)</i>\n\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 10)
@@ -343,7 +347,7 @@ async function main() {
   const tg = cfg.telegram || {}, stFile = path.join(STATE, 'state.json'), st = read(stFile, {}), day = madridDate(NOW);
   const hour = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date(NOW));
   if (tg.activo !== false && hour >= (+tg.hora || 8) && st.lastDigest !== day) {
-    const t = digest(matches, perf, day, tg, sel);
+    const t = digest(matches, perf, slateDay(NOW), tg, sel);
     if (t && await telegram(t)) { st.lastDigest = day; write(stFile, st); console.log('resumen enviado a Telegram'); }
   }
 }
