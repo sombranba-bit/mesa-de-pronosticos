@@ -1,7 +1,7 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Mesa de Pronósticos</title>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Aldana Bet · Mesa de Pronósticos</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,500&display=swap">
 <style>
 /* Layout: cabecera tipo marcador; pestaña de pronósticos (lista de próximos partidos + aciertos) y una pestaña por deporte (partido, estadísticas, precisión) */
 :root {
@@ -285,16 +285,101 @@ a { color: var(--accent); }
 .linkbtn { background: none; border: 0; color: var(--accent); font: 600 13px var(--f-body); cursor: pointer; padding: 0; justify-self: start; }
 th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
 @media (max-width: 520px) { .match { grid-template-columns: 58px minmax(0, 1fr); } .match .pick { grid-column: 2; text-align: left; } .match .probs, .tribar { grid-column: 1 / 3; } }
+
+/* ===================== TEMA ALDANA BET (inspirado en la web del CV: negro, dorado, Inter + JetBrains Mono) ===================== */
+:root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+  --bg: #0b0b0b; --surface: #121212; --soft: #1a1a1a; --ink: #f4f4f2; --muted: #8d8d8b; --line: #ffffff17; --line-strong: #ffffff38;
+  --accent: #e8b23a; --accent-ink: #0b0b0b; --accent-glow: #e8b23a24;
+  --pos: #4ade80; --pos-bg: #12261b; --neg: #f87171; --neg-bg: #2a1515; --warn: #fbbf24; --warn-bg: #2a2110;
+  --board: #0b0b0b; --board-ink: #f4f4f2; --board-dim: #8d8d8b; color-scheme: dark;
+  --f-display: "Inter", system-ui, sans-serif; --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace; --f-serif: "Playfair Display", Georgia, serif;
+  --ease: cubic-bezier(.22, 1, .36, 1); --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+body { background: var(--bg); -webkit-font-smoothing: antialiased; }
+.bgfx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.bgfx .glow { position: absolute; top: -30vh; left: 50%; transform: translateX(-50%); width: 90vw; height: 70vh; filter: blur(40px); background: radial-gradient(#e8b23a14, #ffffff05 45%, #0000 70%); }
+.bgfx .grid { position: absolute; inset: 0; background-image: linear-gradient(#ffffff08 1px, transparent 1px), linear-gradient(90deg, #ffffff08 1px, transparent 1px); background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(at 50% 0%, #000 0%, #0000 60%); mask-image: radial-gradient(at 50% 0%, #000 0%, #0000 60%); }
+::selection { background: var(--accent); color: #0b0b0b; }
+/* cabecera fija con desenfoque */
+header.board { position: sticky; top: 0; z-index: 50; background: #0b0b0bc4; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+header.board .wrap { padding-block: 14px 0; gap: 10px; }
+.brand { align-items: center; gap: 12px; }
+.brand .seal { width: 44px; height: 44px; flex: none; transition: transform .4s var(--ease-spring); }
+.brand:hover .seal { transform: rotate(-8deg) scale(1.05); }
+.brand h1 { font: 700 22px var(--f-body); letter-spacing: -.02em; text-transform: none; display: flex; flex-direction: column; line-height: 1.1; }
+.brand h1 small { font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.brand p { font: 12px var(--f-mono); color: var(--muted); letter-spacing: .02em; margin-left: auto; }
+nav.tabs { gap: 1.6rem; }
+nav.tabs button { font: 600 15px var(--f-body); letter-spacing: 0; text-transform: none; color: #c9c9c6; padding: 10px 0 12px; border-bottom: 2px solid transparent; display: inline-flex; align-items: baseline; gap: 6px; transition: color .25s var(--ease); }
+nav.tabs button .ix { font: 11px var(--f-mono); color: var(--accent); opacity: .7; }
+nav.tabs button:hover { color: var(--ink); }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs button[aria-selected="true"] .ix { opacity: 1; }
+/* paneles y títulos */
+.panel { background: #121212d9; border-color: var(--line); border-radius: 16px; padding: 22px; }
+.panel h2 { font: 600 26px var(--f-body); letter-spacing: -.03em; text-transform: none; background: linear-gradient(to right, #fff, #9a9a98); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; padding-bottom: .08em; }
+.panel h3, h4.sub4, .daily h3 { font: 500 11px var(--f-mono); letter-spacing: .14em; color: var(--accent); text-transform: uppercase; }
+.panel h3.sect, h3.sect { font: 600 19px var(--f-body); letter-spacing: -.02em; color: var(--ink); text-transform: none; }
+h3.sect::before { background: var(--accent); }
+.daily { border-left: 1px solid var(--line); }
+.note, .lead { color: var(--muted); }
+.block { border-color: var(--line); border-radius: 16px; background: #0f0f0f; }
+/* sub-pestañas tipo píldora */
+.sub button { font: 500 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; background: #1116; border-color: var(--line); color: var(--muted); padding: 8px 14px; transition: color .25s var(--ease), border-color .25s var(--ease); }
+.sub button:hover { color: var(--ink); border-color: var(--accent); }
+.sub button[aria-pressed="true"] { background: var(--ink); color: #0b0b0b; border-color: var(--ink); }
+.seg { background: #161616; } .seg button { font: 500 12px var(--f-mono); letter-spacing: .05em; text-transform: uppercase; }
+.seg button[aria-selected="true"] { background: var(--ink); color: #0b0b0b; }
+/* botones */
+.btn { font: 500 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; border-radius: 999px; padding: 11px 20px; background: var(--ink); color: #0b0b0b; transition: background-color .3s var(--ease), transform .3s var(--ease-spring), box-shadow .3s var(--ease); }
+.btn:hover { background: var(--accent); transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+.btn.ghost { background: #1116; color: var(--muted); border: 1px solid var(--line); } .btn.ghost:hover { color: var(--ink); border-color: var(--accent); background: #1116; }
+.linkbtn, .betbtn { color: var(--accent); }
+select, input[type=text], input[type=number], input[type=date] { background: #0e0e0e; border-color: var(--line); color: var(--ink); border-radius: 10px; }
+/* apuesta del día: tarjeta negra con brillo dorado */
+.mc { background: radial-gradient(120% 140% at 50% 0%, #2b2412 0%, #151310 50%, #0c0c0c 100%); border: 1px solid #e8b23a33; box-shadow: 0 30px 60px -25px #000000cc, 0 0 40px -10px var(--accent-glow); }
+.mc-head { background: #ffffff08; border-bottom-color: #ffffff12; font: 500 11px var(--f-mono); letter-spacing: .14em; color: #d9d9d6; }
+.mc-team { font: 600 19px var(--f-body); letter-spacing: -.01em; text-transform: none; }
+.mc-p { font: 700 68px var(--f-body); letter-spacing: -.04em; background: linear-gradient(180deg, #fff3c9, #e8b23a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.mc-pick { background: #e8b23a24; color: #ffe6a8; border: 1px solid #e8b23a40; font-weight: 600; }
+.mc .oc { background: #ffffff0d; } .mc .oc small { color: #a9a9a6; } .mc .oc.best { background: #4ade801f; } .mc .oc.best b { color: #4ade80; }
+.mc .betbtn { color: var(--accent); }
+.whybox { background: #141414; border: 1px solid var(--line); }
+/* tarjetas */
+.pcard, .cmb { background: #121212; border-color: var(--line); border-radius: 14px; transition: border-color .45s var(--ease), transform .45s var(--ease-spring), box-shadow .45s var(--ease); }
+.pcard:hover { border-color: var(--line-strong); transform: translateY(-3px); box-shadow: 0 24px 50px -25px #000000b3; }
+.pc-p b, .mr-p b { font-family: var(--f-body); letter-spacing: -.03em; color: var(--ink); }
+.pc-p b { background: linear-gradient(180deg, #fff, #e8b23a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.stat { background: #161616; border: 1px solid var(--line); border-radius: 12px; } .stat b { color: var(--ink); }
+.lghead { background: #161616; font-family: var(--f-mono); letter-spacing: .1em; }
+.mrow { border-color: #ffffff0f; transition: background-color .25s var(--ease); } .mrow:hover { background: #ffffff06; }
+.kv { background: #161616; }
+.tribar i:nth-child(1) { background: var(--accent); }
+.chip { font-family: var(--f-mono); font-size: 11px; letter-spacing: .02em; }
+.oc { background: #171717; } .oc.best { background: #4ade8014; }
+.scoreline { background: radial-gradient(120% 140% at 50% 0%, #2b2412 0%, #151310 55%, #0c0c0c 100%); border: 1px solid #e8b23a26; }
+.verdict { background: #2a2110; color: #ffe6a8; border-left-color: var(--accent); }
+table th { font-family: var(--f-mono); letter-spacing: .08em; color: var(--muted); }
+.mkcard { background: #121212; border-color: var(--line); }
+.mk-p i { background: var(--accent); opacity: .5; }
+.empty { border-color: var(--line); }
+footer, .foot { color: var(--muted); }
+nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none; } nav.tabs button { flex: none; white-space: nowrap; }
+@media (max-width: 520px) { .brand p { margin-left: 0; width: 100%; font-size: 11px; } nav.tabs { gap: 1.1rem; } .panel { padding: 16px; }
+  .mc-p { font-size: 46px; } .mc-team { font-size: 15px; word-break: normal; overflow-wrap: anywhere; } .mc-body { grid-template-columns: 1fr 1fr; row-gap: 14px; } .mc-mid { grid-row: 2; grid-column: 1 / -1; } .mc .oc { padding-inline: 8px; } }
 </style>
 
+<div class="bgfx" aria-hidden="true"><div class="glow"></div><div class="grid"></div></div>
 <header class="board"><div class="wrap">
-  <div class="brand"><h1>Mesa de Pronósticos</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
+  <div class="brand"><svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8e"/><stop offset=".55" stop-color="#e0ad3a"/><stop offset="1" stop-color="#a67c1e"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#0e0e10"/><circle cx="50" cy="50" r="45" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="50" cy="50" r="40" fill="none" stroke="url(#sg)" stroke-width="1" opacity=".6"/><text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="500" font-size="34" fill="url(#sg)">AB</text></svg><h1><small>Mesa de pronósticos</small>Aldana Bet</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
   <nav class="tabs" role="tablist">
-    <button role="tab" id="tab-pronosticos" aria-selected="true" data-tab="pronosticos">📊 Pronósticos</button>
-    <button role="tab" id="tab-futbol" aria-selected="false" data-tab="futbol">⚽ Fútbol</button>
-    <button role="tab" id="tab-baloncesto" aria-selected="false" data-tab="baloncesto">🏀 Baloncesto</button>
-    <button role="tab" id="tab-tenis" aria-selected="false" data-tab="tenis">🎾 Tenis</button>
-    <button role="tab" id="tab-guia" aria-selected="false" data-tab="guia">📖 Guía</button>
+    <button role="tab" id="tab-pronosticos" aria-selected="true" data-tab="pronosticos"><span class="ix">01</span>Pronósticos</button>
+    <button role="tab" id="tab-futbol" aria-selected="false" data-tab="futbol"><span class="ix">02</span>Fútbol</button>
+    <button role="tab" id="tab-baloncesto" aria-selected="false" data-tab="baloncesto"><span class="ix">03</span>Baloncesto</button>
+    <button role="tab" id="tab-tenis" aria-selected="false" data-tab="tenis"><span class="ix">04</span>Tenis</button>
+    <button role="tab" id="tab-guia" aria-selected="false" data-tab="guia"><span class="ix">05</span>Guía</button>
   </nav>
 </div></header>
 
