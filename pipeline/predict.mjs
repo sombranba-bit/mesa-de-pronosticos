@@ -302,6 +302,11 @@ export function performance(hist) {
 const GENERIC = new Set(['club', 'real', 'sporting', 'city', 'united', 'olympique', 'stade', 'racing', 'deportivo', 'athletic', 'union', 'borussia', 'basket', 'calcio', 'football']);
 const toks = s => norm(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t.length >= 3 && !GENERIC.has(t));
 const sameTeam = (a, b) => { const A = toks(a), B = toks(b); return A.some(x => B.some(y => x === y || (x.length >= 4 && y.length >= 4 && (x.startsWith(y) || y.startsWith(x))))); };
+export function keepBest(m, old) {
+  if (!m.best && old?.best && old.pick?.code === m.pick.code) m.best = old.best;
+  if (!m.fair && old?.fair) m.fair = old.fair;
+  return m;
+}
 export function attachBest(matches, odds) {
   let n = 0;
   for (const m of matches) {
@@ -609,7 +614,10 @@ async function main() {
   if (skipped.length) console.log(`AVISO: ${skipped.length} partidos sin datos suficientes (equipo nuevo o nombre distinto):`, skipped.slice(0, 10).join(', '));
   // historial: se guarda el último pronóstico antes del inicio
   const histFile = path.join(STATE, 'history.json'), hist = read(histFile, {});
-  for (const m of matches) if (Date.parse(m.kickoff) > NOW) hist[m.id] = { ...m, savedAt: new Date(NOW).toISOString() };
+  for (const m of matches) if (Date.parse(m.kickoff) > NOW) {
+    // la pasada de cuotas de la tarde puede no traer este partido (cupo gastado): se conserva la mejor cuota ya vista si el pronóstico no ha cambiado
+    keepBest(m, hist[m.id]); hist[m.id] = { ...m, savedAt: new Date(NOW).toISOString() };
+  }
   // partidos futuros que ya no están en el calendario (aplazados, o nombres corregidos): fuera, para que no los elija la apuesta del día
   const live = new Set(matches.map(m => m.id));
   for (const [id, e] of Object.entries(hist)) if (Date.parse(e.kickoff) > NOW + 3600e3 && !live.has(id)) delete hist[id];

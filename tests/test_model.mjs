@@ -106,6 +106,9 @@ const MB = [{ home: 'Ath Madrid', away: 'Sevilla', kickoff: '2026-10-25T19:00:00
 const nb = P2.attachBest(MB, { best: [{ home: 'Atlético Madrid', away: 'Sevilla FC', kickoff: '2026-10-25T19:00:00Z', H: [1.9, 'Pinnacle', 8] },
   { home: 'Real Madrid', away: 'Getafe CF', kickoff: '2026-10-25T14:00:00Z', O: [1.8, 'Codere', 6] }] });
 ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor cuota casada (${JSON.stringify(MB.map(m => m.best))})`);
+ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
+ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
+ok(P2.keepBest({ pick: { code: 'H' }, best: { odds: 1.7 } }, { pick: { code: 'H' }, best: { odds: 1.5 } }).best.odds === 1.7, 'la cuota nueva manda sobre la vieja');
 ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T19:00:00Z', pick: { code: 'H' } }], { best: [{ home: 'Atlético Madrid', away: 'Getafe', kickoff: '2026-10-25T19:00:00Z', H: [2, 'X', 3] }] }) === 0, 'no casa partidos distintos a la misma hora');
 // resumen de Telegram: secciones con título y etiquetas HTML equilibradas
 {
