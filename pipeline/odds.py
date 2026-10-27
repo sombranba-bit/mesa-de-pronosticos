@@ -16,6 +16,11 @@ SPORTS = ['soccer_spain_la_liga', 'soccer_uefa_champs_league', 'soccer_epl', 'so
           'soccer_spain_segunda_division', 'soccer_uefa_europa_league', 'soccer_netherlands_eredivisie', 'soccer_portugal_primeira_liga', 'soccer_efl_champ',
           'soccer_uefa_europa_conference_league', 'soccer_turkey_super_league', 'soccer_belgium_first_div', 'soccer_spl', 'soccer_greece_super_league',
           'basketball_euroleague', 'basketball_nba']
+# nuestras ligas -> claves de The Odds API (para pedir primero las de la selección del día)
+LEAGUE_KEYS = {'SP1': ['soccer_spain_la_liga'], 'SP2': ['soccer_spain_segunda_division'], 'E0': ['soccer_epl'], 'E1': ['soccer_efl_champ'], 'I1': ['soccer_italy_serie_a'],
+               'D1': ['soccer_germany_bundesliga'], 'F1': ['soccer_france_ligue_one'], 'N1': ['soccer_netherlands_eredivisie'], 'P1': ['soccer_portugal_primeira_liga'],
+               'T1': ['soccer_turkey_super_league'], 'B1': ['soccer_belgium_first_div'], 'SC0': ['soccer_spl'], 'G1': ['soccer_greece_super_league'],
+               'UEFA': ['soccer_uefa_champs_league', 'soccer_uefa_europa_league', 'soccer_uefa_europa_conference_league'], 'nba': ['basketball_nba'], 'euroliga': ['basketball_euroleague']}
 VALUE_MIN, SURE_MIN, ANOMALY = 0.03, 0.002, 1.25
 EXCHANGES, COMMISSION = ('betfair_ex', 'matchbook', 'smarkets'), 0.05   # en los exchanges se paga comisión sobre la ganancia
 STALE_MIN = 20   # cuotas sin actualizar en más de 20 minutos no cuentan (provocan falsas surebets)
@@ -145,12 +150,18 @@ def main():
     if madrid_h < 9 or st.get('oddsSlot') == slot:
         return
     try:
-        active = {s['key'] for s in requests.get(f'{API}/sports', params={'apiKey': key}, timeout=60).json()}
+        act_list = requests.get(f'{API}/sports', params={'apiKey': key}, timeout=60).json(); active = {s['key'] for s in act_list}
     except Exception as e:
         print('AVISO cuotas:', e); return
     # eventos de las próximas 30 h (consulta gratuita) para decidir dónde gastar créditos
     horizon = NOW + dt.timedelta(hours=30); counts = {}
-    for sp in [s for s in SPORTS if s in active]:
+    # prioridad: las competiciones de la selección del día (si no, la simulación se queda sin cuotas); tenis: torneos activos ATP/WTA
+    pred = json.loads((ROOT / 'docs' / 'data' / 'predictions.json').read_text()) if (ROOT / 'docs' / 'data' / 'predictions.json').exists() else {}
+    daily = pred.get('daily') or {}
+    sel = [daily.get('bet')] + (daily.get('picks') or []) + [l for c in (daily.get('combos') or {}).values() if c for l in c.get('legs', [])]
+    prio = [k for e in sel if e for k in (LEAGUE_KEYS.get(e.get('league')) or ([x['key'] for x in act_list if x['key'].startswith(f"tennis_{e['league']}_")] if e.get('sport') == 'tenis' else []))]
+    order = list(dict.fromkeys([k for k in prio if k in active] + [s for s in SPORTS if s in active]))
+    for sp in order:
         try:
             ev = requests.get(f'{API}/sports/{sp}/events', params={'apiKey': key}, timeout=60).json()
             counts[sp] = sum(1 for e in ev if NOW < dt.datetime.fromisoformat(e['commence_time'].replace('Z', '+00:00')) <= horizon)
@@ -158,13 +169,14 @@ def main():
             print('AVISO cuotas', sp, e)
     events = []
     remaining, used, out = None, 0, {'surebets': [], 'value': [], 'anomalies': [], 'best': []}
-    for sp in sorted((s for s in counts if counts[s]), key=lambda s: (SPORTS.index(s))):
+    for sp in [s for s in order if counts.get(s)]:
         if remaining is not None:
             days_left = (dt.date(NOW.year + NOW.month // 12, NOW.month % 12 + 1, 1) - NOW.date()).days
             if used >= max(2, remaining / (2 * days_left)):   # reparto del cupo: dos pasadas al día hasta fin de mes
                 break
         try:
-            r = requests.get(f'{API}/sports/{sp}/odds', params={'apiKey': key, 'regions': 'eu', 'markets': 'h2h,totals', 'oddsFormat': 'decimal'}, timeout=60)
+            mk = 'h2h' if sp.startswith('tennis_') else 'h2h,totals'   # en tenis basta el ganador (1 crédito)
+            r = requests.get(f'{API}/sports/{sp}/odds', params={'apiKey': key, 'regions': 'eu', 'markets': mk, 'oddsFormat': 'decimal'}, timeout=60)
             r.raise_for_status()
         except Exception as e:
             print('AVISO cuotas', sp, e); continue

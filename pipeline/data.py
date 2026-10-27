@@ -627,7 +627,7 @@ def update_fdorg(rows, fixtures):
     for r in rows.values():
         byday.setdefault((r['div'], r['d']), []).append(r)
     clubs = load('clubelo.json') or {'clubs': []}
-    top = [(team_key(c[0]), c[0]) for c in clubs['clubs'] if c[2] >= 1550]   # clubes con nivel de Champions
+    top = [(team_key(c[0]), c[0]) for c in clubs['clubs'] if c[2] >= 1550 and not is_reserve(c[0])]   # clubes con nivel de Champions (sin filiales)
     elo_of = {c[0]: c[2] for c in clubs['clubs']}
     horizon = NOW + dt.timedelta(days=FIXTURE_DAYS)
     uefa = load('uefa.json') or {'results': []}
@@ -697,15 +697,19 @@ UEFA_ESPN = {'uefa.champions': 'Champions League', 'uefa.europa': 'Europa League
 CE_ALIAS = {'sparta prague': 'Sparta Praha', 'slavia prague': 'Slavia Praha', 'union st gilloise': 'St Gillis', 'red star belgrade': 'Crvena Zvezda',
             'olympiacos': 'Olympiakos', 'psv eindhoven': 'PSV|PSV Eindhoven', 'paris saint germain': 'Paris SG', 'bayern munich': 'Bayern|Bayern Munich', 'internazionale': 'Inter',
             'inter milan': 'Inter', 'borussia dortmund': 'Dortmund', 'eintracht frankfurt': 'Frankfurt', 'bayer leverkusen': 'Leverkusen',
-            'fc copenhagen': 'FC Kobenhavn', 'copenhagen': 'FC Kobenhavn', 'bodo glimt': 'Bodoe/Glimt|Bodoe Glimt', 'stade rennais': 'Rennes', 'atletico madrid': 'Atletico|Atletico Madrid', 'sporting cp': 'Sporting|Sporting CP', 'qarabag': 'Karabakh Agdam',
-            'athletic club': 'Bilbao', 'manchester city': 'Man City', 'manchester united': 'Man United', 'tottenham hotspur': 'Tottenham',
+            'fc copenhagen': 'FC Kobenhavn', 'copenhagen': 'FC Kobenhavn', 'bodo glimt': 'Bodoe/Glimt|Bodoe Glimt', 'stade rennais': 'Rennes', 'atletico madrid': 'Atletico|Atletico Madrid|Ath Madrid', 'atletico de madrid': 'Atletico|Atletico Madrid|Ath Madrid', 'club atletico de madrid': 'Atletico|Atletico Madrid|Ath Madrid', 'sporting cp': 'Sporting|Sporting CP', 'qarabag': 'Karabakh Agdam',
+            'athletic club': 'Bilbao|Ath Bilbao', 'athletic': 'Bilbao|Ath Bilbao', 'athletic bilbao': 'Bilbao|Ath Bilbao', 'manchester city': 'Man City', 'manchester united': 'Man United', 'tottenham hotspur': 'Tottenham',
             'nottingham forest': "Forest|Nott'm Forest|Nottm Forest", 'newcastle united': 'Newcastle', 'olympique lyonnais': 'Lyon', 'shakhtar donetsk': 'Shakhtar',
             'dynamo kyiv': 'Dynamo Kyiv', 'ferencvaros': 'Ferencvaros', 'young boys': 'Young Boys', 'red bull salzburg': 'Salzburg', 'rb salzburg': 'Salzburg'}
 CE_GENERIC = {'fc', 'sc', 'sk', 'ac', 'as', 'rb', 'cf', 'afc', 'club', 'de', 'fk', 'nk', 'ss', 'ssc', 'cd', 'ud', 'sv', 'bk', 'if', 'ff', 'kv', 'krc', 'rsc', 'pfc', 'gnk', 'hnk'}
 
 
+is_reserve = lambda n: bool(re.search(r'\b(B|II|U2[13]|U19)$', str(n).strip()))   # filiales y juveniles
+
+
 def ce_name(name, clubs):
     """Nombre de ESPN -> nombre de ClubElo (o None si no hay uno claro)."""
+    if not is_reserve(name): clubs = {c: v for c, v in clubs.items() if not is_reserve(c)}   # nunca casar un primer equipo con su filial
     key = team_key(re.sub(r'[-/]', ' ', name))
     for al in (CE_ALIAS.get(key) or '').split('|'):
         if al in clubs: return al
@@ -732,7 +736,8 @@ def update_uefa_espn(fixtures):
         return
     uefa = load('uefa.json') or {'results': []}
     res = {(x['d'], x['h'], x['a']): x for x in uefa['results']}
-    fx = fixtures.setdefault('uefa', [])
+    fixtures['uefa'] = [f for f in fixtures.get('uefa', []) if not is_reserve(f['h']) and not is_reserve(f['a'])]   # limpia cruces mal casados con filiales
+    fx = fixtures['uefa']
     horizon = NOW + dt.timedelta(days=FIXTURE_DAYS)
     # el marcador de fútbol de ESPN no admite rangos de fechas: un día por consulta, y solo martes a jueves (cuando hay competiciones europeas)
     days = [TODAY + dt.timedelta(days=k) for k in range(-3, FIXTURE_DAYS + 1) if (TODAY + dt.timedelta(days=k)).weekday() in (1, 2, 3)]
@@ -1287,7 +1292,8 @@ def update_tennis_espn(rows):
                             cs = c.get('competitors') or []
                             names_ = [((x.get('athlete') or {}).get('displayName') or '') for x in sorted(cs, key=lambda x: x.get('order', 0))]
                             if len(names_) == 2 and all(n and n.upper() != 'TBD' for n in names_):
-                                upcoming[c.get('id')] = {'tour': tour, 'kickoff': c['date'] if c['date'].endswith('Z') else c['date'] + 'Z', 'noTime': not c.get('timeValid', True),
+                                tv = c.get('timeValid', True)   # sin hora confirmada ESPN pone las 4:00 UTC: se usa el mediodía para no cambiar de jornada
+                                upcoming[c.get('id')] = {'tour': tour, 'kickoff': (c['date'] if c['date'].endswith('Z') else c['date'] + 'Z') if tv else c['date'][:10] + 'T11:00Z', 'noTime': not tv,
                                                          'a': name(names_[0]), 'b': name(names_[1]), 'tourn': tn, 'surf': surf, 'bo': 5 if ev.get('major') and tour == 0 else 3,
                                                          'round': (c.get('round') or {}).get('displayName', '')}
                             continue

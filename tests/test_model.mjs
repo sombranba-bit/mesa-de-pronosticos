@@ -199,5 +199,9 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const PM = P2.porraMatches(sel, [m, { ...m, id: 'y', sport: 'nba', pick: { p: .9, code: 'H' } }, { ...m, id: 'z', pick: { p: .7, code: 'H' } }, { ...m, id: 'w', pick: { p: .6, code: 'H' } }], Date.parse(day(5)) - 5 * 3600e3);
   ok(PM.map(x => x.id).join() === 'x,y,z', `porra: partidos elegidos (${PM.map(x => x.id)})`);
 }
+// mejor cuota en tenis con los jugadores en orden distinto
+{ const T = [{ sport: 'tenis', home: 'Sinner J.', away: 'Alcaraz C.', kickoff: '2026-10-30T12:00:00Z', pick: { code: 'H', p: .6 } }];
+  P2.attachBest(T, { best: [{ home: 'Carlos Alcaraz', away: 'Jannik Sinner', kickoff: '2026-10-30T12:00:00Z', H: [2.1, 'X', 9], A: [1.8, 'Y', 9], fair: { H: 2.2, A: 1.75 } }] });
+  ok(T[0].best?.odds === 1.8 && T[0].best.fair === 1.75, `tenis: mejor cuota con orden cambiado (${JSON.stringify(T[0].best)})`); }
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

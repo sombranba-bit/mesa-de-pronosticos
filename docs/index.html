@@ -1716,6 +1716,8 @@ function dailyRender() {
     h += `<h3>Selección recomendada</h3><div class="pcards">${P.map(m => pcard(m, res)).join('')}</div>
       <div class="stats">${statBox(pct(all, 0), `acertar las ${P.length} juntas`)}${statBox(nf(1 / all, 2), 'cuota justa de la combinada')}</div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
+  const MID = D.mid || [];
+  if (MID.length) h += `<h3>🎯 Con cuota <span class="note" style="text-transform:none;letter-spacing:0">· cuota justa de 1,45 a 1,82: más premio por acierto, más fallos</span></h3><div class="pcards">${MID.map(m => pcard(m, res)).join('')}</div>`;
   h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · selección ${rate(T && T.picks)} (detalle en «Aciertos»). Más probabilidad no significa más valor: compara la cuota justa con la de tu casa.</p>`;
   box.innerHTML = h; bindOpen(box); bindSeg(box);
 }
@@ -1800,6 +1802,7 @@ function simBlock(S) {
     <div class="sug ${verdict[0]}"><b>${verdict[1]}</b><span>Hace falta: ${S.ready.need} pronósticos con cuota, rendimiento de 0% o más y aciertos como mínimo a 3 puntos de lo que esperaba el modelo.</span>
       <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${S.ready.need}" aria-valuenow="${P.withOdds}"><i style="width:${(prog * 100).toFixed(1)}%"></i></div><small>${P.withOdds} de ${S.ready.need} pronósticos con cuota</small></div>
     <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
+    ${S.mid && S.mid.n ? `<h4 class="sub4">🎯 Con cuota (1,45 – 1,82)</h4><div class="stats">${statBox(rate(S.mid), `aciertos · ${S.mid.hits} de ${S.mid.n}`)}${statBox(exp(S.mid), 'lo que esperaba el modelo')}${statBox(S.mid.roi == null ? '—' : sgn(S.mid.roi), `rendimiento a la mejor cuota · ${S.mid.withOdds} con cuota`)}</div>` : ''}
     ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[['🛡️ segura', S.safe], ['💎 con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
 }
