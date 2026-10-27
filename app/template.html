@@ -370,24 +370,136 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 .wrap { max-width: none; } @media (min-width: 900px) { .wrap { padding-left: 32px; padding-right: 32px; } }
 @media (max-width: 520px) { .brand p { margin-left: 0; width: 100%; font-size: 11px; } nav.tabs { gap: 1.1rem; } .panel { padding: 16px; }
   .mc-p { font-size: 46px; } .mc-team { font-size: 15px; word-break: normal; overflow-wrap: anywhere; } .mc-body { grid-template-columns: 1fr 1fr; row-gap: 14px; } .mc-mid { grid-row: 2; grid-column: 1 / -1; } .mc .oc { padding-inline: 8px; } }
+
+/* ===================== ICONOS ===================== */
+.i { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; display: inline-block; }
+.sub button .i, .seg button .i { width: 15px; height: 15px; margin-right: 7px; vertical-align: -3px; color: var(--accent); transition: transform .4s var(--ease-spring); }
+.sub button[aria-pressed="true"] .i, .seg button[aria-selected="true"] .i { color: #8a6412; }
+.sub button:hover .i, .seg button:hover .i { transform: scale(1.15) rotate(-6deg); }
+h3.sect .i, .panel h3 .i, h4.sub4 .i, .gcard h4 .i, .kicker .i { color: var(--accent); width: 20px; height: 20px; margin-right: 2px; }
+h3.sect:has(> .i)::before { display: none; }
+.gcard h4 { display: flex; align-items: center; gap: 8px; font-family: var(--f-body); letter-spacing: -.01em; }
+.pc-time .i, .mc-sp .i, .lghead .i { color: var(--accent); width: 14px; height: 14px; vertical-align: -2px; }
+.i.moon { color: #9db4ff !important; width: 13px; height: 13px; }
+.chip .i { width: 13px; height: 13px; vertical-align: -2px; }
+.empty-ico { color: var(--accent); } .empty-ico .i { width: 44px; height: 44px; animation: floaty 3.2s ease-in-out infinite; }
+.linkbtn .i { width: 16px; height: 16px; }
+.sug b .i { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
+
+/* ===================== ANIMACIONES ===================== */
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes floaty { 50% { transform: translateY(-6px); } }
+@keyframes shine { to { background-position: 200% center; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 #4ade8099; } 70% { box-shadow: 0 0 0 9px #4ade8000; } 100% { box-shadow: 0 0 0 0 #4ade8000; } }
+@keyframes marquee { to { transform: translateX(-50%); } }
+@keyframes grow { from { transform: scaleX(0); } }
+section[data-sec]:not([hidden]) > .sub { animation: fadein .5s var(--ease) both; }
+section[data-sec]:not([hidden]) [data-view]:not([hidden]), section[data-sec]:not([hidden]) > .panel { animation: rise .6s var(--ease) both; }
+.pcards > *, .stats > *, .hgrid > *, .mkgrid > *, .gcards > *, .legs > li, .kpis > * { animation: rise .55s var(--ease) both; }
+.pcards > :nth-child(2), .stats > :nth-child(2), .mkgrid > :nth-child(2), .legs > :nth-child(2), .kpis > :nth-child(2) { animation-delay: .06s; }
+.pcards > :nth-child(3), .stats > :nth-child(3), .mkgrid > :nth-child(3), .legs > :nth-child(3), .kpis > :nth-child(3) { animation-delay: .12s; }
+.pcards > :nth-child(4), .stats > :nth-child(4), .mkgrid > :nth-child(4), .kpis > :nth-child(4) { animation-delay: .18s; }
+.pcards > :nth-child(5), .stats > :nth-child(5), .mkgrid > :nth-child(5) { animation-delay: .24s; }
+.pcards > :nth-child(n+6), .stats > :nth-child(n+6), .mkgrid > :nth-child(n+6) { animation-delay: .3s; }
+.hgrid > * { animation-delay: calc(var(--i, 0) * 45ms + .15s); }
+.mrow { animation: fadein .5s var(--ease) both; }
+.mc { animation: rise .7s var(--ease) both; }
+.mc-p, .hf-p b, .hero-h em { background-size: 200% auto !important; animation: shine 6s linear infinite; }
+.mc-p { background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%) !important; }
+.meter i { transform-origin: left; animation: grow 1.2s var(--ease) both .2s; }
+.btn:active, .sub button:active, .seg button:active, .hcard:active { transform: scale(.97); }
+/* brillo que sigue al ratón */
+.pcard, .hcard, .hfeat, .mc, .cmb, .gcard { position: relative; isolation: isolate; }
+.pcard::after, .hcard::after, .hfeat::after, .mc::after, .cmb::after, .gcard::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0; transition: opacity .35s var(--ease);
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), #e8b23a1c, transparent 60%); }
+.pcard:hover::after, .hcard:hover::after, .hfeat:hover::after, .mc:hover::after, .cmb:hover::after, .gcard:hover::after { opacity: 1; }
+.mc { transition: transform .5s var(--ease-spring), box-shadow .5s var(--ease); cursor: pointer; } .mc:hover { transform: translateY(-3px); box-shadow: 0 40px 70px -30px #000, 0 0 60px -10px #e8b23a40; }
+.gcard { background: #121212; transition: border-color .4s var(--ease), transform .45s var(--ease-spring); } .gcard:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+/* subrayado deslizante de las pestañas */
+nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-bottom-color: transparent; }
+.nav-ink { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: linear-gradient(90deg, #f6dc8e, #e8b23a); border-radius: 2px; box-shadow: 0 0 12px #e8b23a99; transition: transform .5s var(--ease), width .5s var(--ease); pointer-events: none; }
+.brand { cursor: pointer; }
+
+/* ===================== PORTADA ===================== */
+#home { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 40px; padding: 48px 0 18px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; font: 500 12px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); animation: rise .6s var(--ease) both; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+.hero-h { margin: 0; font: 700 clamp(44px, 7.4vw, 104px)/.98 var(--f-body); letter-spacing: -.045em; background: linear-gradient(to right, #fff, #9a9a98); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: rise .8s var(--ease) both .08s; padding-bottom: .06em; }
+.hero-h em { font: italic 500 1em var(--f-serif); letter-spacing: -.02em; background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%); -webkit-background-clip: text; background-clip: text; }
+.hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: #b9b9b6; animation: rise .8s var(--ease) both .16s; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; animation: rise .8s var(--ease) both .24s; }
+.hero-cta .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 24px; }
+.hero-cta .btn .i { transition: transform .4s var(--ease-spring); } .hero-cta .btn:hover .i { transform: translateX(4px); }
+.hero-seal { width: clamp(180px, 22vw, 290px); animation: rise 1s var(--ease) both .2s; filter: drop-shadow(0 20px 60px #e8b23a33); }
+.hero-seal svg { width: 100%; height: auto; display: block; overflow: visible; }
+.hero-seal .spin { transform-origin: 100px 100px; animation: spin 40s linear infinite; }
+.hero-seal:hover .spin { animation-duration: 8s; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 16px; background: #121212b3; overflow: hidden; }
+.kpi { padding: 22px 24px; display: flex; flex-direction: column; gap: 6px; } .kpi + .kpi { border-left: 1px solid var(--line); }
+.kpi b { font: 700 clamp(30px, 3.4vw, 46px)/1 var(--f-body); letter-spacing: -.04em; background: linear-gradient(180deg, #fff, #e8b23a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-variant-numeric: tabular-nums; }
+.kpi span { font: 12px var(--f-mono); color: var(--muted); letter-spacing: .02em; }
+.ticker { overflow: hidden; border-block: 1px solid var(--line); padding: 12px 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.tk-track { display: flex; gap: 34px; width: max-content; animation: marquee 60s linear infinite; } .ticker:hover .tk-track { animation-play-state: paused; }
+.tk { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; font-size: 14px; color: var(--muted); cursor: pointer; transition: color .25s var(--ease); }
+.tk .i { color: var(--accent); } .tk b { color: var(--ink); font-weight: 600; } .tk em { font: 600 13px var(--f-mono); font-style: normal; color: var(--accent); } .tk:hover { color: var(--ink); }
+.shead { display: flex; align-items: baseline; gap: 14px; margin-top: 18px; }
+.shead .no { font: 500 12px var(--f-mono); color: var(--accent); border: 1px solid #e8b23a55; border-radius: 99px; padding: 3px 10px; }
+.shead h3 { margin: 0; font: 600 clamp(24px, 2.6vw, 34px) var(--f-body); letter-spacing: -.035em; background: linear-gradient(to right, #fff, #9a9a98); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.hfeats { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+.hfeat { display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 18px; border: 1px solid #e8b23a33; cursor: pointer; overflow: hidden;
+  background: radial-gradient(120% 140% at 0% 0%, #2b2412 0%, #151310 45%, #0f0f0f 100%); transition: transform .5s var(--ease-spring), border-color .4s var(--ease), box-shadow .5s var(--ease); animation: rise .7s var(--ease) both; }
+.hfeat.sm { background: #121212; border-color: var(--line); animation-delay: .08s; }
+.hfeat:hover { transform: translateY(-4px); border-color: #e8b23a77; box-shadow: 0 30px 60px -30px #000, 0 0 50px -15px #e8b23a55; }
+.hf-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kicker { display: inline-flex; align-items: center; gap: 7px; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.hf-body { display: flex; align-items: center; justify-content: space-between; gap: 18px; } .hf-teams { display: flex; flex-direction: column; gap: 8px; font-size: 19px; font-weight: 600; }
+.hf-p { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; } .hfeat.sm .hf-p { align-items: flex-start; text-align: left; }
+.hf-p b { font: 700 clamp(48px, 5vw, 72px)/1 var(--f-body); letter-spacing: -.045em; background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.hf-p span { color: #d9d9d6; font-weight: 600; }
+.hfeat .odds { justify-content: flex-end; margin: 0; }
+.hf-go { margin-top: auto; display: inline-flex; align-items: center; gap: 8px; font: 500 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); transition: color .3s var(--ease); }
+.hfeat:hover .hf-go { color: var(--accent); }
+.hgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 12px; padding-bottom: 30px; }
+.hcard { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 8px; padding: 20px; min-height: 172px; border-radius: 16px; border: 1px solid var(--line); background: #121212;
+  transition: border-color .45s var(--ease), transform .45s var(--ease-spring), box-shadow .45s var(--ease); }
+.hcard:hover, .hcard:focus-visible { border-color: var(--line-strong); transform: translateY(-4px); box-shadow: 0 24px 50px -25px #000000b3; }
+.hcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hc-ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--accent); background: #e8b23a14; border: 1px solid #e8b23a33; transition: transform .5s var(--ease-spring), background-color .3s var(--ease); }
+.hc-ico .i { width: 22px; height: 22px; }
+.hcard:hover .hc-ico { transform: rotate(-8deg) scale(1.08); background: #e8b23a26; }
+.hc-no { position: absolute; top: 18px; right: 20px; font: 11px var(--f-mono); color: #5d5d5b; }
+.hcard b { margin-top: 6px; font-size: 18px; letter-spacing: -.02em; color: var(--ink); } .hcard > span:not(.hc-ico):not(.hc-no):not(.hc-go) { font-size: 14px; line-height: 1.45; color: var(--muted); }
+.hc-go { margin-top: auto; color: #5d5d5b; transition: color .3s var(--ease), transform .4s var(--ease-spring); } .hcard:hover .hc-go { color: var(--accent); transform: translateX(6px); }
+@media (max-width: 820px) {
+  .hero { grid-template-columns: 1fr; padding-top: 24px; gap: 8px; } .hero-seal { order: -1; width: 120px; }
+  .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--line); } .kpi { padding: 16px; }
+  .hfeats { grid-template-columns: 1fr; } .hf-teams { font-size: 16px; } .hcard { min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></symbol><symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 5 9-5" opacity=".5"/></symbol><symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol><symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m8.7 12 2.3 2.3 4.3-4.6"/></symbol><symbol id="i-gem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/></symbol><symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5M10 3v6L4.8 18.2A1.9 1.9 0 0 0 6.5 21h11a1.9 1.9 0 0 0 1.7-2.8L14 9V3"/><path d="M7.2 15h9.6"/></symbol><symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16.2 9.3"/></symbol><symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.2" r=".6" fill="currentColor"/></symbol><symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></symbol><symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 3.8 2.8-1.5 4.5H9.7l-1.5-4.5z"/><path d="M12 3v4.5M15.8 10.3l4.6-1.4M14.3 14.8l2.8 3.9M9.7 14.8l-2.8 3.9M8.2 10.3 3.6 8.9"/></symbol><symbol id="i-basket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18"/><path d="M5.6 5.6c3.2 3.4 3.2 9.4 0 12.8M18.4 5.6c-3.2 3.4-3.2 9.4 0 12.8"/></symbol><symbol id="i-tennis" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.2 5.9c3.6 3.2 3.6 9 0 12.2M18.8 5.9c-3.6 3.2-3.6 9 0 12.2"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7.5 14h2M11 14h2M14.5 14h2M7.5 17h2M11 17h2"/></symbol><symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16.5" height="11.5" rx="2.5"/><path d="M15.5 13.7h2"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol><symbol id="i-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="7" rx="5.5" ry="2.5"/><path d="M3.5 7v4.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V7"/><path d="M9.5 16.3c.9 1.3 3 2.2 5.5 2.2 3 0 5.5-1.1 5.5-2.5V12c0-1.2-1.8-2.2-4.3-2.4"/></symbol><symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7 4.5 4 5v13.5c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V20"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></symbol><symbol id="i-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M5 7h14"/><path d="m5 7-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/></symbol><symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></symbol><symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol><symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></symbol></defs></svg>
 <div class="bgfx" aria-hidden="true"><div class="glow"></div><div class="grid"></div></div>
 <header class="board"><div class="wrap">
-  <div class="brand"><svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8e"/><stop offset=".55" stop-color="#e0ad3a"/><stop offset="1" stop-color="#a67c1e"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#0e0e10"/><circle cx="50" cy="50" r="45" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="50" cy="50" r="40" fill="none" stroke="url(#sg)" stroke-width="1" opacity=".6"/><text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="500" font-size="34" fill="url(#sg)">AB</text></svg><h1><small>Mesa de pronósticos</small>Aldana Bet</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
+  <div class="brand" id="brandHome" role="link" tabindex="0" title="Inicio"><svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8e"/><stop offset=".55" stop-color="#e0ad3a"/><stop offset="1" stop-color="#a67c1e"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#0e0e10"/><circle cx="50" cy="50" r="45" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="50" cy="50" r="40" fill="none" stroke="url(#sg)" stroke-width="1" opacity=".6"/><text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="500" font-size="34" fill="url(#sg)">AB</text></svg><h1><small>Mesa de pronósticos</small>Aldana Bet</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
   <nav class="tabs" role="tablist">
-    <button role="tab" id="tab-pronosticos" aria-selected="true" data-tab="pronosticos"><span class="ix">01</span>Pronósticos</button>
+    <button role="tab" id="tab-inicio" aria-selected="true" data-tab="inicio"><span class="ix">00</span>Inicio</button>
+    <button role="tab" id="tab-pronosticos" aria-selected="false" data-tab="pronosticos"><span class="ix">01</span>Pronósticos</button>
     <button role="tab" id="tab-futbol" aria-selected="false" data-tab="futbol"><span class="ix">02</span>Fútbol</button>
     <button role="tab" id="tab-baloncesto" aria-selected="false" data-tab="baloncesto"><span class="ix">03</span>Baloncesto</button>
     <button role="tab" id="tab-tenis" aria-selected="false" data-tab="tenis"><span class="ix">04</span>Tenis</button>
     <button role="tab" id="tab-guia" aria-selected="false" data-tab="guia"><span class="ix">05</span>Guía</button>
-  </nav>
+  <span class="nav-ink" id="navInk" aria-hidden="true"></span></nav>
 </div></header>
 
 <main><div class="wrap">
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
-  <section id="sec-pronosticos" data-sec="pronosticos">
-    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true">Próximos partidos</button><button data-v="aciertos" aria-pressed="false">Aciertos</button><button data-v="apuestas" aria-pressed="false">Mis apuestas</button><button data-v="avisos" aria-pressed="false">Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false">Cuotas</button></div>
+  <section id="sec-inicio" data-sec="inicio"><div id="home"><p class="note loading">Cargando…</p></div></section>
+  <section id="sec-pronosticos" data-sec="pronosticos" hidden>
+    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos partidos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-coins"/></svg>Cuotas</button></div>
     <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"><p class="note loading">Cargando pronósticos… (la primera vez puede tardar unos segundos: son varios megas de datos)</p></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
@@ -462,7 +574,7 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
   <!-- ===== FÚTBOL ===== -->
   <section id="sec-futbol" data-sec="futbol" hidden>
-    <div class="sub" id="sub-futbol"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="stats" aria-pressed="false">Estadísticas</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div class="sub" id="sub-futbol"><button data-v="partido" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-target"/></svg>Partido</button><button data-v="stats" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>Estadísticas</button><button data-v="backtest" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-scale"/></svg>Precisión histórica</button><button data-v="datos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Añadir datos</button></div>
     <div data-view="partido" class="panel" style="margin-top:12px">
       <h2>Pronóstico de partido</h2>
       <div class="controls">
@@ -512,7 +624,7 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
   <!-- ===== BALONCESTO ===== -->
   <section id="sec-baloncesto" data-sec="baloncesto" hidden>
-    <div class="sub" id="sub-baloncesto"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div class="sub" id="sub-baloncesto"><button data-v="partido" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-target"/></svg>Partido</button><button data-v="backtest" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-scale"/></svg>Precisión histórica</button><button data-v="datos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Añadir datos</button></div>
     <div data-view="partido" class="panel" style="margin-top:12px">
       <h2>Pronóstico de partido</h2>
       <div class="controls">
@@ -544,7 +656,7 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
   <!-- ===== TENIS ===== -->
   <section id="sec-tenis" data-sec="tenis" hidden>
-    <div class="sub" id="sub-tenis"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div class="sub" id="sub-tenis"><button data-v="partido" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-target"/></svg>Partido</button><button data-v="backtest" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-scale"/></svg>Precisión histórica</button><button data-v="datos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Añadir datos</button></div>
     <div data-view="partido" class="panel" style="margin-top:12px">
       <h2>Pronóstico de partido</h2>
       <div class="controls">
@@ -583,19 +695,19 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
       <h3 class="sect">Cómo se calcula cada deporte</h3>
       <div class="gcards">
-        <article class="gcard"><h4>⚽ Fútbol · 17 ligas</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-ball"/></svg>Fútbol · 17 ligas</h4>
           <p>El 1X2 combina cinco modelos:</p>
           <ul><li><b>Dixon-Coles</b>: predice el marcador con los goles, dando más peso a lo reciente.</li>
             <li><b>Elo</b> y <b>pi-ratings</b>: valoran a cada equipo por sus resultados.</li>
             <li><b>GAP</b>: valora los tiros a puerta que genera y concede cada equipo, en casa y fuera.</li>
             <li><b>Ratings de cuotas</b>: los goles que esperaban las cuotas de Bet365 en sus partidos ya jugados (recogen bajas, forma y noticias).</li></ul>
           <p>Goles, descanso, córners y tarjetas salen de la misma tabla de marcadores. En las cinco grandes ligas, los goles usan también el xG de Understat.</p></article>
-        <article class="gcard"><h4>🇪🇺 Competiciones europeas</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-globe"/></svg>Competiciones europeas</h4>
           <p>Champions, Europa League y Conference: el Elo de ClubElo (que compara clubes de todas las ligas) se traduce a goles esperados con una fórmula ajustada en 23.000 partidos. La hora exacta, la competición y los resultados vienen del marcador público de ESPN; el árbitro de la Champions, de football-data.org. Si ClubElo está caído se usa su último Elo guardado.</p></article>
-        <article class="gcard"><h4>🏀 Baloncesto</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-basket"/></svg>Baloncesto</h4>
           <p>NBA, Euroliga, EuroCup y Liga ACB. Rating de ataque y defensa de cada equipo con ventaja de jugar en casa.</p>
           <p>En la NBA también cuenta el cansancio: jugar la segunda noche seguida resta 2,8 puntos, y suman los días de descanso y los kilómetros de viaje.</p></article>
-        <article class="gcard"><h4>🎾 Tenis</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-tennis"/></svg>Tenis</h4>
           <p>Elo general y por superficie, mezclado con un rating que sigue lo que decían las cuotas de Pinnacle en los partidos anteriores de cada jugador. De ahí se calculan sets, juegos y tie-breaks. Se pronostica a demanda: eliges los dos jugadores.</p></article>
       </div>
 

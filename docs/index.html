@@ -370,24 +370,136 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 .wrap { max-width: none; } @media (min-width: 900px) { .wrap { padding-left: 32px; padding-right: 32px; } }
 @media (max-width: 520px) { .brand p { margin-left: 0; width: 100%; font-size: 11px; } nav.tabs { gap: 1.1rem; } .panel { padding: 16px; }
   .mc-p { font-size: 46px; } .mc-team { font-size: 15px; word-break: normal; overflow-wrap: anywhere; } .mc-body { grid-template-columns: 1fr 1fr; row-gap: 14px; } .mc-mid { grid-row: 2; grid-column: 1 / -1; } .mc .oc { padding-inline: 8px; } }
+
+/* ===================== ICONOS ===================== */
+.i { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; display: inline-block; }
+.sub button .i, .seg button .i { width: 15px; height: 15px; margin-right: 7px; vertical-align: -3px; color: var(--accent); transition: transform .4s var(--ease-spring); }
+.sub button[aria-pressed="true"] .i, .seg button[aria-selected="true"] .i { color: #8a6412; }
+.sub button:hover .i, .seg button:hover .i { transform: scale(1.15) rotate(-6deg); }
+h3.sect .i, .panel h3 .i, h4.sub4 .i, .gcard h4 .i, .kicker .i { color: var(--accent); width: 20px; height: 20px; margin-right: 2px; }
+h3.sect:has(> .i)::before { display: none; }
+.gcard h4 { display: flex; align-items: center; gap: 8px; font-family: var(--f-body); letter-spacing: -.01em; }
+.pc-time .i, .mc-sp .i, .lghead .i { color: var(--accent); width: 14px; height: 14px; vertical-align: -2px; }
+.i.moon { color: #9db4ff !important; width: 13px; height: 13px; }
+.chip .i { width: 13px; height: 13px; vertical-align: -2px; }
+.empty-ico { color: var(--accent); } .empty-ico .i { width: 44px; height: 44px; animation: floaty 3.2s ease-in-out infinite; }
+.linkbtn .i { width: 16px; height: 16px; }
+.sug b .i { width: 18px; height: 18px; vertical-align: -4px; margin-right: 4px; }
+
+/* ===================== ANIMACIONES ===================== */
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes floaty { 50% { transform: translateY(-6px); } }
+@keyframes shine { to { background-position: 200% center; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 #4ade8099; } 70% { box-shadow: 0 0 0 9px #4ade8000; } 100% { box-shadow: 0 0 0 0 #4ade8000; } }
+@keyframes marquee { to { transform: translateX(-50%); } }
+@keyframes grow { from { transform: scaleX(0); } }
+section[data-sec]:not([hidden]) > .sub { animation: fadein .5s var(--ease) both; }
+section[data-sec]:not([hidden]) [data-view]:not([hidden]), section[data-sec]:not([hidden]) > .panel { animation: rise .6s var(--ease) both; }
+.pcards > *, .stats > *, .hgrid > *, .mkgrid > *, .gcards > *, .legs > li, .kpis > * { animation: rise .55s var(--ease) both; }
+.pcards > :nth-child(2), .stats > :nth-child(2), .mkgrid > :nth-child(2), .legs > :nth-child(2), .kpis > :nth-child(2) { animation-delay: .06s; }
+.pcards > :nth-child(3), .stats > :nth-child(3), .mkgrid > :nth-child(3), .legs > :nth-child(3), .kpis > :nth-child(3) { animation-delay: .12s; }
+.pcards > :nth-child(4), .stats > :nth-child(4), .mkgrid > :nth-child(4), .kpis > :nth-child(4) { animation-delay: .18s; }
+.pcards > :nth-child(5), .stats > :nth-child(5), .mkgrid > :nth-child(5) { animation-delay: .24s; }
+.pcards > :nth-child(n+6), .stats > :nth-child(n+6), .mkgrid > :nth-child(n+6) { animation-delay: .3s; }
+.hgrid > * { animation-delay: calc(var(--i, 0) * 45ms + .15s); }
+.mrow { animation: fadein .5s var(--ease) both; }
+.mc { animation: rise .7s var(--ease) both; }
+.mc-p, .hf-p b, .hero-h em { background-size: 200% auto !important; animation: shine 6s linear infinite; }
+.mc-p { background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%) !important; }
+.meter i { transform-origin: left; animation: grow 1.2s var(--ease) both .2s; }
+.btn:active, .sub button:active, .seg button:active, .hcard:active { transform: scale(.97); }
+/* brillo que sigue al ratón */
+.pcard, .hcard, .hfeat, .mc, .cmb, .gcard { position: relative; isolation: isolate; }
+.pcard::after, .hcard::after, .hfeat::after, .mc::after, .cmb::after, .gcard::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0; transition: opacity .35s var(--ease);
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), #e8b23a1c, transparent 60%); }
+.pcard:hover::after, .hcard:hover::after, .hfeat:hover::after, .mc:hover::after, .cmb:hover::after, .gcard:hover::after { opacity: 1; }
+.mc { transition: transform .5s var(--ease-spring), box-shadow .5s var(--ease); cursor: pointer; } .mc:hover { transform: translateY(-3px); box-shadow: 0 40px 70px -30px #000, 0 0 60px -10px #e8b23a40; }
+.gcard { background: #121212; transition: border-color .4s var(--ease), transform .45s var(--ease-spring); } .gcard:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+/* subrayado deslizante de las pestañas */
+nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-bottom-color: transparent; }
+.nav-ink { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: linear-gradient(90deg, #f6dc8e, #e8b23a); border-radius: 2px; box-shadow: 0 0 12px #e8b23a99; transition: transform .5s var(--ease), width .5s var(--ease); pointer-events: none; }
+.brand { cursor: pointer; }
+
+/* ===================== PORTADA ===================== */
+#home { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 40px; padding: 48px 0 18px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; font: 500 12px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); animation: rise .6s var(--ease) both; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+.hero-h { margin: 0; font: 700 clamp(44px, 7.4vw, 104px)/.98 var(--f-body); letter-spacing: -.045em; background: linear-gradient(to right, #fff, #9a9a98); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: rise .8s var(--ease) both .08s; padding-bottom: .06em; }
+.hero-h em { font: italic 500 1em var(--f-serif); letter-spacing: -.02em; background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%); -webkit-background-clip: text; background-clip: text; }
+.hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: #b9b9b6; animation: rise .8s var(--ease) both .16s; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; animation: rise .8s var(--ease) both .24s; }
+.hero-cta .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 24px; }
+.hero-cta .btn .i { transition: transform .4s var(--ease-spring); } .hero-cta .btn:hover .i { transform: translateX(4px); }
+.hero-seal { width: clamp(180px, 22vw, 290px); animation: rise 1s var(--ease) both .2s; filter: drop-shadow(0 20px 60px #e8b23a33); }
+.hero-seal svg { width: 100%; height: auto; display: block; overflow: visible; }
+.hero-seal .spin { transform-origin: 100px 100px; animation: spin 40s linear infinite; }
+.hero-seal:hover .spin { animation-duration: 8s; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 16px; background: #121212b3; overflow: hidden; }
+.kpi { padding: 22px 24px; display: flex; flex-direction: column; gap: 6px; } .kpi + .kpi { border-left: 1px solid var(--line); }
+.kpi b { font: 700 clamp(30px, 3.4vw, 46px)/1 var(--f-body); letter-spacing: -.04em; background: linear-gradient(180deg, #fff, #e8b23a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-variant-numeric: tabular-nums; }
+.kpi span { font: 12px var(--f-mono); color: var(--muted); letter-spacing: .02em; }
+.ticker { overflow: hidden; border-block: 1px solid var(--line); padding: 12px 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.tk-track { display: flex; gap: 34px; width: max-content; animation: marquee 60s linear infinite; } .ticker:hover .tk-track { animation-play-state: paused; }
+.tk { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; font-size: 14px; color: var(--muted); cursor: pointer; transition: color .25s var(--ease); }
+.tk .i { color: var(--accent); } .tk b { color: var(--ink); font-weight: 600; } .tk em { font: 600 13px var(--f-mono); font-style: normal; color: var(--accent); } .tk:hover { color: var(--ink); }
+.shead { display: flex; align-items: baseline; gap: 14px; margin-top: 18px; }
+.shead .no { font: 500 12px var(--f-mono); color: var(--accent); border: 1px solid #e8b23a55; border-radius: 99px; padding: 3px 10px; }
+.shead h3 { margin: 0; font: 600 clamp(24px, 2.6vw, 34px) var(--f-body); letter-spacing: -.035em; background: linear-gradient(to right, #fff, #9a9a98); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.hfeats { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+.hfeat { display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 18px; border: 1px solid #e8b23a33; cursor: pointer; overflow: hidden;
+  background: radial-gradient(120% 140% at 0% 0%, #2b2412 0%, #151310 45%, #0f0f0f 100%); transition: transform .5s var(--ease-spring), border-color .4s var(--ease), box-shadow .5s var(--ease); animation: rise .7s var(--ease) both; }
+.hfeat.sm { background: #121212; border-color: var(--line); animation-delay: .08s; }
+.hfeat:hover { transform: translateY(-4px); border-color: #e8b23a77; box-shadow: 0 30px 60px -30px #000, 0 0 50px -15px #e8b23a55; }
+.hf-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kicker { display: inline-flex; align-items: center; gap: 7px; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.hf-body { display: flex; align-items: center; justify-content: space-between; gap: 18px; } .hf-teams { display: flex; flex-direction: column; gap: 8px; font-size: 19px; font-weight: 600; }
+.hf-p { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; } .hfeat.sm .hf-p { align-items: flex-start; text-align: left; }
+.hf-p b { font: 700 clamp(48px, 5vw, 72px)/1 var(--f-body); letter-spacing: -.045em; background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.hf-p span { color: #d9d9d6; font-weight: 600; }
+.hfeat .odds { justify-content: flex-end; margin: 0; }
+.hf-go { margin-top: auto; display: inline-flex; align-items: center; gap: 8px; font: 500 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); transition: color .3s var(--ease); }
+.hfeat:hover .hf-go { color: var(--accent); }
+.hgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 12px; padding-bottom: 30px; }
+.hcard { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 8px; padding: 20px; min-height: 172px; border-radius: 16px; border: 1px solid var(--line); background: #121212;
+  transition: border-color .45s var(--ease), transform .45s var(--ease-spring), box-shadow .45s var(--ease); }
+.hcard:hover, .hcard:focus-visible { border-color: var(--line-strong); transform: translateY(-4px); box-shadow: 0 24px 50px -25px #000000b3; }
+.hcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hc-ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--accent); background: #e8b23a14; border: 1px solid #e8b23a33; transition: transform .5s var(--ease-spring), background-color .3s var(--ease); }
+.hc-ico .i { width: 22px; height: 22px; }
+.hcard:hover .hc-ico { transform: rotate(-8deg) scale(1.08); background: #e8b23a26; }
+.hc-no { position: absolute; top: 18px; right: 20px; font: 11px var(--f-mono); color: #5d5d5b; }
+.hcard b { margin-top: 6px; font-size: 18px; letter-spacing: -.02em; color: var(--ink); } .hcard > span:not(.hc-ico):not(.hc-no):not(.hc-go) { font-size: 14px; line-height: 1.45; color: var(--muted); }
+.hc-go { margin-top: auto; color: #5d5d5b; transition: color .3s var(--ease), transform .4s var(--ease-spring); } .hcard:hover .hc-go { color: var(--accent); transform: translateX(6px); }
+@media (max-width: 820px) {
+  .hero { grid-template-columns: 1fr; padding-top: 24px; gap: 8px; } .hero-seal { order: -1; width: 120px; }
+  .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--line); } .kpi { padding: 16px; }
+  .hfeats { grid-template-columns: 1fr; } .hf-teams { font-size: 16px; } .hcard { min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></symbol><symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 5 9-5" opacity=".5"/></symbol><symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol><symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m8.7 12 2.3 2.3 4.3-4.6"/></symbol><symbol id="i-gem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/></symbol><symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5M10 3v6L4.8 18.2A1.9 1.9 0 0 0 6.5 21h11a1.9 1.9 0 0 0 1.7-2.8L14 9V3"/><path d="M7.2 15h9.6"/></symbol><symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16.2 9.3"/></symbol><symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.2" r=".6" fill="currentColor"/></symbol><symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></symbol><symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 3.8 2.8-1.5 4.5H9.7l-1.5-4.5z"/><path d="M12 3v4.5M15.8 10.3l4.6-1.4M14.3 14.8l2.8 3.9M9.7 14.8l-2.8 3.9M8.2 10.3 3.6 8.9"/></symbol><symbol id="i-basket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18"/><path d="M5.6 5.6c3.2 3.4 3.2 9.4 0 12.8M18.4 5.6c-3.2 3.4-3.2 9.4 0 12.8"/></symbol><symbol id="i-tennis" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.2 5.9c3.6 3.2 3.6 9 0 12.2M18.8 5.9c-3.6 3.2-3.6 9 0 12.2"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7.5 14h2M11 14h2M14.5 14h2M7.5 17h2M11 17h2"/></symbol><symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16.5" height="11.5" rx="2.5"/><path d="M15.5 13.7h2"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol><symbol id="i-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="7" rx="5.5" ry="2.5"/><path d="M3.5 7v4.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V7"/><path d="M9.5 16.3c.9 1.3 3 2.2 5.5 2.2 3 0 5.5-1.1 5.5-2.5V12c0-1.2-1.8-2.2-4.3-2.4"/></symbol><symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7 4.5 4 5v13.5c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V20"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></symbol><symbol id="i-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M5 7h14"/><path d="m5 7-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/></symbol><symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></symbol><symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol><symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></symbol></defs></svg>
 <div class="bgfx" aria-hidden="true"><div class="glow"></div><div class="grid"></div></div>
 <header class="board"><div class="wrap">
-  <div class="brand"><svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8e"/><stop offset=".55" stop-color="#e0ad3a"/><stop offset="1" stop-color="#a67c1e"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#0e0e10"/><circle cx="50" cy="50" r="45" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="50" cy="50" r="40" fill="none" stroke="url(#sg)" stroke-width="1" opacity=".6"/><text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="500" font-size="34" fill="url(#sg)">AB</text></svg><h1><small>Mesa de pronósticos</small>Aldana Bet</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
+  <div class="brand" id="brandHome" role="link" tabindex="0" title="Inicio"><svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8e"/><stop offset=".55" stop-color="#e0ad3a"/><stop offset="1" stop-color="#a67c1e"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#0e0e10"/><circle cx="50" cy="50" r="45" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="50" cy="50" r="40" fill="none" stroke="url(#sg)" stroke-width="1" opacity=".6"/><text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="500" font-size="34" fill="url(#sg)">AB</text></svg><h1><small>Mesa de pronósticos</small>Aldana Bet</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
   <nav class="tabs" role="tablist">
-    <button role="tab" id="tab-pronosticos" aria-selected="true" data-tab="pronosticos"><span class="ix">01</span>Pronósticos</button>
+    <button role="tab" id="tab-inicio" aria-selected="true" data-tab="inicio"><span class="ix">00</span>Inicio</button>
+    <button role="tab" id="tab-pronosticos" aria-selected="false" data-tab="pronosticos"><span class="ix">01</span>Pronósticos</button>
     <button role="tab" id="tab-futbol" aria-selected="false" data-tab="futbol"><span class="ix">02</span>Fútbol</button>
     <button role="tab" id="tab-baloncesto" aria-selected="false" data-tab="baloncesto"><span class="ix">03</span>Baloncesto</button>
     <button role="tab" id="tab-tenis" aria-selected="false" data-tab="tenis"><span class="ix">04</span>Tenis</button>
     <button role="tab" id="tab-guia" aria-selected="false" data-tab="guia"><span class="ix">05</span>Guía</button>
-  </nav>
+  <span class="nav-ink" id="navInk" aria-hidden="true"></span></nav>
 </div></header>
 
 <main><div class="wrap">
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
-  <section id="sec-pronosticos" data-sec="pronosticos">
-    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true">Próximos partidos</button><button data-v="aciertos" aria-pressed="false">Aciertos</button><button data-v="apuestas" aria-pressed="false">Mis apuestas</button><button data-v="avisos" aria-pressed="false">Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false">Cuotas</button></div>
+  <section id="sec-inicio" data-sec="inicio"><div id="home"><p class="note loading">Cargando…</p></div></section>
+  <section id="sec-pronosticos" data-sec="pronosticos" hidden>
+    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos partidos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-coins"/></svg>Cuotas</button></div>
     <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"><p class="note loading">Cargando pronósticos… (la primera vez puede tardar unos segundos: son varios megas de datos)</p></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
@@ -462,7 +574,7 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
   <!-- ===== FÚTBOL ===== -->
   <section id="sec-futbol" data-sec="futbol" hidden>
-    <div class="sub" id="sub-futbol"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="stats" aria-pressed="false">Estadísticas</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div class="sub" id="sub-futbol"><button data-v="partido" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-target"/></svg>Partido</button><button data-v="stats" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>Estadísticas</button><button data-v="backtest" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-scale"/></svg>Precisión histórica</button><button data-v="datos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Añadir datos</button></div>
     <div data-view="partido" class="panel" style="margin-top:12px">
       <h2>Pronóstico de partido</h2>
       <div class="controls">
@@ -512,7 +624,7 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
   <!-- ===== BALONCESTO ===== -->
   <section id="sec-baloncesto" data-sec="baloncesto" hidden>
-    <div class="sub" id="sub-baloncesto"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div class="sub" id="sub-baloncesto"><button data-v="partido" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-target"/></svg>Partido</button><button data-v="backtest" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-scale"/></svg>Precisión histórica</button><button data-v="datos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Añadir datos</button></div>
     <div data-view="partido" class="panel" style="margin-top:12px">
       <h2>Pronóstico de partido</h2>
       <div class="controls">
@@ -544,7 +656,7 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
   <!-- ===== TENIS ===== -->
   <section id="sec-tenis" data-sec="tenis" hidden>
-    <div class="sub" id="sub-tenis"><button data-v="partido" aria-pressed="true">Partido</button><button data-v="backtest" aria-pressed="false">Precisión histórica</button><button data-v="datos" aria-pressed="false">Añadir datos</button></div>
+    <div class="sub" id="sub-tenis"><button data-v="partido" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-target"/></svg>Partido</button><button data-v="backtest" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-scale"/></svg>Precisión histórica</button><button data-v="datos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Añadir datos</button></div>
     <div data-view="partido" class="panel" style="margin-top:12px">
       <h2>Pronóstico de partido</h2>
       <div class="controls">
@@ -583,19 +695,19 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 
       <h3 class="sect">Cómo se calcula cada deporte</h3>
       <div class="gcards">
-        <article class="gcard"><h4>⚽ Fútbol · 17 ligas</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-ball"/></svg>Fútbol · 17 ligas</h4>
           <p>El 1X2 combina cinco modelos:</p>
           <ul><li><b>Dixon-Coles</b>: predice el marcador con los goles, dando más peso a lo reciente.</li>
             <li><b>Elo</b> y <b>pi-ratings</b>: valoran a cada equipo por sus resultados.</li>
             <li><b>GAP</b>: valora los tiros a puerta que genera y concede cada equipo, en casa y fuera.</li>
             <li><b>Ratings de cuotas</b>: los goles que esperaban las cuotas de Bet365 en sus partidos ya jugados (recogen bajas, forma y noticias).</li></ul>
           <p>Goles, descanso, córners y tarjetas salen de la misma tabla de marcadores. En las cinco grandes ligas, los goles usan también el xG de Understat.</p></article>
-        <article class="gcard"><h4>🇪🇺 Competiciones europeas</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-globe"/></svg>Competiciones europeas</h4>
           <p>Champions, Europa League y Conference: el Elo de ClubElo (que compara clubes de todas las ligas) se traduce a goles esperados con una fórmula ajustada en 23.000 partidos. La hora exacta, la competición y los resultados vienen del marcador público de ESPN; el árbitro de la Champions, de football-data.org. Si ClubElo está caído se usa su último Elo guardado.</p></article>
-        <article class="gcard"><h4>🏀 Baloncesto</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-basket"/></svg>Baloncesto</h4>
           <p>NBA, Euroliga, EuroCup y Liga ACB. Rating de ataque y defensa de cada equipo con ventaja de jugar en casa.</p>
           <p>En la NBA también cuenta el cansancio: jugar la segunda noche seguida resta 2,8 puntos, y suman los días de descanso y los kilómetros de viaje.</p></article>
-        <article class="gcard"><h4>🎾 Tenis</h4>
+        <article class="gcard"><h4><svg class="i" aria-hidden="true"><use href="#i-tennis"/></svg>Tenis</h4>
           <p>Elo general y por superficie, mezclado con un rating que sigue lo que decían las cuotas de Pinnacle en los partidos anteriores de cada jugador. De ahí se calculan sets, juegos y tie-breaks. Se pronostica a demanda: eliges los dos jugadores.</p></article>
       </div>
 
@@ -1247,7 +1359,7 @@ async function loadJSON(id, url) {
 // Mercados que en el seguimiento real aciertan menos del 48% (con 250 o más pronósticos, unas dos semanas más de datos): se marcan como poco fiables
 const SHAKY_KEY = { 'Córners': 'córners más/menos 9,5', 'Tarjetas (amarillas + rojas)': 'tarjetas más/menos 4,5' };
 const shaky = title => { const m = PF?.sports?.futbol?.markets?.[SHAKY_KEY[title]]; return m && m.n >= 250 && m.hits / m.n < 0.48 ? m : null; };
-const shakyChip = title => { const m = shaky(title); return m ? ` <span class="chip warn" title="Acierta ${m.hits} de ${m.n} en el seguimiento real">⚠️ poco fiable</span>` : ''; };
+const shakyChip = title => { const m = shaky(title); return m ? ` <span class="chip warn" title="Acierta ${m.hits} de ${m.n} en el seguimiento real">${I('alert')} poco fiable</span>` : ''; };
 function marketTable(el, groups, extra = '') {
   const card = g => `<section class="mkcard"><h4>${esc(g.title)}${shakyChip(g.title)}</h4><div class="mkhead"><span></span><span>Prob.</span><span>Cuota</span></div>${g.rows.map(r => {
     const fair = r.p > 0 ? (1 - (r.push || 0)) / r.p : Infinity, hi = r.p >= 0.7;
@@ -1283,7 +1395,9 @@ const flagOf = t => { const x = String(t || '').toLowerCase(); const c = [[/spai
   [/germany|bundesliga/, 'de'], [/france|ligue/, 'fr'], [/netherlands|eredivisie/, 'nl'], [/portugal|primeira/, 'pt'], [/belgium/, 'be'], [/turkey|super lig/, 'tr'], [/greece/, 'gr'],
   [/champions|europa|conference|euroleague|uefa/, 'eu'], [/nba/, 'us']].find(([r]) => r.test(x)); return c ? `<img class="flag" src="https://flagcdn.com/w40/${c[1]}.png" alt="" loading="lazy" onerror="this.remove()">` : ''; };
 const flag = (lg, size = '') => FLAG[lg] ? `<img class="flag ${size}" src="https://flagcdn.com/w40/${FLAG[lg]}.png" alt="" loading="lazy" onerror="this.remove()">` : '';
-const sportIcon = sp => sp === 'futbol' ? '⚽' : sp === 'tenis' ? '🎾' : '🏀';
+// iconos propios (sprite SVG en template.html) en vez de emojis
+const I = (n, c = '') => `<svg class="i ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const sportIcon = sp => I(sp === 'futbol' ? 'ball' : sp === 'tenis' ? 'tennis' : 'basket');
 const initials = n => { const w = String(n).replace(/[.'’]/g, ' ').split(/\s+/).filter(x => x && !/^(c|f|cf|fc|cd|sd|ud|ad|ce|ue|rc|club|de|la|el|the|afc)$/i.test(x));
   return (w.length ? (w.length === 1 ? w[0].slice(0, 3) : w[0][0] + w[1][0]) : String(n).slice(0, 3)).toUpperCase(); };
 const hue = n => [...String(n)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
@@ -1310,15 +1424,15 @@ const crestUrl = (n, b) => {
 const isB = sp => !!sp && (/^(b|nba|euroliga|eurocup|acb|lega|bbl|lnb|gbl|bsl)$/i.test(sp) || /nba|basket|euroleague|eurocup/i.test(sp));
 const twoLines = (h, a, sp) => `<div class="tline">${crest(h, sp, 'md')}<span>${esc(h)}</span></div><div class="tline">${crest(a, sp, 'md')}<span>${esc(a)}</span></div>`;
 const openAttr = m => `data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}" role="button" tabindex="0"`;
-const night = m => new Date(m.kickoff).getHours() < 6 ? ' 🌙' : '';   // madrugada: cuenta para la jornada de la noche anterior
-const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + night(m);
+const isNight = m => new Date(m.kickoff).getHours() < 6, night = m => isNight(m) ? ' 🌙' : '', moonI = m => isNight(m) ? ' ' + I('moon', 'moon') : '';   // madrugada: cuenta para la jornada de la noche anterior
+const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 // tarjeta compacta de un pronóstico (selección recomendada)
 const oddsChips = m => `<div class="odds"><span class="oc"><small>Cuota justa</small><b>${nf(1 / m.pick.p)}</b></span>${m.best
   ? `<span class="oc best"><small>Mejor cuota · ${esc(m.best.book)}</small><b>${nf(m.best.odds)}</b></span>` : '<span class="oc none"><small>Mejor cuota</small><b>—</b></span>'}</div>`;
 const bestLine = m => oddsChips(m)
   + (Date.parse(m.kickoff) > Date.now() ? `<button class="linkbtn betbtn" data-bet-open="${esc(m.id)}">＋ Apuntar apuesta</button>` : '');
 const pcard = (m, res) => `<div class="pcard" ${openAttr(m)}>
-  <div class="pc-head">${flag(m.league)}<span>${esc(m.leagueName)}</span><span class="pc-time">${sportIcon(m.sport)} ${esc(hhmm(m))}</span></div>
+  <div class="pc-head">${flag(m.league)}<span>${esc(m.leagueName)}</span><span class="pc-time">${sportIcon(m.sport)} ${esc(hhmm(m))}${moonI(m)}</span></div>
   <div class="pc-body"><div class="pc-teams">${twoLines(m.home, m.away, m.sport)}</div><div class="pc-p"><b>${pct(m.pick.p, 0)}</b></div></div>
   <div class="pc-pick">${esc(m.pick.label)}${res(m)}</div>${bestLine(m)}
   ${m.why && m.why.length ? `<div class="pc-why">${esc(m.why.join(' · '))}</div>` : ''}</div>`;
@@ -1394,7 +1508,7 @@ function injAdj() {
 function fbPredict() {
   const div = $('fbLeague').value, h = $('fbHome').value, a = $('fbAway').value, out = $('fbOut');
   $('fbInjBox').hidden = !(div && h && a && h !== a);
-  if (!div || !h || !a) { out.innerHTML = emptyPick('⚽', 'Elige liga, equipo local y visitante', 'También puedes abrir cualquier partido desde «Próximos partidos» o desde la apuesta del día: se rellena solo.'); return; }
+  if (!div || !h || !a) { out.innerHTML = emptyPick(I('ball'), 'Elige liga, equipo local y visitante', 'También puedes abrir cualquier partido desde «Próximos partidos» o desde la apuesta del día: se rellena solo.'); return; }
   if (h === a) { out.innerHTML = '<p class="note">Elige dos equipos distintos.</p>'; return; }
   injReset(div, h, a);
   const adj = injAdj(), uefa = div === 'UEFA';
@@ -1612,7 +1726,7 @@ function bkInit(h, a) {
 }
 function bkPredict() {
   const c = $('nbComp').value, h = $('nbHome').value, a = $('nbAway').value, out = $('nbOut');
-  if (!h || !a) { out.innerHTML = emptyPick('🏀', 'Elige equipo local y visitante', 'O abre un partido desde «Próximos partidos»: se rellena solo.'); return; }
+  if (!h || !a) { out.innerHTML = emptyPick(I('basket'), 'Elige equipo local y visitante', 'O abre un partido desde «Próximos partidos»: se rellena solo.'); return; }
   if (h === a) { out.innerHTML = '<p class="note">Elige dos equipos distintos.</p>'; return; }
   const { m, last, sd } = bkModel(c), L = fnum($('nbSpread').value), T = fnum($('nbTotal').value);
   const fat = c === 'nba' ? M.nbaFatigue(BK[c].rows, h, a, today()) : { adj: 0 };
@@ -1787,15 +1901,15 @@ function dailyRender() {
   const box = $('prDaily'), D = PR && PR.daily;
   if (!D || !D.bet) { box.innerHTML = '<h2>Apuesta del día</h2><p class="verdict">Aparece cuando la mesa funciona desde GitHub: cada hora elige el pronóstico más probable del día entre todos los deportes, y una selección con los más seguros.</p>'; return; }
   const dayTxt = new Date(D.day + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  const when = m => m.noTime ? 'hora por confirmar' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + night(m);
+  const when = m => m.noTime ? 'hora por confirmar' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + moonI(m);
   const res = m => m.hit === undefined ? '' : ` <span class="chip ${m.hit ? 'pos' : 'neg'}">${m.hit ? 'Acierto' : 'Fallo'}</span>`;
   const open = m => `<button class="linkbtn" data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}">Ver partido</button>`;
   const rate = o => o && o.n ? `${o.hits} de ${o.n} (${pct(o.hits / o.n, 0)})` : 'aún sin datos';
   const T = PF && PF.daily, b = D.bet, P = D.picks || [];
-  const tabs = `<div class="seg" role="tablist">${[['dia', '⭐ Apuesta del día'], ['comb', '🎰 Combinadas']].map(([k, l]) => `<button role="tab" data-dv="${k}" aria-selected="${dailyView === k}">${l}</button>`).join('')}</div>`;
+  const tabs = `<div class="seg" role="tablist">${[['dia', I('star') + 'Apuesta del día'], ['comb', I('layers') + 'Combinadas']].map(([k, l]) => `<button role="tab" data-dv="${k}" aria-selected="${dailyView === k}">${l}</button>`).join('')}</div>`;
   if (dailyView === 'comb') { box.innerHTML = tabs + combosHTML(D, dayTxt, when, res); bindOpen(box); bindSeg(box); return; }
   let h = tabs + `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
-    <div class="mc" ${openAttr(b)}><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)} ${esc(when(b))}</span></div>
+    <div class="mc" ${openAttr(b)}><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)} ${(when(b))}</span></div>
       <div class="mc-body"><div class="mc-team">${crest(b.home, b.sport, 'xl')}<span>${esc(b.home)}</span></div>
         <div class="mc-mid"><div class="mc-p">${pct(b.pick.p, 0)}</div><div class="mc-pick">${esc(b.pick.label)}</div>${res(b)}${bestLine(b)}</div>
         <div class="mc-team">${crest(b.away, b.sport, 'xl')}<span>${esc(b.away)}</span></div></div>
@@ -1807,7 +1921,7 @@ function dailyRender() {
       <div class="stats">${statBox(pct(all, 0), `acertar las ${P.length} juntas`)}${statBox(nf(1 / all, 2), 'cuota justa de la combinada')}</div>`;
   } else h += `<p class="note">Hoy no hay más pronósticos con un ${pct(0.65, 0)} o más para formar una selección.</p>`;
   const MID = D.mid || [];
-  if (MID.length) h += `<h3>🎯 Con cuota <span class="note" style="text-transform:none;letter-spacing:0">· cuota justa de 1,45 a 1,82: más premio por acierto, más fallos</span></h3><div class="pcards">${MID.map(m => pcard(m, res)).join('')}</div>`;
+  if (MID.length) h += `<h3>${I('target')}Con cuota <span class="note" style="text-transform:none;letter-spacing:0">· cuota justa de 1,45 a 1,82: más premio por acierto, más fallos</span></h3><div class="pcards">${MID.map(m => pcard(m, res)).join('')}</div>`;
   h += `<p class="note">Seguimiento: apuesta del día ${rate(T && T.bet)} · selección ${rate(T && T.picks)} (detalle en «Aciertos»). Más probabilidad no significa más valor: compara la cuota justa con la de tu casa.</p>`;
   box.innerHTML = h; bindOpen(box); bindSeg(box);
 }
@@ -1820,15 +1934,15 @@ function combosHTML(D, dayTxt, when, res) {
     if (!c) return `<section class="cmb none"><div class="cmb-head"><h3 class="sect">${title}</h3><span class="note">${sub}</span></div><p class="note">${empty}</p><p class="note">${simTxt(o)}</p></section>`;
     const allHit = c.legs.every(m => m.hit === true), anyMiss = c.legs.some(m => m.hit === false);
     return `<section class="cmb"><div class="cmb-head"><h3 class="sect">${title}${anyMiss ? ' <span class="chip neg">Fallada</span>' : allHit ? ' <span class="chip pos">Acertada</span>' : ''}</h3><span class="note">${sub}</span></div>
-      <ol class="legs">${c.legs.map(m => `<li ${openAttr(m)}><div class="leg-l">${flag(m.league)}<span class="note">${esc(m.leagueName)} · ${esc(when(m))}</span></div>
+      <ol class="legs">${c.legs.map(m => `<li ${openAttr(m)}><div class="leg-l">${flag(m.league)}<span class="note">${esc(m.leagueName)} · ${(when(m))}</span></div>
         <div class="leg-m">${twoLines(m.home, m.away, m.sport)}</div><div class="leg-r"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span>${res(m)}
         <small class="mr-odds">justa <b>${nf(1 / m.pick.p)}</b>${m.best ? ` · mejor <b class="g">${nf(m.best.odds)}</b>` : ''}</small></div></li>`).join('')}</ol>
       <div class="stats">${statBox(pct(c.p, 0), 'acertarla entera')}${statBox(nf(c.fair), 'cuota justa combinada')}${statBox(c.odds ? nf(c.odds) : '—', 'con las mejores cuotas')}${statBox(nf(c.fair * 1.02), 'cuota mínima en tu casa')}</div>
       <p class="note">${simTxt(o)}</p></section>`;
   };
   return `<h2>Combinadas</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · como mucho ${3} partidos distintos</p>
-    ${card('🛡️ Segura', 'los pronósticos más probables (65% o más)', C.safe, 'Hoy no hay dos pronósticos del 65% o más.', S?.safe)}
-    ${card('💎 Con valor', 'solo pronósticos cuya mejor cuota supera la cuota justa (y la de Pinnacle) en un 2% o más', C.value, 'Hoy no hay pronósticos con valor suficiente. También es información: mejor no forzar.', S?.value)}
+    ${card(I('shield') + 'Segura', 'los pronósticos más probables (65% o más)', C.safe, 'Hoy no hay dos pronósticos del 65% o más.', S?.safe)}
+    ${card(I('gem') + 'Con valor', 'solo pronósticos cuya mejor cuota supera la cuota justa (y la de Pinnacle) en un 2% o más', C.value, 'Hoy no hay pronósticos con valor suficiente. También es información: mejor no forzar.', S?.value)}
     <p class="note">Una combinada se apuesta entera en una sola casa: la cuota que cuenta es la que te dé tu casa al juntarlas. Si es más baja que la «cuota mínima», no compensa. El margen de la casa se multiplica en cada partido que añades; por eso como mucho 3.</p>`;
 }
 const dayKey = m => { const t = new Date(m.kickoff); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
@@ -1859,7 +1973,7 @@ function prRender() {
     const nn = (NW?.teams?.[`${m.league}|${m.home}`]?.length || 0) + (NW?.teams?.[`${m.league}|${m.away}`]?.length || 0);
     const chips = (nn ? `<span class="chip warn">${nn} ${nn === 1 ? 'noticia' : 'noticias'}</span> ` : '') + (m.ref ? `<span class="chip">Árbitro: ${esc(m.ref)}</span> ` : '') + (m.injuries && m.injuries.length ? `<span class="chip warn">${m.injuries.length} bajas</span> ` : '') +
       (m.fatigue && (m.fatigue.b2bH || m.fatigue.b2bA) ? `<span class="chip warn">2ª noche seguida: ${esc(m.fatigue.b2bH ? m.home : m.away)}</span> ` : '');
-    html += `<div class="mrow" ${openAttr(m)}><div class="mr-time">${m.noTime ? 'Por<br>confirmar' : esc(hhmm(m))}</div>
+    html += `<div class="mrow" ${openAttr(m)}><div class="mr-time">${m.noTime ? 'Por<br>confirmar' : esc(hhmm(m)) + moonI(m)}</div>
       <div class="mr-teams">${twoLines(m.home, m.away, m.sport)}${chips ? `<div class="mr-chips">${chips}</div>` : ''}</div>
       <div class="mr-p"><b>${pct(m.pick.p, 0)}</b><span>${esc(m.pick.label)}</span><small class="mr-odds">justa <b>${nf(1 / m.pick.p)}</b>${m.best ? ` · mejor <b class="g">${nf(m.best.odds)}</b>` : ''}</small></div>
       ${bar}<div class="mr-probs">${probs}</div></div>`;
@@ -1884,16 +1998,16 @@ function simBlock(S) {
   const P = S.picks, B = S.bet, sgn = x => (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1);
   const rate = o => o.n ? pct(o.hits / o.n, 0) : '—', exp = o => o.pAvg != null ? pct(o.pAvg, 0) : '—';
   const prog = Math.min(1, P.withOdds / S.ready.need);
-  const verdict = S.ready.ok ? ['pos', '✅ Lista para apostar con dinero (en la fase de prueba de «Mis apuestas»)']
+  const verdict = S.ready.ok ? ['pos', I('check') + 'Lista para apostar con dinero (en la fase de prueba de «Mis apuestas»)']
     : P.withOdds < S.ready.need ? ['warn', `Aún no: faltan ${S.ready.need - P.withOdds} pronósticos con cuota para fiarse`]
     : ['neg', 'Aún no: con 100 o más pronósticos, el rendimiento o los aciertos no están a la altura'];
-  return `<section class="block"><h3 class="sect">🧪 Simulación antes de apostar</h3>
+  return `<section class="block"><h3 class="sect">${I('flask')}Simulación antes de apostar</h3>
     <p class="note">Como si hubieras apostado 1 unidad a cada pronóstico de la selección diaria, cobrado a la mejor cuota encontrada antes del partido. Sin dinero real: sirve para saber si fiarse del modelo.</p>
     <div class="sug ${verdict[0]}"><b>${verdict[1]}</b><span>Hace falta: ${S.ready.need} pronósticos con cuota, rendimiento de 0% o más y aciertos como mínimo a 3 puntos de lo que esperaba el modelo.</span>
       <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${S.ready.need}" aria-valuenow="${P.withOdds}"><i style="width:${(prog * 100).toFixed(1)}%"></i></div><small>${P.withOdds} de ${S.ready.need} pronósticos con cuota</small></div>
     <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
-    ${S.mid && S.mid.n ? `<h4 class="sub4">🎯 Con cuota (1,45 – 1,82)</h4><div class="stats">${statBox(rate(S.mid), `aciertos · ${S.mid.hits} de ${S.mid.n}`)}${statBox(exp(S.mid), 'lo que esperaba el modelo')}${statBox(S.mid.roi == null ? '—' : sgn(S.mid.roi), `rendimiento a la mejor cuota · ${S.mid.withOdds} con cuota`)}</div>` : ''}
-    ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[['🛡️ segura', S.safe], ['💎 con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
+    ${S.mid && S.mid.n ? `<h4 class="sub4">${I('target')}Con cuota (1,45 – 1,82)</h4><div class="stats">${statBox(rate(S.mid), `aciertos · ${S.mid.hits} de ${S.mid.n}`)}${statBox(exp(S.mid), 'lo que esperaba el modelo')}${statBox(S.mid.roi == null ? '—' : sgn(S.mid.roi), `rendimiento a la mejor cuota · ${S.mid.withOdds} con cuota`)}</div>` : ''}
+    ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[[I('shield') + 'segura', S.safe], [I('gem') + 'con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
 }
 function acRender() {
@@ -1903,7 +2017,7 @@ function acRender() {
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
   const D = PF.daily;
   html += simBlock(D && D.sim);
-  html += `<section class="block"><h3 class="sect">⭐ Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
+  html += `<section class="block"><h3 class="sect">${I('star')}Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
     html += `<section class="block"><h3 class="sect">${sportIcon(sp)} ${SPORT_NAME[sp] || sp} <span class="note">· ${s.n} partidos evaluados</span></h3>
@@ -1976,7 +2090,7 @@ function mbMatches() { return (PR?.matches || []).filter(m => Date.parse(m.kicko
 function mbInit() {
   const ms = mbMatches(), cfg = betCfg();
   $('mbBank').value = cfg.bank ?? '';
-  fillSelect($('mbMatch'), [['', ms.length ? 'Elige partido' : 'No hay partidos próximos'], ...ms.map(m => [m.id, `${new Date(m.kickoff).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} ${hhmm(m)} · ${m.home} – ${m.away} (${m.leagueName})`])], '');
+  fillSelect($('mbMatch'), [['', ms.length ? 'Elige partido' : 'No hay partidos próximos'], ...ms.map(m => [m.id, `${new Date(m.kickoff).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} ${hhmm(m)}${night(m)} · ${m.home} – ${m.away} (${m.leagueName})`])], '');
   mbPick(); mbRender();
 }
 function mbPick() {
@@ -2024,7 +2138,7 @@ function mbRender() {
     ${list.map((b, i) => [b, i]).reverse().map(([b, i]) => { const r = betResult(b), c = betClv(b);
       return `<tr><td>${new Date(b.kickoff).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}</td><td><b>${esc(b.home)} – ${esc(b.away)}</b><br><span class="note">${esc(b.label)} · ${esc(b.book)}</span></td>
         <td class="num">${nf(b.odds)}</td><td class="num">${nf(b.stake)} €</td><td>${st(r)}</td><td class="num">${r ? money(betProfit(b, r)) : '—'}</td><td class="num">${c == null ? '—' : (c >= 0 ? '+' : '') + pct(c, 1)}</td>
-        <td class="act"><button class="linkbtn" data-bet="${i}" data-set="win" title="Marcar ganada">✓</button><button class="linkbtn" data-bet="${i}" data-set="lose" title="Marcar perdida">✗</button><button class="linkbtn" data-bet="${i}" data-set="void" title="Marcar nula">↺</button><button class="linkbtn" data-bet="${i}" data-set="del" title="Borrar">🗑</button></td></tr>`; }).join('')}
+        <td class="act"><button class="linkbtn" data-bet="${i}" data-set="win" title="Marcar ganada">✓</button><button class="linkbtn" data-bet="${i}" data-set="lose" title="Marcar perdida">✗</button><button class="linkbtn" data-bet="${i}" data-set="void" title="Marcar nula">↺</button><button class="linkbtn" data-bet="${i}" data-set="del" title="Borrar">${I('trash')}</button></td></tr>`; }).join('')}
   </tbody></table></div><p class="note">El estado se rellena solo cuando llega el resultado. Los botones ✓ ✗ ↺ sirven para corregirlo a mano (por ejemplo, si la casa anuló la apuesta). CLV: tu cuota frente a la cuota justa de Pinnacle antes del partido; si es positivo de forma constante, estás apostando mejor que el mercado.</p>`;
   out.innerHTML = h;
   out.querySelectorAll('[data-bet]').forEach(x => x.addEventListener('click', () => {
@@ -2035,7 +2149,7 @@ function mbRender() {
   }));
 }
 // borrar pide un segundo toque (sin ventanas del navegador)
-function confirmDel(btn) { if (btn.dataset.armed) return true; btn.dataset.armed = 1; btn.textContent = '¿Borrar?'; setTimeout(() => { delete btn.dataset.armed; btn.textContent = '🗑'; }, 3000); return false; }
+function confirmDel(btn) { if (btn.dataset.armed) return true; btn.dataset.armed = 1; btn.textContent = '¿Borrar?'; setTimeout(() => { delete btn.dataset.armed; btn.innerHTML = I('trash'); }, 3000); return false; }
 function mbExport() {
   const blob = new Blob([JSON.stringify({ bets: betsGet(), cfg: betCfg() }, null, 1)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `mis_apuestas_${new Date().toISOString().slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -2054,9 +2168,9 @@ function odRender() {
   const when = s => new Date(s).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const tbl = (head, rows) => rows.length ? `<div class="tablewrap"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<p class="note">Ninguna en la última revisión.</p>';
   out.innerHTML = `<p class="note">Revisado el ${new Date(OD.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}${OD.credits_left != null ? ` · quedan ${Math.round(OD.credits_left)} créditos este mes` : ''}.</p>
-    <section class="block"><h3 class="sect">✅ Surebets</h3><p class="note">Apostando a todos los resultados en estas casas, ganas pase lo que pase (si las cuotas siguen disponibles).</p>${tbl(['Partido', 'Mercado', 'Beneficio', 'Apuestas (reparto del total)'], OD.surebets.map(s => `<tr><td>${vsText(s.match, s.sport)}<br><span class="note">${flagOf(s.sport)}${esc(s.sport || '')} · ${when(s.kickoff)}</span></td><td>${esc(s.market)}</td><td class="num"><span class="chip pos">${pct(s.profit)}</span></td><td>${s.legs.map(l => `${esc(l.outcome)} @ ${nf(l.odds)} en ${esc(l.book)} (${pct(l.stake, 0)})`).join('<br>')}</td></tr>`))}</section>
-    <section class="block"><h3 class="sect">⚠️ Cuotas anómalas</h3><p class="note">Muy por encima del resto de casas: puede ser un error de la casa.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Mediana del resto'], OD.anomalies.map(a => `<tr><td>${vsText(a.match, a.sport)}<br><span class="note">${flagOf(a.sport)}${esc(a.sport || '')} · ${when(a.kickoff)}</span></td><td>${esc(a.market)}: ${esc(a.outcome)}</td><td class="num">${nf(a.odds)} en ${esc(a.book)}</td><td class="num">${nf(a.median)} (×${nf(a.ratio)})</td></tr>`))}</section>
-    <section class="block"><h3 class="sect">📈 Valor frente a Pinnacle</h3><p class="note">Cuotas más altas que el precio de Pinnacle sin margen, la casa más afinada.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Cuota justa', 'Valor'], OD.value.map(v => `<tr><td>${vsText(v.match, v.sport)}<br><span class="note">${flagOf(v.sport)}${esc(v.sport || '')} · ${when(v.kickoff)}</span></td><td>${esc(v.market)}: ${esc(v.outcome)}</td><td class="num">${nf(v.odds)} en ${esc(v.book)}</td><td class="num">${nf(v.fair)}</td><td class="num"><span class="chip pos">+${pct(v.ev)}</span></td></tr>`))}</section>
+    <section class="block"><h3 class="sect">${I('check')}Surebets</h3><p class="note">Apostando a todos los resultados en estas casas, ganas pase lo que pase (si las cuotas siguen disponibles).</p>${tbl(['Partido', 'Mercado', 'Beneficio', 'Apuestas (reparto del total)'], OD.surebets.map(s => `<tr><td>${vsText(s.match, s.sport)}<br><span class="note">${flagOf(s.sport)}${esc(s.sport || '')} · ${when(s.kickoff)}</span></td><td>${esc(s.market)}</td><td class="num"><span class="chip pos">${pct(s.profit)}</span></td><td>${s.legs.map(l => `${esc(l.outcome)} @ ${nf(l.odds)} en ${esc(l.book)} (${pct(l.stake, 0)})`).join('<br>')}</td></tr>`))}</section>
+    <section class="block"><h3 class="sect">${I('alert')}Cuotas anómalas</h3><p class="note">Muy por encima del resto de casas: puede ser un error de la casa.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Mediana del resto'], OD.anomalies.map(a => `<tr><td>${vsText(a.match, a.sport)}<br><span class="note">${flagOf(a.sport)}${esc(a.sport || '')} · ${when(a.kickoff)}</span></td><td>${esc(a.market)}: ${esc(a.outcome)}</td><td class="num">${nf(a.odds)} en ${esc(a.book)}</td><td class="num">${nf(a.median)} (×${nf(a.ratio)})</td></tr>`))}</section>
+    <section class="block"><h3 class="sect">${I('trend')}Valor frente a Pinnacle</h3><p class="note">Cuotas más altas que el precio de Pinnacle sin margen, la casa más afinada.</p>${tbl(['Partido', 'Mercado', 'Cuota', 'Cuota justa', 'Valor'], OD.value.map(v => `<tr><td>${vsText(v.match, v.sport)}<br><span class="note">${flagOf(v.sport)}${esc(v.sport || '')} · ${when(v.kickoff)}</span></td><td>${esc(v.market)}: ${esc(v.outcome)}</td><td class="num">${nf(v.odds)} en ${esc(v.book)}</td><td class="num">${nf(v.fair)}</td><td class="num"><span class="chip pos">+${pct(v.ev)}</span></td></tr>`))}</section>
     <p class="note">«Valor» compara con el precio de Pinnacle sin margen, la casa más afinada. En los datos de tenis de 2023-26 esa comparación dio un +1,9% a largo plazo con muchos altibajos; en fútbol no hay datos con los que medirlo.</p>`;
 }
 
@@ -2095,6 +2209,72 @@ function avUpdate() {
   }
 }
 
+// ============================== INICIO (portada) ==============================
+const HOME_LINKS = [   // [icono, título, texto, destino «pestaña:subpestaña:vista»]
+  ['star', 'Apuesta del día', 'El pronóstico más probable de la jornada, con su cuota justa y la mejor cuota del mercado.', 'pronosticos:proximos:dia'],
+  ['layers', 'Combinadas', 'Segura (los más probables) y con valor (mejor cuota que la justa), de 2 a 3 partidos.', 'pronosticos:proximos:comb'],
+  ['calendar', 'Próximos partidos', 'Todos los pronósticos de fútbol, baloncesto y tenis, filtrables por deporte y liga.', 'pronosticos:proximos'],
+  ['chart', 'Aciertos', 'Cada pronóstico comparado con el resultado real y la simulación antes de apostar.', 'pronosticos:aciertos'],
+  ['wallet', 'Mis apuestas', 'Apunta lo que apuestas: beneficio real, CLV y cuánto apostar en cada pronóstico.', 'pronosticos:apuestas'],
+  ['bell', 'Avisos de Telegram', 'Elige qué deportes, ligas y equipos te llegan al grupo Aldana Bet.', 'pronosticos:avisos'],
+  ['coins', 'Cuotas', 'Surebets, cuotas anómalas y valor frente a Pinnacle.', 'pronosticos:cuotas'],
+  ['ball', 'Fútbol', 'Ficha de cualquier partido: mercados, bajas, árbitro, estadísticas y precisión histórica.', 'futbol'],
+  ['basket', 'Baloncesto', 'NBA, Euroliga, EuroCup y ligas europeas: ganador, hándicap y puntos.', 'baloncesto'],
+  ['tennis', 'Tenis', 'ATP y WTA con Elo por superficie: sets, juegos, tie-breaks y hándicaps.', 'tenis'],
+  ['book', 'Guía', 'Cómo funciona el modelo, de dónde salen los datos y qué se ha probado.', 'guia']];
+function goTo(dest) {
+  const [tab, sub, view] = dest.split(':');
+  showTab(tab); history.replaceState(null, '', '#' + tab);
+  if (sub) document.querySelector(`#sub-${tab} button[data-v="${sub}"]`)?.click();
+  if (view && view !== dailyView) { dailyView = view; store.set('mc_dv', view); dailyRender(); }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function countUp(root) {   // las cifras de la portada suben desde 0
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  root.querySelectorAll('[data-count]').forEach(el => {
+    const to = +el.dataset.count, suf = el.dataset.suf || '', t0 = performance.now(), dur = 1100;
+    if (still) { el.textContent = to + suf; return; }
+    const step = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e) + suf; if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
+function homeRender() {
+  const D = PR && PR.daily, T = PF && PF.daily, b = D && D.bet;
+  const r = o => o && o.n ? Math.round(100 * o.hits / o.n) : null;
+  const evald = PF && PF.sports ? Object.values(PF.sports).reduce((s, x) => s + (x.n || 0), 0) : 0;
+  const now = Date.now(), next = PR && PR.matches ? PR.matches.filter(m => new Date(m.kickoff) > now - 2 * 3600e3) : [];
+  const kpi = (v, suf, l) => `<div class="kpi"><b ${v == null ? '' : `data-count="${v}" data-suf="${suf}"`}>${v == null ? '—' : '0' + suf}</b><span>${l}</span></div>`;
+  const tick = next.filter(m => m.pick && m.pick.p >= 0.6).sort((x, y) => y.pick.p - x.pick.p).slice(0, 14);
+  const tItem = m => `<span class="tk" ${openAttr(m)}>${sportIcon(m.sport)}<b>${esc(m.home)} – ${esc(m.away)}</b><span>${esc(m.pick.label)}</span><em>${pct(m.pick.p, 0)}</em></span>`;
+  const safe = D && D.combos && D.combos.safe;
+  const feat = b ? `<article class="hfeat" ${openAttr(b)}>
+      <div class="hf-top"><span class="kicker">${I('star')} Apuesta del día</span><span class="note">${esc(b.leagueName)} · ${sportIcon(b.sport)} ${b.noTime ? 'hora por confirmar' : esc(hhmm(b)) + moonI(b)}</span></div>
+      <div class="hf-body"><div class="hf-teams">${twoLines(b.home, b.away, b.sport)}</div><div class="hf-p"><b>${pct(b.pick.p, 0)}</b><span>${esc(b.pick.label)}</span></div></div>
+      ${bestLine(b)}</article>` : `<article class="hfeat"><span class="kicker">${I('star')} Apuesta del día</span><p class="note">Se elige sola en cuanto hay partidos del día.</p></article>`;
+  const comb = `<article class="hfeat sm" data-go="pronosticos:proximos:comb" role="button" tabindex="0"><span class="kicker">${I('shield')} Combinada segura</span>
+      ${safe ? `<div class="hf-p"><b>${pct(safe.p, 0)}</b><span>${safe.legs.length} partidos · cuota justa ${nf(safe.fair)}${safe.odds ? ` · mejor ${nf(safe.odds)}` : ''}</span></div>` : '<p class="note">Hoy no hay dos pronósticos del 65% o más.</p>'}
+      <span class="hf-go">Ver combinadas ${I('arrow')}</span></article>`;
+  $('home').innerHTML = `
+    <div class="hero">
+      <div class="hero-txt">
+        <p class="eyebrow"><span class="live"></span>Se actualiza sola cada hora · fútbol · baloncesto · tenis</p>
+        <h2 class="hero-h">Datos, no <em>corazonadas</em>.</h2>
+        <p class="hero-sub">Pronósticos calculados con modelos estadísticos, la mejor cuota del mercado y un seguimiento honesto de cada acierto y cada fallo.</p>
+        <div class="hero-cta"><button class="btn" data-go="pronosticos:proximos:dia">Ver la apuesta del día ${I('arrow')}</button><button class="btn ghost" data-go="guia">Cómo funciona</button></div>
+      </div>
+      <div class="hero-seal" aria-hidden="true"><svg viewBox="0 0 200 200"><defs><path id="ring" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
+        <circle cx="100" cy="100" r="96" fill="#0e0e10"/><circle cx="100" cy="100" r="92" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="100" cy="100" r="64" fill="none" stroke="url(#sg)" stroke-width="1.5" opacity=".7"/>
+        <g class="spin"><text font-family="JetBrains Mono, monospace" font-size="11.5" letter-spacing="3.2" fill="url(#sg)"><textPath href="#ring">ALDANA BET · PRONÓSTICOS · DATOS · VALOR ·</textPath></text></g>
+        <text x="100" y="118" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-size="52" fill="url(#sg)">AB</text></svg></div>
+    </div>
+    <div class="kpis">${kpi(r(T && T.bet), '%', `apuesta del día${T && T.bet && T.bet.n ? ` · ${T.bet.hits} de ${T.bet.n}` : ''}`)}${kpi(r(T && T.picks), '%', `selección recomendada${T && T.picks && T.picks.n ? ` · ${T.picks.hits} de ${T.picks.n}` : ''}`)}${kpi(evald || null, '', 'pronósticos comprobados')}${kpi(next.length || null, '', 'próximos partidos')}</div>
+    ${tick.length ? `<div class="ticker" aria-label="Pronósticos más probables"><div class="tk-track">${tick.map(tItem).join('')}${tick.map(tItem).join('')}</div></div>` : ''}
+    <div class="shead"><span class="no">01</span><h3>Hoy en la mesa</h3></div>
+    <div class="hfeats">${feat}${comb}</div>
+    <div class="shead"><span class="no">02</span><h3>Todo lo que hay dentro</h3></div>
+    <div class="hgrid">${HOME_LINKS.map(([ic, ti, tx, go], i) => `<button class="hcard" data-go="${go}" style="--i:${i}"><span class="hc-ico">${I(ic)}</span><span class="hc-no">${String(i + 1).padStart(2, '0')}</span><b>${ti}</b><span>${tx}</span><span class="hc-go">${I('arrow')}</span></button>`).join('')}</div>`;
+  bindOpen($('home')); countUp($('home'));
+}
 // ============================== NAVEGACIÓN Y ARRANQUE ==============================
 function headerInfo() {
   const parts = [`fútbol ${dayES(FB[FB.length - 1].d)}`];
@@ -2106,10 +2286,24 @@ let tennisReady = false, statsReady = false;
 function showTab(t) {
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
   document.querySelectorAll('section[data-sec]').forEach(s => s.hidden = s.dataset.sec !== t);
+  navInk();
   if (t === 'tenis' && !tennisReady && Td) { tennisReady = true; tnRefresh(); }
   store.set('mc_tab', t);
 }
+function navInk() {   // subrayado dorado que se desliza hasta la pestaña activa
+  const nav = document.querySelector('nav.tabs'), b = nav && nav.querySelector('button[aria-selected="true"]'), ink = $('navInk');
+  if (!b || !ink) return;
+  ink.style.width = b.offsetWidth + 'px'; ink.style.transform = `translateX(${b.offsetLeft}px)`;
+}
 function wire() {
+  addEventListener('resize', navInk);
+  document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); goTo(g.dataset.go); } });
+  document.addEventListener('keydown', e => { const g = e.target.closest && e.target.closest('[data-go][role="button"]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goTo(g.dataset.go); } });
+  document.addEventListener('pointermove', e => {   // brillo que sigue al ratón en las tarjetas
+    const c = e.target.closest && e.target.closest('.pcard, .hcard, .hfeat, .mc, .cmb, .gcard'); if (!c) return;
+    const r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  }, { passive: true });
+  $('brandHome').addEventListener('click', () => goTo('inicio'));
   document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => { showTab(b.dataset.tab); history.replaceState(null, '', '#' + b.dataset.tab); }));
   document.querySelectorAll('.sub').forEach(sub => sub.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -2145,11 +2339,11 @@ function wire() {
 let READY;
 (async () => {
   wire();
-  const h = location.hash.slice(1), first = ['pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'pronosticos';
+  const h = location.hash.slice(1), first = ['inicio', 'pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'inicio', LIGHT = ['inicio', 'pronosticos', 'guia'];
   [PR, PF, CE, IJ, NW, OD, CR] = await Promise.all([loadJSON('d-pr', 'data/predictions.json'), loadJSON('d-pf', 'data/performance.json'), loadJSON('d-ce', 'data/clubelo.json'),
     loadJSON('d-ij', 'data/injuries.json'), loadJSON('d-nw', 'data/news.json'), loadJSON('d-od', 'data/odds.json'), loadJSON('d-cr', 'data/crests.json')]);
-  prRender(); acRender(); odRender(); mbInit();
-  if (first === 'pronosticos' || first === 'guia') showTab(first);
+  prRender(); acRender(); odRender(); mbInit(); homeRender();
+  if (LIGHT.includes(first)) showTab(first);
   READY = (async () => {
     let BX;
     [Fd, BK.nba.raw, BK.euroliga.raw, Td, BX] = await Promise.all([loadJSON('d-fb', 'data/football.json'), loadJSON('d-nb', 'data/nba.json'), loadJSON('d-el', 'data/euroliga.json'),
@@ -2163,7 +2357,7 @@ let READY;
     appendTennis(store.get('mc_tn_extra', []));
     headerInfo(); fbInitControls(); bkInit(); avInit(); mbRender();
     const cur = document.querySelector('nav.tabs button[aria-selected="true"]')?.dataset.tab;
-    showTab(first !== 'pronosticos' && first !== 'guia' && (!cur || cur === 'pronosticos') ? first : cur || first);   // rehace la pestaña abierta mientras cargaba
+    showTab(!LIGHT.includes(first) && (!cur || LIGHT.includes(cur)) ? first : cur || first);   // rehace la pestaña abierta mientras cargaba
     return true;
   })();
 })();
