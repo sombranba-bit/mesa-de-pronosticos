@@ -392,7 +392,7 @@ h3.sect:has(> .i)::before { display: none; }
 @keyframes floaty { 50% { transform: translateY(-6px); } }
 @keyframes shine { to { background-position: 200% center; } }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 #4ade8099; } 70% { box-shadow: 0 0 0 9px #4ade8000; } 100% { box-shadow: 0 0 0 0 #4ade8000; } }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 #4ade8099; } 70% { box-shadow: 0 0 0 9px #4ade8000; } 100% { box-shadow: 0 0 0 0 #4ade8000; } }
 @keyframes marquee { to { transform: translateX(-50%); } }
 @keyframes grow { from { transform: scaleX(0); } }
 section[data-sec]:not([hidden]) > .sub { animation: fadein .5s var(--ease) both; }
@@ -426,7 +426,7 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 #home { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 40px; padding: 48px 0 18px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; font: 500 12px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); animation: rise .6s var(--ease) both; }
-.live { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: ping 2s infinite; }
 .hero-h { margin: 0; font: 700 clamp(44px, 7.4vw, 104px)/.98 var(--f-body); letter-spacing: -.045em; background: linear-gradient(to right, #fff, #9a9a98); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: rise .8s var(--ease) both .08s; padding-bottom: .06em; }
 .hero-h em { font: italic 500 1em var(--f-serif); letter-spacing: -.02em; background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%); -webkit-background-clip: text; background-clip: text; }
 .hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: #b9b9b6; animation: rise .8s var(--ease) both .16s; }
@@ -523,6 +523,32 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
   .scoreline .team { font-size: 16px; overflow-wrap: normal; word-break: normal; text-align: center; }
   .stat b { font-size: 17px; } .ftable td { padding: 8px 6px; font-size: 13.5px; }
   .mkcard { padding: 14px; } .mkhead, .mkrow { grid-template-columns: minmax(0, 1fr) 80px 46px; gap: 10px; } .stat { padding: 12px; } }
+
+/* ===================== MÁS MOVIMIENTO ===================== */
+@property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
+@keyframes ringfill { from { --p: 0; } }
+.pring { position: relative; display: grid; place-items: center; width: 168px; height: 168px; margin: -6px auto 2px; }
+.pring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; animation: ringfill 1.4s var(--ease) both .2s;
+  background: conic-gradient(from -90deg, #a67c1e, #e8b23a calc(var(--p) * 60%), #fff3c9 calc(var(--p) * 100%), #ffffff10 0);
+  -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 7px), #000 calc(100% - 6px)); mask: radial-gradient(farthest-side, #0000 calc(100% - 7px), #000 calc(100% - 6px));
+  filter: drop-shadow(0 0 10px #e8b23a55); }
+.pring .mc-p { position: relative; font-size: 56px; }
+.cd { color: var(--accent); white-space: nowrap; } .cd.on { color: #4ade80; } .cd.on::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; margin-right: 6px; vertical-align: 1px; animation: ping 2s infinite; }
+.tribar i { transform-origin: left; animation: grow .9s var(--ease) both .1s; }
+.mc:hover, .hfeat:hover { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-3px); }
+.mc, .hfeat { transition: transform .25s var(--ease), box-shadow .5s var(--ease), border-color .4s var(--ease); }
+.loading { background: linear-gradient(90deg, var(--muted) 0%, #fff3c9 50%, var(--muted) 100%) 0 0 / 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 1.6s linear infinite; }
+.totop { position: fixed; right: 20px; bottom: 20px; z-index: 60; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-strong); background: #121212e6; color: var(--accent);
+  display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(10px); opacity: 0; transform: translateY(14px) scale(.9); pointer-events: none;
+  transition: opacity .35s var(--ease), transform .45s var(--ease-spring), border-color .3s var(--ease); }
+.totop .i { width: 20px; height: 20px; transform: rotate(-90deg); } .totop.show { opacity: 1; transform: none; pointer-events: auto; } .totop:hover { border-color: var(--accent); transform: translateY(-3px); }
+/* barra de progreso de lectura y aparición al hacer scroll (solo navegadores que lo soportan; el resto lo ve sin efecto) */
+@supports (animation-timeline: scroll()) {
+  body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; transform-origin: left; background: linear-gradient(90deg, #a67c1e, #e8b23a, #fff3c9);
+    animation: grow linear both; animation-timeline: scroll(root); }
+  .block, .mkgrid > *, .gcard, .hcard, .cmb, .mrow, .lghead { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 35%; }
+}
+@media (max-width: 520px) { .pring { width: 132px; height: 132px; } .pring .mc-p { font-size: 44px; } .totop { right: 14px; bottom: 14px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -823,6 +849,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
     </div>
   </section>
 </div></main>
+<button class="totop" id="toTop" type="button" aria-label="Volver arriba"><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></button>
 
 <script id="d-fb" type="application/json">/*DATA_FB*/</script>
 <script id="d-nb" type="application/json">/*DATA_NB*/</script>
@@ -1413,7 +1440,8 @@ function marketTable(el, groups, extra = '') {
   el.innerHTML = `<h3 class="sect">Todos los mercados <span class="note">· cuota = cuota justa · en verde, 70% o más</span></h3><div class="mkgrid">${groups.map(card).join('')}${extra}</div>`;
 }
 const emptyPick = (ico, t, sub) => `<div class="empty"><span class="empty-ico" aria-hidden="true">${ico}</span><b>${t}</b><span>${sub}</span></div>`;
-const statBox = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
+const countAttr = v => { const m = /^([+−-]?)(\d+)(?:,(\d+))?(%| u| €)?$/.exec(String(v)); return m ? ` data-count="${m[2]}${m[3] ? '.' + m[3] : ''}" data-dec="${m[3] ? m[3].length : 0}" data-pre="${m[1]}" data-suf="${m[4] || ''}"` : ''; };
+const statBox = (v, l) => `<div class="stat"><b${countAttr(v)}>${v}</b><span>${l}</span></div>`;
 // Calibración: agrupa pronósticos {p, hit} por confianza
 const BANDS = [[0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 1.01]];
 function calibTable(preds) {
@@ -1954,9 +1982,9 @@ function dailyRender() {
   const tabs = `<div class="seg" role="tablist">${[['dia', I('star') + 'Apuesta del día'], ['comb', I('layers') + 'Combinadas']].map(([k, l]) => `<button role="tab" data-dv="${k}" aria-selected="${dailyView === k}">${l}</button>`).join('')}</div>`;
   if (dailyView === 'comb') { box.innerHTML = tabs + combosHTML(D, dayTxt, when, res); bindOpen(box); bindSeg(box); return; }
   let h = tabs + `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
-    <div class="mc" ${openAttr(b)}><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)} ${(when(b))}</span></div>
+    <div class="mc" ${openAttr(b)}><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)} ${(when(b))}${b.noTime ? '' : ` · <span class="cd" data-ko="${esc(b.kickoff)}">${untilTxt(b.kickoff)}</span>`}</span></div>
       <div class="mc-body"><div class="mc-team">${crest(b.home, b.sport, 'xl')}<span>${esc(b.home)}</span></div>
-        <div class="mc-mid"><div class="mc-p">${pct(b.pick.p, 0)}</div><div class="mc-pick">${esc(b.pick.label)}</div>${res(b)}${bestLine(b)}</div>
+        <div class="mc-mid"><div class="pring" style="--p:${b.pick.p.toFixed(3)}"><div class="mc-p">${pct(b.pick.p, 0)}</div></div><div class="mc-pick">${esc(b.pick.label)}</div>${res(b)}${bestLine(b)}</div>
         <div class="mc-team">${crest(b.away, b.sport, 'xl')}<span>${esc(b.away)}</span></div></div>
       <div class="mc-foot">Toca para ver todos los mercados ›</div></div>
     ${b.why && b.why.length ? `<div class="whybox"><b>Por qué</b><ul class="why">${b.why.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}`;
@@ -2274,26 +2302,29 @@ function goTo(dest) {
   if (view && view !== dailyView) { dailyView = view; store.set('mc_dv', view); dailyRender(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function countUp(root) {   // las cifras de la portada suben desde 0
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  root.querySelectorAll('[data-count]').forEach(el => {
-    const to = +el.dataset.count, suf = el.dataset.suf || '', t0 = performance.now(), dur = 1100;
-    if (still) { el.textContent = to + suf; return; }
-    const step = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e) + suf; if (k < 1) requestAnimationFrame(step); };
-    requestAnimationFrame(step);
-  });
-}
+// cifras que suben desde 0 la primera vez que se ven en pantalla (el texto final ya está puesto: sin JS se ve igual)
+const countIO = 'IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches ? new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return; countIO.unobserve(e.target); const el = e.target, d = el.dataset, to = +d.count, dec = +d.dec || 0, fin = el.textContent, t0 = performance.now();
+  const step = now => { const k = Math.min(1, (now - t0) / 1100), v = to * (1 - Math.pow(1 - k, 3)); el.textContent = k < 1 ? d.pre + v.toFixed(dec).replace('.', ',') + d.suf : fin; if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}), { threshold: 0.4 }) : null;
+const countUp = root => countIO && root.querySelectorAll('[data-count]:not([data-seen])').forEach(el => { el.dataset.seen = 1; countIO.observe(el); });
+// cuenta atrás hasta el partido y «actualizado hace…»: se refrescan cada 30 s
+const untilTxt = ko => { const m = (Date.parse(ko) - Date.now()) / 60000; return m > 0 ? `empieza en ${m >= 60 ? Math.floor(m / 60) + ' h ' : ''}${Math.ceil(m % 60)} min` : m > -150 ? 'en juego' : 'terminado'; };
+const agoTxt = t => { const m = Math.max(0, Math.round((Date.now() - Date.parse(t)) / 60000)); return m < 60 ? `actualizado hace ${m} min` : `actualizado hace ${Math.round(m / 60)} h`; };
+const tickLive = () => { document.querySelectorAll('[data-ko]').forEach(el => { el.textContent = untilTxt(el.dataset.ko); el.classList.toggle('on', el.textContent === 'en juego'); }); document.querySelectorAll('[data-ago]').forEach(el => el.textContent = agoTxt(el.dataset.ago)); };
+setInterval(tickLive, 30000);
 function homeRender() {
   const D = PR && PR.daily, T = PF && PF.daily, b = D && D.bet;
   const r = o => o && o.n ? Math.round(100 * o.hits / o.n) : null;
   const evald = PF && PF.sports ? Object.values(PF.sports).reduce((s, x) => s + (x.n || 0), 0) : 0;
   const now = Date.now(), next = PR && PR.matches ? PR.matches.filter(m => new Date(m.kickoff) > now - 2 * 3600e3) : [];
-  const kpi = (v, suf, l) => `<div class="kpi"><b ${v == null ? '' : `data-count="${v}" data-suf="${suf}"`}>${v == null ? '—' : '0' + suf}</b><span>${l}</span></div>`;
+  const kpi = (v, suf, l) => `<div class="kpi"><b${v == null ? '' : countAttr(v + suf)}>${v == null ? '—' : v + suf}</b><span>${l}</span></div>`;
   const tick = next.filter(m => m.pick && m.pick.p >= 0.6).sort((x, y) => y.pick.p - x.pick.p).slice(0, 14);
   const tItem = m => `<span class="tk" ${openAttr(m)}>${sportIcon(m.sport)}<b>${esc(m.home)} – ${esc(m.away)}</b><span>${esc(m.pick.label)}</span><em>${pct(m.pick.p, 0)}</em></span>`;
   const safe = D && D.combos && D.combos.safe;
   const feat = b ? `<article class="hfeat" ${openAttr(b)}>
-      <div class="hf-top"><span class="kicker">${I('star')} Apuesta del día</span><span class="note">${esc(b.leagueName)} · ${sportIcon(b.sport)} ${b.noTime ? 'hora por confirmar' : esc(hhmm(b)) + moonI(b)}</span></div>
+      <div class="hf-top"><span class="kicker">${I('star')} Apuesta del día</span><span class="note">${esc(b.leagueName)} · ${sportIcon(b.sport)} ${b.noTime ? 'hora por confirmar' : esc(hhmm(b)) + moonI(b) + ` · <span class="cd" data-ko="${esc(b.kickoff)}">${untilTxt(b.kickoff)}</span>`}</span></div>
       <div class="hf-body"><div class="hf-teams">${twoLines(b.home, b.away, b.sport)}</div><div class="hf-p"><b>${pct(b.pick.p, 0)}</b><span>${esc(b.pick.label)}</span></div></div>
       ${bestLine(b)}</article>` : `<article class="hfeat"><span class="kicker">${I('star')} Apuesta del día</span><p class="note">Se elige sola en cuanto hay partidos del día.</p></article>`;
   const comb = `<article class="hfeat sm" data-go="pronosticos:proximos:comb" role="button" tabindex="0"><span class="kicker">${I('shield')} Combinada segura</span>
@@ -2302,7 +2333,7 @@ function homeRender() {
   $('home').innerHTML = `
     <div class="hero">
       <div class="hero-txt">
-        <p class="eyebrow"><span class="live"></span>Se actualiza sola cada hora · fútbol · baloncesto · tenis</p>
+        <p class="eyebrow"><span class="live"></span>${PR && PR.generated ? `<span data-ago="${esc(PR.generated)}">${agoTxt(PR.generated)}</span>` : 'Se actualiza sola cada hora'} · fútbol · baloncesto · tenis</p>
         <h2 class="hero-h">Datos, no <em>corazonadas</em>.</h2>
         <p class="hero-sub">Pronósticos calculados con modelos estadísticos, la mejor cuota del mercado y un seguimiento honesto de cada acierto y cada fallo.</p>
         <div class="hero-cta"><button class="btn" data-go="pronosticos:proximos:dia">Ver la apuesta del día ${I('arrow')}</button><button class="btn ghost" data-go="guia">Cómo funciona</button></div>
@@ -2318,7 +2349,7 @@ function homeRender() {
     <div class="hfeats">${feat}${comb}</div>
     <div class="shead"><span class="no">02</span><h3>Todo lo que hay dentro</h3></div>
     <div class="hgrid">${HOME_LINKS.map(([ic, ti, tx, go], i) => `<button class="hcard" data-go="${go}" style="--i:${i}"><span class="hc-ico">${I(ic)}</span><span class="hc-no">${String(i + 1).padStart(2, '0')}</span><b>${ti}</b><span>${tx}</span><span class="hc-go">${I('arrow')}</span></button>`).join('')}</div>`;
-  bindOpen($('home')); countUp($('home'));
+  bindOpen($('home')); countUp($('home')); tickLive();
 }
 // ============================== NAVEGACIÓN Y ARRANQUE ==============================
 function headerInfo() {
@@ -2347,8 +2378,12 @@ function wire() {
   document.addEventListener('pointermove', e => {   // brillo que sigue al ratón en las tarjetas
     const c = e.target.closest && e.target.closest('.pcard, .hcard, .hfeat, .mc, .cmb, .gcard'); if (!c) return;
     const r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    if (c.matches('.mc, .hfeat')) { c.style.setProperty('--ry', ((e.clientX - r.left) / r.width - 0.5) * 5 + 'deg'); c.style.setProperty('--rx', (0.5 - (e.clientY - r.top) / r.height) * 5 + 'deg'); }
   }, { passive: true });
   $('brandHome').addEventListener('click', () => goTo('inicio'));
+  addEventListener('scroll', () => $('toTop').classList.toggle('show', scrollY > 900), { passive: true });
+  $('toTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  new MutationObserver(() => countUp(document)).observe(document.querySelector('main') || document.body, { childList: true, subtree: true });
   document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => { showTab(b.dataset.tab); history.replaceState(null, '', '#' + b.dataset.tab); }));
   document.querySelectorAll('.sub').forEach(sub => sub.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;

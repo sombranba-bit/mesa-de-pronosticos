@@ -392,7 +392,7 @@ h3.sect:has(> .i)::before { display: none; }
 @keyframes floaty { 50% { transform: translateY(-6px); } }
 @keyframes shine { to { background-position: 200% center; } }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 #4ade8099; } 70% { box-shadow: 0 0 0 9px #4ade8000; } 100% { box-shadow: 0 0 0 0 #4ade8000; } }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 #4ade8099; } 70% { box-shadow: 0 0 0 9px #4ade8000; } 100% { box-shadow: 0 0 0 0 #4ade8000; } }
 @keyframes marquee { to { transform: translateX(-50%); } }
 @keyframes grow { from { transform: scaleX(0); } }
 section[data-sec]:not([hidden]) > .sub { animation: fadein .5s var(--ease) both; }
@@ -426,7 +426,7 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 #home { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 40px; padding: 48px 0 18px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; font: 500 12px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); animation: rise .6s var(--ease) both; }
-.live { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: ping 2s infinite; }
 .hero-h { margin: 0; font: 700 clamp(44px, 7.4vw, 104px)/.98 var(--f-body); letter-spacing: -.045em; background: linear-gradient(to right, #fff, #9a9a98); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: rise .8s var(--ease) both .08s; padding-bottom: .06em; }
 .hero-h em { font: italic 500 1em var(--f-serif); letter-spacing: -.02em; background-image: linear-gradient(100deg, #e8b23a 0%, #fff3c9 25%, #e8b23a 50%, #fff3c9 75%, #e8b23a 100%); -webkit-background-clip: text; background-clip: text; }
 .hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: #b9b9b6; animation: rise .8s var(--ease) both .16s; }
@@ -523,6 +523,32 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
   .scoreline .team { font-size: 16px; overflow-wrap: normal; word-break: normal; text-align: center; }
   .stat b { font-size: 17px; } .ftable td { padding: 8px 6px; font-size: 13.5px; }
   .mkcard { padding: 14px; } .mkhead, .mkrow { grid-template-columns: minmax(0, 1fr) 80px 46px; gap: 10px; } .stat { padding: 12px; } }
+
+/* ===================== MÁS MOVIMIENTO ===================== */
+@property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
+@keyframes ringfill { from { --p: 0; } }
+.pring { position: relative; display: grid; place-items: center; width: 168px; height: 168px; margin: -6px auto 2px; }
+.pring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; animation: ringfill 1.4s var(--ease) both .2s;
+  background: conic-gradient(from -90deg, #a67c1e, #e8b23a calc(var(--p) * 60%), #fff3c9 calc(var(--p) * 100%), #ffffff10 0);
+  -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 7px), #000 calc(100% - 6px)); mask: radial-gradient(farthest-side, #0000 calc(100% - 7px), #000 calc(100% - 6px));
+  filter: drop-shadow(0 0 10px #e8b23a55); }
+.pring .mc-p { position: relative; font-size: 56px; }
+.cd { color: var(--accent); white-space: nowrap; } .cd.on { color: #4ade80; } .cd.on::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; margin-right: 6px; vertical-align: 1px; animation: ping 2s infinite; }
+.tribar i { transform-origin: left; animation: grow .9s var(--ease) both .1s; }
+.mc:hover, .hfeat:hover { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-3px); }
+.mc, .hfeat { transition: transform .25s var(--ease), box-shadow .5s var(--ease), border-color .4s var(--ease); }
+.loading { background: linear-gradient(90deg, var(--muted) 0%, #fff3c9 50%, var(--muted) 100%) 0 0 / 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 1.6s linear infinite; }
+.totop { position: fixed; right: 20px; bottom: 20px; z-index: 60; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-strong); background: #121212e6; color: var(--accent);
+  display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(10px); opacity: 0; transform: translateY(14px) scale(.9); pointer-events: none;
+  transition: opacity .35s var(--ease), transform .45s var(--ease-spring), border-color .3s var(--ease); }
+.totop .i { width: 20px; height: 20px; transform: rotate(-90deg); } .totop.show { opacity: 1; transform: none; pointer-events: auto; } .totop:hover { border-color: var(--accent); transform: translateY(-3px); }
+/* barra de progreso de lectura y aparición al hacer scroll (solo navegadores que lo soportan; el resto lo ve sin efecto) */
+@supports (animation-timeline: scroll()) {
+  body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; transform-origin: left; background: linear-gradient(90deg, #a67c1e, #e8b23a, #fff3c9);
+    animation: grow linear both; animation-timeline: scroll(root); }
+  .block, .mkgrid > *, .gcard, .hcard, .cmb, .mrow, .lghead { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 35%; }
+}
+@media (max-width: 520px) { .pring { width: 132px; height: 132px; } .pring .mc-p { font-size: 44px; } .totop { right: 14px; bottom: 14px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -823,6 +849,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
     </div>
   </section>
 </div></main>
+<button class="totop" id="toTop" type="button" aria-label="Volver arriba"><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></button>
 
 <script id="d-fb" type="application/json">/*DATA_FB*/</script>
 <script id="d-nb" type="application/json">/*DATA_NB*/</script>
