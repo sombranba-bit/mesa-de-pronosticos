@@ -221,7 +221,7 @@ function lastGames(rows, t, n, keyH = 'hg', keyA = 'ag') {
 }
 function formTable(title, games, sp) {
   const pts = games.reduce((s, g) => s + (g.gf > g.ga ? 3 : g.gf === g.ga ? 1 : 0), 0);
-  return `<div style="min-width:0"><div class="teamhead">${crest(title, sp || 'futbol', 'md')}<b>${esc(title)}</b>${sp === 'b' ? '' : `<span class="note">${pts} de ${games.length * 3} puntos</span>`}</div><div class="tablewrap"><table><tbody>
+  return `<div style="min-width:0"><div class="teamhead">${crest(title, sp || 'futbol', 'md')}<b>${esc(title)}</b>${sp === 'b' ? '' : `<span class="note">${pts} de ${games.length * 3} puntos</span>`}</div><div class="tablewrap"><table class="ftable"><tbody>
     ${games.map(g => `<tr><td>${dayES(g.r.d)}</td><td>${g.home ? 'vs' : 'en'} ${crest(g.opp, sp, 'md')}${esc(g.opp)}</td><td class="num">${g.gf}-${g.ga}</td><td>${resChip(g.gf, g.ga)}</td></tr>`).join('') || '<tr><td>Sin partidos</td></tr>'}
   </tbody></table></div></div>`;
 }
@@ -527,7 +527,7 @@ function tnPredict() {
   const eg = M.sum(tg.map(x => x.t * x.p)), few = Math.min(ELO.NS[s][ia], ELO.NS[s][ib]);
   out.innerHTML = `<div class="scoreline"><div class="team">${esc(A)}</div><div class="mid">${pct(p, 0)} – ${pct(1 - p, 0)}<small>probabilidad de ganar</small></div><div class="team">${esc(B)}</div></div>
     <p class="note">Elo ${Math.round(ELO.R[ia])} / ${Math.round(ELO.R[ib])} · en ${['pista dura', 'tierra', 'hierba', 'moqueta'][s]} ${Math.round(ELO.S[s][ia])} / ${Math.round(ELO.S[s][ib])} · puntos ganados al saque ${pct(T.pa, 0)} / ${pct(T.pb, 0)} · ${nf(eg, 1)} juegos esperados${few < 15 ? ' · <span class="chip warn">pocos partidos en esta superficie</span>' : ''}</p>
-    <div id="tnMk"></div>`;
+    <section class="block" id="tnMk"></section>`;
   marketTable($('tnMk'), [
     { title: 'Ganador', rows: [{ label: A, p }, { label: B, p: 1 - p }] },
     { title: 'Primer set', rows: [{ label: `${A} gana el 1er set`, p: X.firstSetA }, { label: `${B} gana el 1er set`, p: 1 - X.firstSetA }, ...[8.5, 9.5, 10.5].flatMap(l => [{ label: `1er set: más de ${nf(l, 1)} juegos`, p: X.set1Over(l) }, { label: `1er set: menos de ${nf(l, 1)} juegos`, p: 1 - X.set1Over(l) }])] },
@@ -578,7 +578,7 @@ $('tnFile').addEventListener('change', async e => {
 
 // ============================== PRONÓSTICOS AUTOMÁTICOS ==============================
 let PR = null, PF = null;
-const SPORT_NAME = { futbol: 'Fútbol', nba: 'NBA', euroliga: 'Euroliga', eurocup: 'EuroCup', acb: 'Liga ACB', lega: 'Lega A', bbl: 'BBL', lnb: 'Betclic Élite', gbl: 'Liga griega', bsl: 'Liga turca' };
+const SPORT_NAME = { futbol: 'Fútbol', tenis: 'Tenis', nba: 'NBA', euroliga: 'Euroliga', eurocup: 'EuroCup', acb: 'Liga ACB', lega: 'Lega A', bbl: 'BBL', lnb: 'Betclic Élite', gbl: 'Liga griega', bsl: 'Liga turca' };
 // Apuesta del día y selección recomendada: las elige el proceso automático (pipeline/predict.mjs, dailyPicks)
 function dailyRender() {
   const box = $('prDaily'), D = PR && PR.daily;
