@@ -203,5 +203,19 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
 { const T = [{ sport: 'tenis', home: 'Sinner J.', away: 'Alcaraz C.', kickoff: '2026-10-30T12:00:00Z', pick: { code: 'H', p: .6 } }];
   P2.attachBest(T, { best: [{ home: 'Carlos Alcaraz', away: 'Jannik Sinner', kickoff: '2026-10-30T12:00:00Z', H: [2.1, 'X', 9], A: [1.8, 'Y', 9], fair: { H: 2.2, A: 1.75 } }] });
   ok(T[0].best?.odds === 1.8 && T[0].best.fair === 1.75, `tenis: mejor cuota con orden cambiado (${JSON.stringify(T[0].best)})`); }
+ok(!P2.activeCommands({}).some(c => c[0] === 'porra') && P2.activeCommands({ porra: true }).some(c => c[0] === 'porra') && !P2.helpText(P2.activeCommands({})).includes('/porra'), 'porra desactivada por defecto');
+// reajuste semanal y informe mensual
+{
+  const now = Date.UTC(2026, 10, 1, 10), H = {}; let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let k = 0; k < 400; k++) { const p = 0.55 + 0.4 * rnd(), real = 0.5 + (p - 0.5) * 0.6;   // el modelo exagera: lo real está más cerca del 50%
+    H['t' + k] = { id: 't' + k, sport: 'tenis', league: 'atp', leagueName: 'ATP · X', kickoff: new Date(now - (100 - k / 5) * 864e5).toISOString(), home: 'A', away: 'B', pw: p, pick: { p, code: 'H', label: 'Gana A' }, result: {}, eval: { pick: { p, hit: rnd() < real ? 1 : 0 } } }; }
+  const C = P2.fitCalib(H, now);
+  ok(C.tenis && C.tenis.c < 0.9 && !C.baloncesto, `reajuste: corrige el exceso de confianza (${JSON.stringify(C)})`);
+  const few = P2.fitCalib({ a: { ...H.t0 } }, now); ok(few.tenis.c === 1, 'reajuste: sin datos suficientes no cambia nada');
+  const M2 = [{ sport: 'tenis', pw: 0.8, pick: { p: 0.8, code: 'H' } }, { sport: 'futbol', pw: 0.8, pick: { p: 0.8, code: 'H' } }]; P2.applyCalib(M2, { tenis: { c: 0.8 } });
+  ok(M2[0].pick.p < 0.8 && M2[0].pwRaw === 0.8 && M2[1].pick.p === 0.8, 'reajuste: se aplica solo donde toca');
+  const R = P2.monthlyReport(Object.fromEntries(Object.entries(H).map(([k, e]) => [k, { ...e, kickoff: '2026-10-15T12:00:00Z' }])), null, now);
+  ok(R && R[0].includes('OCTUBRE') && R.join().includes('Tenis'), 'informe mensual');
+}
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

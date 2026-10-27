@@ -160,7 +160,8 @@ def main():
     daily = pred.get('daily') or {}
     sel = [daily.get('bet')] + (daily.get('picks') or []) + [l for c in (daily.get('combos') or {}).values() if c for l in c.get('legs', [])]
     prio = [k for e in sel if e for k in (LEAGUE_KEYS.get(e.get('league')) or ([x['key'] for x in act_list if x['key'].startswith(f"tennis_{e['league']}_")] if e.get('sport') == 'tenis' else []))]
-    order = list(dict.fromkeys([k for k in prio if k in active] + [s for s in SPORTS if s in active]))
+    tennis = [x['key'] for x in act_list if x['key'].startswith(('tennis_atp_', 'tennis_wta_'))]   # torneos de tenis en juego (1 crédito cada uno)
+    order = list(dict.fromkeys([k for k in prio if k in active] + [s for s in SPORTS if s in active] + tennis))
     for sp in order:
         try:
             ev = requests.get(f'{API}/sports/{sp}/events', params={'apiKey': key}, timeout=60).json()

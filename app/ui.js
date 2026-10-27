@@ -39,8 +39,12 @@ async function loadJSON(id, url) {
 
 // ---------- Tablas ----------
 // Mercados en tarjetas (una por grupo) con barra de probabilidad y cuota justa: se leen de un vistazo y aprovechan el ancho
+// Mercados que en el seguimiento real aciertan menos del 48% (con 250 o más pronósticos, unas dos semanas más de datos): se marcan como poco fiables
+const SHAKY_KEY = { 'Córners': 'córners más/menos 9,5', 'Tarjetas (amarillas + rojas)': 'tarjetas más/menos 4,5' };
+const shaky = title => { const m = PF?.sports?.futbol?.markets?.[SHAKY_KEY[title]]; return m && m.n >= 250 && m.hits / m.n < 0.48 ? m : null; };
+const shakyChip = title => { const m = shaky(title); return m ? ` <span class="chip warn" title="Acierta ${m.hits} de ${m.n} en el seguimiento real">⚠️ poco fiable</span>` : ''; };
 function marketTable(el, groups, extra = '') {
-  const card = g => `<section class="mkcard"><h4>${esc(g.title)}</h4><div class="mkhead"><span></span><span>Prob.</span><span>Cuota</span></div>${g.rows.map(r => {
+  const card = g => `<section class="mkcard"><h4>${esc(g.title)}${shakyChip(g.title)}</h4><div class="mkhead"><span></span><span>Prob.</span><span>Cuota</span></div>${g.rows.map(r => {
     const fair = r.p > 0 ? (1 - (r.push || 0)) / r.p : Infinity, hi = r.p >= 0.7;
     return `<div class="mkrow${hi ? ' hi' : ''}"><span class="mk-l">${esc(r.label)}${r.push > 0.005 ? `<small>devolución ${pct(r.push, 0)}</small>` : ''}</span>
       <span class="mk-p"><i style="width:${Math.min(100, r.p * 100).toFixed(1)}%"></i><b>${pct(r.p)}</b></span><span class="mk-o">${isFinite(fair) && fair < 1000 ? nf(fair) : '—'}</span></div>`; }).join('')}</section>`;
@@ -643,7 +647,7 @@ function prRender() {
     if (m.league !== curL) { curL = m.league; html += `<div class="lghead">${flag(m.league, 'lg')}<span>${esc(m.leagueName)}</span><span class="mc-sp">${sportIcon(m.sport)}</span></div>`; }
     const kv = (k, v) => `<span class="kv"><em>${k}</em><b>${v}</b></span>`;
     const probs = m.sport === 'futbol'
-      ? `${kv('1 · X · 2', `${pct(m.H, 0)} · ${pct(m.D, 0)} · ${pct(m.A, 0)}`)}${kv('Más de 2,5', pct(m.o25, 0))}${kv('Ambos marcan', pct(m.btts, 0))}${kv('Goles esperados', `${nf(m.lam, 1)} – ${nf(m.mu, 1)}`)}${m.corners ? kv('Córners', nf(m.corners, 1)) : ''}${m.base ? kv('Sin bajas', `${pct(m.base.H, 0)} · ${pct(m.base.D, 0)} · ${pct(m.base.A, 0)}`) : ''}`
+      ? `${kv('1 · X · 2', `${pct(m.H, 0)} · ${pct(m.D, 0)} · ${pct(m.A, 0)}`)}${kv('Más de 2,5', pct(m.o25, 0))}${kv('Ambos marcan', pct(m.btts, 0))}${kv('Goles esperados', `${nf(m.lam, 1)} – ${nf(m.mu, 1)}`)}${m.corners ? kv('Córners' + (shaky('Córners') ? ' ⚠️' : ''), nf(m.corners, 1)) : ''}${m.base ? kv('Sin bajas', `${pct(m.base.H, 0)} · ${pct(m.base.D, 0)} · ${pct(m.base.A, 0)}`) : ''}`
       : m.sport === 'tenis' ? `${kv('Gana ' + m.home, pct(m.pw, 0))}${kv('Gana ' + m.away, pct(1 - m.pw, 0))}${kv('Superficie', ['Pista dura', 'Tierra', 'Hierba', 'Moqueta'][m.surf] || '—')}${kv('Formato', m.bo === 5 ? '5 sets' : '3 sets')}${m.round ? kv('Ronda', esc(m.round)) : ''}`
       : `${kv('Gana local', pct(m.pw, 0))}${kv('Puntos', `${Math.round(m.ph)} – ${Math.round(m.pa)}`)}${kv('Hándicap justo', nf(-m.margin, 1))}${kv('Total', nf(m.total, 1))}`;
     const bar = m.sport === 'futbol' ? `<div class="tribar" aria-hidden="true"><i style="width:${m.H * 100}%"></i><i style="width:${m.D * 100}%"></i><i style="width:${m.A * 100}%"></i></div>` : '';
