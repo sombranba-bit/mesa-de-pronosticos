@@ -263,7 +263,7 @@ export function performance(hist) {
   const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), sport: e.sport, home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
   const all = Object.values(hist), daily = { bet: { n: 0, hits: 0 }, picks: { n: 0, hits: 0 }, full: { n: 0, hits: 0 }, recent: [] };
   // Simulación sin dinero: 1 unidad a cada pronóstico de la selección (y a la apuesta del día), cobrada a la mejor cuota vista antes del partido
-  const simNew = () => ({ n: 0, hits: 0, pSum: 0, withOdds: 0, profit: 0, clvSum: 0, clvN: 0 }), sim = { bet: simNew(), picks: simNew(), mid: simNew(), safe: simNew(), value: simNew() };
+  const simNew = () => ({ n: 0, hits: 0, pSum: 0, withOdds: 0, profit: 0, clvSum: 0, clvN: 0 }), sim = { bet: simNew(), picks: simNew(), mid: simNew(), safe: simNew(), value: simNew(), all65: simNew() };
   const byId = Object.fromEntries(Object.values(hist).map(e => [e.id, e]));
   const comboAdd = (o, c) => {   // una combinada cuenta cuando se han jugado todos sus partidos
     if (!c) return; const L = c.ids.map(id => byId[id]); if (L.some(e => !e?.eval)) return;
@@ -284,6 +284,7 @@ export function performance(hist) {
     for (const e of sel.mid || []) if (e.eval) simAdd(sim.mid, e);
     if (sel.picks.length >= 2 && sel.picks.every(e => e.eval)) { daily.full.n++; daily.full.hits += sel.picks.every(e => e.eval.pick.hit); }
   }
+  for (const e of done) if (e.pick.p >= SEL_MIN) simAdd(sim.all65, e);   // misma regla del 65% pero con todos los partidos, no solo los 5 del día: más volumen
   daily.recent = daily.recent.slice(0, 30);
   for (const o of Object.values(sim)) Object.assign(o, { pAvg: o.n ? o.pSum / o.n : null, roi: o.withOdds ? o.profit / o.withOdds : null, clv: o.clvN ? o.clvSum / o.clvN : null });
   // listo para apostar con dinero: 100 pronósticos simulados con cuota, rendimiento no negativo y aciertos a la altura de lo que decía el modelo
@@ -302,6 +303,14 @@ export function performance(hist) {
 const GENERIC = new Set(['club', 'real', 'sporting', 'city', 'united', 'olympique', 'stade', 'racing', 'deportivo', 'athletic', 'union', 'borussia', 'basket', 'calcio', 'football']);
 const toks = s => norm(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t.length >= 3 && !GENERIC.has(t));
 const sameTeam = (a, b) => { const A = toks(a), B = toks(b); return A.some(x => B.some(y => x === y || (x.length >= 4 && y.length >= 4 && (x.startsWith(y) || y.startsWith(x))))); };
+// base de datos pública de pronósticos ya resueltos (para filtrar y probar reglas en la web)
+export function historyRows(hist, now = NOW) {
+  const r2 = x => Math.round(x * 1000) / 1000;
+  return Object.values(hist).filter(e => e.eval && now - Date.parse(e.kickoff) <= 365 * 864e5).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)).map(e => ({
+    d: madridDate(Date.parse(e.kickoff)), s: e.sport, l: e.leagueName, h: e.home, a: e.away, k: e.pick.label, p: r2(e.pick.p), r: e.eval.pick.hit ? 1 : 0,
+    ...(e.best?.odds ? { o: e.best.odds } : {}), ...(e.fair?.[e.pick.code] ? { f: e.fair[e.pick.code] } : {}), ...(e.scoreText ? { sc: e.scoreText } : {}),
+    mk: Object.fromEntries(Object.entries(e.eval).filter(([k]) => k !== 'pick').map(([k, v]) => [k, [r2(v.p), v.hit ? 1 : 0]])) }));
+}
 export function keepBest(m, old) {
   if (!m.best && old?.best && old.pick?.code === m.pick.code) m.best = old.best;
   if (!m.fair && old?.fair) m.fair = old.fair;
@@ -637,6 +646,7 @@ async function main() {
   const wkKey = madridDate(NOW - ((new Date(NOW).getUTCDay() + 6) % 7) * 864e5);
   if (calib.week !== wkKey) { calib = { week: wkKey, sports: fitCalib(hist) }; write(calibFile, calib); console.log('calibración semanal:', JSON.stringify(calib.sports)); }
   write(path.join(DATA, 'performance.json'), perf);
+  write(path.join(DATA, 'historial.json'), { updated: new Date(NOW).toISOString(), rows: historyRows(hist) });
   const sel = dailyFor(Object.values(hist));
   const withHit = e => e.eval ? { ...e, hit: e.eval.pick.hit } : e;
   const byIdAll = Object.fromEntries(Object.values(hist).map(e => [e.id, e]));

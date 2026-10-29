@@ -691,6 +691,8 @@ function simBlock(S) {
       <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${S.ready.need}" aria-valuenow="${P.withOdds}"><i style="width:${(prog * 100).toFixed(1)}%"></i></div><small>${P.withOdds} de ${S.ready.need} pronósticos con cuota</small></div>
     <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
     ${S.mid && S.mid.n ? `<h4 class="sub4">${I('target')}Con cuota (1,45 – 1,82)</h4><div class="stats">${statBox(rate(S.mid), `aciertos · ${S.mid.hits} de ${S.mid.n}`)}${statBox(exp(S.mid), 'lo que esperaba el modelo')}${statBox(S.mid.roi == null ? '—' : sgn(S.mid.roi), `rendimiento a la mejor cuota · ${S.mid.withOdds} con cuota`)}</div>` : ''}
+    ${S.all65 && S.all65.n ? `<h4 class="sub4">${I('layers')}Todos los del 65% o más (no solo los 5 del día)</h4><div class="stats">${statBox(rate(S.all65), `aciertos · ${S.all65.hits} de ${S.all65.n}`)}${statBox(exp(S.all65), 'lo que esperaba el modelo')}${statBox(S.all65.roi == null ? '—' : sgn(S.all65.roi), `rendimiento a la mejor cuota · ${S.all65.withOdds} con cuota`)}</div>
+      <p class="note">Misma regla que la selección pero con todos los partidos: más volumen para saber antes si funciona. La luz verde sigue dependiendo solo de la selección.</p>` : ''}
     ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[[I('shield') + 'segura', S.safe], [I('gem') + 'con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
 }
@@ -725,6 +727,43 @@ function acRender() {
 }
 
 // ============================== CUOTAS ==============================
+// ---------- Historial: todos los pronósticos ya jugados, como base de datos para filtrar y probar reglas ----------
+let HI = null;
+const hiMk = r => $('hiMk').value === 'pick' ? [r.p, r.r] : r.mk[$('hiMk').value];
+function hiRows() {
+  const sp = $('hiSport').value, lg = $('hiLeague').value, lo = (fnum($('hiMin').value) || 0) / 100, hi = (fnum($('hiMax').value) || 100) / 100, odds = $('hiOdds').checked, main = $('hiMk').value === 'pick';
+  return HI.rows.filter(r => (!sp || r.s === sp) && (!lg || r.l === lg) && hiMk(r) && hiMk(r)[0] >= lo && hiMk(r)[0] <= hi && (!odds || (main && r.o)));
+}
+function hiRender() {
+  if (!HI) return;
+  const L = hiRows(), main = $('hiMk').value === 'pick', n = L.length, hits = L.reduce((s, r) => s + hiMk(r)[1], 0), pAvg = n ? L.reduce((s, r) => s + hiMk(r)[0], 0) / n : 0;
+  const W = main ? L.filter(r => r.o) : [], prof = W.reduce((s, r) => s + (r.r ? r.o - 1 : -1), 0);
+  const sgn = x => (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1);
+  $('hiOut').innerHTML = `<div class="stats">${statBox(String(n), 'pronósticos')}${statBox(n ? pct(hits / n, 0) : '—', `aciertos · ${hits} de ${n}`)}${statBox(n ? pct(pAvg, 0) : '—', 'lo que esperaba el modelo')}${statBox(W.length ? sgn(prof / W.length) : '—', main ? `rendimiento a la mejor cuota · ${W.length} con cuota` : 'rendimiento: solo en el pronóstico principal')}</div>
+    <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Partido</th><th>Pronóstico</th><th class="num">Prob.</th><th class="num">Cuota</th><th>Resultado</th></tr></thead><tbody>
+    ${L.slice(0, 300).map(r => `<tr><td>${esc(r.d.split('-').reverse().join('/'))}</td><td><b>${esc(r.h)} – ${esc(r.a)}</b><br><span class="note">${esc(r.l)}</span></td><td>${esc(main ? r.k : $('hiMk').selectedOptions[0].text)}</td>
+      <td class="num">${pct(hiMk(r)[0], 0)}</td><td class="num">${main && r.o ? nf(r.o) : '—'}</td><td><span class="chip ${hiMk(r)[1] ? 'pos' : 'neg'}">${hiMk(r)[1] ? 'Acierto' : 'Fallo'}</span>${r.sc ? ` <span class="note">${esc(r.sc)}</span>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>${n > 300 ? `<p class="note">Se muestran los 300 más recientes de ${n}. El CSV los incluye todos.</p>` : ''}`;
+}
+function hiFill() {
+  const sp = $('hiSport').value, R = HI.rows.filter(r => !sp || r.s === sp);
+  fillSelect($('hiLeague'), [['', 'Todas'], ...[...new Set(R.map(r => r.l))].sort().map(l => [l, l])]);
+  fillSelect($('hiMk'), [['pick', 'Pronóstico principal'], ...[...new Set(R.flatMap(r => Object.keys(r.mk)))].sort().map(k => [k, k])]);
+}
+async function hiInit() {
+  if (HI) return;
+  HI = await loadJSON('d-hi', 'data/historial.json');
+  if (!HI || !HI.rows) { HI = null; $('hiOut').innerHTML = '<p class="verdict">El historial aparece cuando la mesa funciona desde GitHub: se publica en cada actualización.</p>'; return; }
+  fillSelect($('hiSport'), [['', 'Todos'], ...[...new Set(HI.rows.map(r => r.s))].map(s => [s, SPORT_NAME[s] || s])]);
+  hiFill(); hiRender();
+  ['hiSport', 'hiLeague', 'hiMk', 'hiMin', 'hiMax', 'hiOdds'].forEach(id => $(id).addEventListener('input', () => { if (id === 'hiSport') hiFill(); hiRender(); }));
+  $('hiCsv').addEventListener('click', () => {
+    const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`, main = $('hiMk').value === 'pick';
+    const csv = ['fecha;deporte;competición;local;visitante;pronóstico;probabilidad;acierto;mejor cuota;cuota Pinnacle;resultado',
+      ...hiRows().map(r => [r.d, r.s, r.l, r.h, r.a, main ? r.k : $('hiMk').value, String(hiMk(r)[0]).replace('.', ','), hiMk(r)[1], main && r.o ? String(r.o).replace('.', ',') : '', main && r.f ? String(r.f).replace('.', ',') : '', r.sc].map(q).join(';'))].join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'historial_pronosticos.csv'; a.click();
+  });
+}
 // ---------- Mis apuestas: registro, beneficio real, CLV y cuánto apostar ----------
 // Se guardan en este navegador (localStorage); con Exportar/Importar se pasan a otro dispositivo.
 const PHASE_N = 100;                                            // apuestas resueltas para dejar la fase de prueba
@@ -902,6 +941,7 @@ const HOME_LINKS = [   // [icono, título, texto, destino «pestaña:subpestaña
   ['wallet', 'Mis apuestas', 'Apunta lo que apuestas: beneficio real, CLV y cuánto apostar en cada pronóstico.', 'pronosticos:apuestas'],
   ['bell', 'Avisos de Telegram', 'Elige qué deportes, ligas y equipos te llegan al grupo Aldana Bet.', 'pronosticos:avisos'],
   ['coins', 'Cuotas', 'Surebets, cuotas anómalas y valor frente a Pinnacle.', 'pronosticos:cuotas'],
+  ['list', 'Historial', 'Todos los pronósticos ya jugados, estén o no en la selección: filtra, prueba reglas y descárgalo.', 'pronosticos:historial'],
   ['ball', 'Fútbol', 'Ficha de cualquier partido: mercados, bajas, árbitro, estadísticas y precisión histórica.', 'futbol'],
   ['basket', 'Baloncesto', 'NBA, Euroliga, EuroCup y ligas europeas: ganador, hándicap y puntos.', 'baloncesto'],
   ['tennis', 'Tenis', 'ATP y WTA con Elo por superficie: sets, juegos, tie-breaks y hándicaps.', 'tenis'],
@@ -1001,6 +1041,7 @@ function wire() {
     sub.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
     sub.parentElement.querySelectorAll('[data-view]').forEach(v => v.hidden = v.dataset.view !== b.dataset.v);
     if (b.dataset.v === 'stats' && !statsReady && FB.length) { statsReady = true; fbStats(); }
+    if (b.dataset.v === 'historial') hiInit();
   }));
   ['fbHome', 'fbAway', 'fbXi', 'injAttH', 'injDefH', 'injAttA', 'injDefA'].forEach(id => $(id).addEventListener('change', fbPredict));
   $('fbLeague').addEventListener('change', () => fbTeamsFill());

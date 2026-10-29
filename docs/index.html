@@ -484,7 +484,7 @@ td { font-size: 14px; padding: 9px 10px; } th { padding: 8px 10px; }
 .panel { gap: 18px; }
 .block { padding: 20px; gap: 16px; }
 .block > h3.sect:first-child { padding-bottom: 12px; }
-:is(#fbOut, #nbOut, #tnOut, #acOut, #odOut, #btFbOut, #btNbOut, #btTnOut, #stOut) { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+:is(#hiOut, #fbOut, #nbOut, #tnOut, #acOut, #odOut, #btFbOut, #btNbOut, #btTnOut, #stOut) { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 :is(#fbOut, #nbOut, #tnOut, #acOut, #odOut) > * { margin-top: 0 !important; margin-bottom: 0 !important; }
 :is(#fbOut, #nbOut, #tnOut) > .scoreline + .note { margin-top: -6px !important; }
 #fbOut > .block, #nbOut > .block, #tnOut > .block { background: #0f0f0f; }
@@ -549,6 +549,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
   .block, .mkgrid > *, .gcard, .hcard, .cmb, .mrow, .lghead { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 35%; }
 }
 @media (max-width: 520px) { .pring { width: 132px; height: 132px; } .pring .mc-p { font-size: 44px; } .totop { right: 14px; bottom: 14px; } }
+label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; } label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -570,7 +571,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
   <section id="sec-inicio" data-sec="inicio"><div id="home"><p class="note loading">Cargando…</p></div></section>
   <section id="sec-pronosticos" data-sec="pronosticos" hidden>
-    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos partidos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-coins"/></svg>Cuotas</button></div>
+    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos partidos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="historial" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>Historial</button><button data-v="cuotas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-coins"/></svg>Cuotas</button></div>
     <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"><p class="note loading">Cargando pronósticos… (la primera vez puede tardar unos segundos: son varios megas de datos)</p></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
@@ -635,6 +636,19 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
         <ol class="howto"><li>Pulsa «Copiar configuración».</li><li>En GitHub abre <code>config.json</code> y pulsa el lápiz.</li><li>Selecciona todo, pega y guarda con «Commit changes».</li></ol>
         <textarea id="avJson" readonly rows="10" style="font:13px var(--f-mono);width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px"></textarea>
         <button class="btn" id="avCopy" type="button">Copiar configuración</button></fieldset>
+    </div>
+    <div data-view="historial" class="panel" style="margin-top:12px" hidden>
+      <h2>Historial de pronósticos</h2>
+      <p class="note">Todos los partidos que la mesa ha pronosticado y ya se han jugado, estén o no en la selección del día (último año). Es la base de datos para afinar el modelo: filtra por deporte, mercado o probabilidad y mira cuánto se habría acertado y ganado.</p>
+      <div class="controls">
+        <div class="field"><label for="hiSport">Deporte</label><select id="hiSport"></select></div>
+        <div class="field"><label for="hiLeague">Competición</label><select id="hiLeague"></select></div>
+        <div class="field"><label for="hiMk">Mercado</label><select id="hiMk"></select></div>
+        <div class="field"><label for="hiMin">Probabilidad mínima (%)</label><input id="hiMin" type="text" inputmode="decimal" placeholder="0"></div>
+        <div class="field"><label for="hiMax">Probabilidad máxima (%)</label><input id="hiMax" type="text" inputmode="decimal" placeholder="100"></div>
+      </div>
+      <div class="row"><label class="check"><input type="checkbox" id="hiOdds"> Solo con cuota real</label><button class="btn ghost" id="hiCsv" type="button">Descargar CSV</button></div>
+      <div id="hiOut"><p class="note loading">Cargando…</p></div>
     </div>
     <div data-view="cuotas" class="panel" style="margin-top:12px" hidden>
       <h2>Cuotas: surebets, valor y errores</h2>
@@ -862,6 +876,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
 <script id="d-bx" type="application/json">/*DATA_BX*/</script>
 <script id="d-nw" type="application/json">/*DATA_NW*/</script>
 <script id="d-od" type="application/json">/*DATA_OD*/</script>
+<script id="d-hi" type="application/json">/*DATA_HI*/</script>
 <script id="d-cr" type="application/json">/*DATA_CR*/</script>
 <script>// ===== Motor de cálculo (sin DOM). Fútbol: Dixon-Coles · Baloncesto: rating de puntos · Tenis: Elo por superficie + modelo de puntos =====
 const M = (() => {
@@ -2080,6 +2095,8 @@ function simBlock(S) {
       <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${S.ready.need}" aria-valuenow="${P.withOdds}"><i style="width:${(prog * 100).toFixed(1)}%"></i></div><small>${P.withOdds} de ${S.ready.need} pronósticos con cuota</small></div>
     <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
     ${S.mid && S.mid.n ? `<h4 class="sub4">${I('target')}Con cuota (1,45 – 1,82)</h4><div class="stats">${statBox(rate(S.mid), `aciertos · ${S.mid.hits} de ${S.mid.n}`)}${statBox(exp(S.mid), 'lo que esperaba el modelo')}${statBox(S.mid.roi == null ? '—' : sgn(S.mid.roi), `rendimiento a la mejor cuota · ${S.mid.withOdds} con cuota`)}</div>` : ''}
+    ${S.all65 && S.all65.n ? `<h4 class="sub4">${I('layers')}Todos los del 65% o más (no solo los 5 del día)</h4><div class="stats">${statBox(rate(S.all65), `aciertos · ${S.all65.hits} de ${S.all65.n}`)}${statBox(exp(S.all65), 'lo que esperaba el modelo')}${statBox(S.all65.roi == null ? '—' : sgn(S.all65.roi), `rendimiento a la mejor cuota · ${S.all65.withOdds} con cuota`)}</div>
+      <p class="note">Misma regla que la selección pero con todos los partidos: más volumen para saber antes si funciona. La luz verde sigue dependiendo solo de la selección.</p>` : ''}
     ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[[I('shield') + 'segura', S.safe], [I('gem') + 'con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
 }
@@ -2114,6 +2131,43 @@ function acRender() {
 }
 
 // ============================== CUOTAS ==============================
+// ---------- Historial: todos los pronósticos ya jugados, como base de datos para filtrar y probar reglas ----------
+let HI = null;
+const hiMk = r => $('hiMk').value === 'pick' ? [r.p, r.r] : r.mk[$('hiMk').value];
+function hiRows() {
+  const sp = $('hiSport').value, lg = $('hiLeague').value, lo = (fnum($('hiMin').value) || 0) / 100, hi = (fnum($('hiMax').value) || 100) / 100, odds = $('hiOdds').checked, main = $('hiMk').value === 'pick';
+  return HI.rows.filter(r => (!sp || r.s === sp) && (!lg || r.l === lg) && hiMk(r) && hiMk(r)[0] >= lo && hiMk(r)[0] <= hi && (!odds || (main && r.o)));
+}
+function hiRender() {
+  if (!HI) return;
+  const L = hiRows(), main = $('hiMk').value === 'pick', n = L.length, hits = L.reduce((s, r) => s + hiMk(r)[1], 0), pAvg = n ? L.reduce((s, r) => s + hiMk(r)[0], 0) / n : 0;
+  const W = main ? L.filter(r => r.o) : [], prof = W.reduce((s, r) => s + (r.r ? r.o - 1 : -1), 0);
+  const sgn = x => (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1);
+  $('hiOut').innerHTML = `<div class="stats">${statBox(String(n), 'pronósticos')}${statBox(n ? pct(hits / n, 0) : '—', `aciertos · ${hits} de ${n}`)}${statBox(n ? pct(pAvg, 0) : '—', 'lo que esperaba el modelo')}${statBox(W.length ? sgn(prof / W.length) : '—', main ? `rendimiento a la mejor cuota · ${W.length} con cuota` : 'rendimiento: solo en el pronóstico principal')}</div>
+    <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Partido</th><th>Pronóstico</th><th class="num">Prob.</th><th class="num">Cuota</th><th>Resultado</th></tr></thead><tbody>
+    ${L.slice(0, 300).map(r => `<tr><td>${esc(r.d.split('-').reverse().join('/'))}</td><td><b>${esc(r.h)} – ${esc(r.a)}</b><br><span class="note">${esc(r.l)}</span></td><td>${esc(main ? r.k : $('hiMk').selectedOptions[0].text)}</td>
+      <td class="num">${pct(hiMk(r)[0], 0)}</td><td class="num">${main && r.o ? nf(r.o) : '—'}</td><td><span class="chip ${hiMk(r)[1] ? 'pos' : 'neg'}">${hiMk(r)[1] ? 'Acierto' : 'Fallo'}</span>${r.sc ? ` <span class="note">${esc(r.sc)}</span>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>${n > 300 ? `<p class="note">Se muestran los 300 más recientes de ${n}. El CSV los incluye todos.</p>` : ''}`;
+}
+function hiFill() {
+  const sp = $('hiSport').value, R = HI.rows.filter(r => !sp || r.s === sp);
+  fillSelect($('hiLeague'), [['', 'Todas'], ...[...new Set(R.map(r => r.l))].sort().map(l => [l, l])]);
+  fillSelect($('hiMk'), [['pick', 'Pronóstico principal'], ...[...new Set(R.flatMap(r => Object.keys(r.mk)))].sort().map(k => [k, k])]);
+}
+async function hiInit() {
+  if (HI) return;
+  HI = await loadJSON('d-hi', 'data/historial.json');
+  if (!HI || !HI.rows) { HI = null; $('hiOut').innerHTML = '<p class="verdict">El historial aparece cuando la mesa funciona desde GitHub: se publica en cada actualización.</p>'; return; }
+  fillSelect($('hiSport'), [['', 'Todos'], ...[...new Set(HI.rows.map(r => r.s))].map(s => [s, SPORT_NAME[s] || s])]);
+  hiFill(); hiRender();
+  ['hiSport', 'hiLeague', 'hiMk', 'hiMin', 'hiMax', 'hiOdds'].forEach(id => $(id).addEventListener('input', () => { if (id === 'hiSport') hiFill(); hiRender(); }));
+  $('hiCsv').addEventListener('click', () => {
+    const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`, main = $('hiMk').value === 'pick';
+    const csv = ['fecha;deporte;competición;local;visitante;pronóstico;probabilidad;acierto;mejor cuota;cuota Pinnacle;resultado',
+      ...hiRows().map(r => [r.d, r.s, r.l, r.h, r.a, main ? r.k : $('hiMk').value, String(hiMk(r)[0]).replace('.', ','), hiMk(r)[1], main && r.o ? String(r.o).replace('.', ',') : '', main && r.f ? String(r.f).replace('.', ',') : '', r.sc].map(q).join(';'))].join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'historial_pronosticos.csv'; a.click();
+  });
+}
 // ---------- Mis apuestas: registro, beneficio real, CLV y cuánto apostar ----------
 // Se guardan en este navegador (localStorage); con Exportar/Importar se pasan a otro dispositivo.
 const PHASE_N = 100;                                            // apuestas resueltas para dejar la fase de prueba
@@ -2291,6 +2345,7 @@ const HOME_LINKS = [   // [icono, título, texto, destino «pestaña:subpestaña
   ['wallet', 'Mis apuestas', 'Apunta lo que apuestas: beneficio real, CLV y cuánto apostar en cada pronóstico.', 'pronosticos:apuestas'],
   ['bell', 'Avisos de Telegram', 'Elige qué deportes, ligas y equipos te llegan al grupo Aldana Bet.', 'pronosticos:avisos'],
   ['coins', 'Cuotas', 'Surebets, cuotas anómalas y valor frente a Pinnacle.', 'pronosticos:cuotas'],
+  ['list', 'Historial', 'Todos los pronósticos ya jugados, estén o no en la selección: filtra, prueba reglas y descárgalo.', 'pronosticos:historial'],
   ['ball', 'Fútbol', 'Ficha de cualquier partido: mercados, bajas, árbitro, estadísticas y precisión histórica.', 'futbol'],
   ['basket', 'Baloncesto', 'NBA, Euroliga, EuroCup y ligas europeas: ganador, hándicap y puntos.', 'baloncesto'],
   ['tennis', 'Tenis', 'ATP y WTA con Elo por superficie: sets, juegos, tie-breaks y hándicaps.', 'tenis'],
@@ -2390,6 +2445,7 @@ function wire() {
     sub.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
     sub.parentElement.querySelectorAll('[data-view]').forEach(v => v.hidden = v.dataset.view !== b.dataset.v);
     if (b.dataset.v === 'stats' && !statsReady && FB.length) { statsReady = true; fbStats(); }
+    if (b.dataset.v === 'historial') hiInit();
   }));
   ['fbHome', 'fbAway', 'fbXi', 'injAttH', 'injDefH', 'injAttA', 'injDefA'].forEach(id => $(id).addEventListener('change', fbPredict));
   $('fbLeague').addEventListener('change', () => fbTeamsFill());

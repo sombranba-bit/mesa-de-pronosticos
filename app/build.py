@@ -9,7 +9,7 @@ model = (APP / 'model.js').read_text().replace("if (typeof module !== 'undefined
 html = html.replace('/*MODEL_JS*/', model, 1).replace('/*UI_JS*/', (APP / 'ui.js').read_text(), 1)
 if '--embed' in sys.argv:
     out = Path(sys.argv[sys.argv.index('--embed') + 1])
-    for key, name in [('FB', 'football'), ('NB', 'nba'), ('EL', 'euroliga'), ('TN', 'tennis'), ('PR', 'predictions'), ('PF', 'performance'), ('CE', 'clubelo'), ('IJ', 'injuries'), ('BX', 'basket_extra'), ('NW', 'news'), ('OD', 'odds'), ('CR', 'crests')]:
+    for key, name in [('FB', 'football'), ('NB', 'nba'), ('EL', 'euroliga'), ('TN', 'tennis'), ('PR', 'predictions'), ('PF', 'performance'), ('CE', 'clubelo'), ('IJ', 'injuries'), ('BX', 'basket_extra'), ('NW', 'news'), ('OD', 'odds'), ('CR', 'crests'), ('HI', 'historial')]:
         p = DATA / f'{name}.json'
         txt = p.read_text() if p.exists() else ''
         assert '</' not in txt, f'{name}.json contiene </ y rompería la página'

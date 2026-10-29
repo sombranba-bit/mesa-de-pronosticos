@@ -484,7 +484,7 @@ td { font-size: 14px; padding: 9px 10px; } th { padding: 8px 10px; }
 .panel { gap: 18px; }
 .block { padding: 20px; gap: 16px; }
 .block > h3.sect:first-child { padding-bottom: 12px; }
-:is(#fbOut, #nbOut, #tnOut, #acOut, #odOut, #btFbOut, #btNbOut, #btTnOut, #stOut) { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+:is(#hiOut, #fbOut, #nbOut, #tnOut, #acOut, #odOut, #btFbOut, #btNbOut, #btTnOut, #stOut) { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 :is(#fbOut, #nbOut, #tnOut, #acOut, #odOut) > * { margin-top: 0 !important; margin-bottom: 0 !important; }
 :is(#fbOut, #nbOut, #tnOut) > .scoreline + .note { margin-top: -6px !important; }
 #fbOut > .block, #nbOut > .block, #tnOut > .block { background: #0f0f0f; }
@@ -549,6 +549,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
   .block, .mkgrid > *, .gcard, .hcard, .cmb, .mrow, .lghead { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 35%; }
 }
 @media (max-width: 520px) { .pring { width: 132px; height: 132px; } .pring .mc-p { font-size: 44px; } .totop { right: 14px; bottom: 14px; } }
+label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; } label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -570,7 +571,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
   <section id="sec-inicio" data-sec="inicio"><div id="home"><p class="note loading">Cargando…</p></div></section>
   <section id="sec-pronosticos" data-sec="pronosticos" hidden>
-    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos partidos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="cuotas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-coins"/></svg>Cuotas</button></div>
+    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos partidos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="historial" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>Historial</button><button data-v="cuotas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-coins"/></svg>Cuotas</button></div>
     <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"><p class="note loading">Cargando pronósticos… (la primera vez puede tardar unos segundos: son varios megas de datos)</p></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
@@ -635,6 +636,19 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
         <ol class="howto"><li>Pulsa «Copiar configuración».</li><li>En GitHub abre <code>config.json</code> y pulsa el lápiz.</li><li>Selecciona todo, pega y guarda con «Commit changes».</li></ol>
         <textarea id="avJson" readonly rows="10" style="font:13px var(--f-mono);width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px"></textarea>
         <button class="btn" id="avCopy" type="button">Copiar configuración</button></fieldset>
+    </div>
+    <div data-view="historial" class="panel" style="margin-top:12px" hidden>
+      <h2>Historial de pronósticos</h2>
+      <p class="note">Todos los partidos que la mesa ha pronosticado y ya se han jugado, estén o no en la selección del día (último año). Es la base de datos para afinar el modelo: filtra por deporte, mercado o probabilidad y mira cuánto se habría acertado y ganado.</p>
+      <div class="controls">
+        <div class="field"><label for="hiSport">Deporte</label><select id="hiSport"></select></div>
+        <div class="field"><label for="hiLeague">Competición</label><select id="hiLeague"></select></div>
+        <div class="field"><label for="hiMk">Mercado</label><select id="hiMk"></select></div>
+        <div class="field"><label for="hiMin">Probabilidad mínima (%)</label><input id="hiMin" type="text" inputmode="decimal" placeholder="0"></div>
+        <div class="field"><label for="hiMax">Probabilidad máxima (%)</label><input id="hiMax" type="text" inputmode="decimal" placeholder="100"></div>
+      </div>
+      <div class="row"><label class="check"><input type="checkbox" id="hiOdds"> Solo con cuota real</label><button class="btn ghost" id="hiCsv" type="button">Descargar CSV</button></div>
+      <div id="hiOut"><p class="note loading">Cargando…</p></div>
     </div>
     <div data-view="cuotas" class="panel" style="margin-top:12px" hidden>
       <h2>Cuotas: surebets, valor y errores</h2>
@@ -862,6 +876,7 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
 <script id="d-bx" type="application/json">/*DATA_BX*/</script>
 <script id="d-nw" type="application/json">/*DATA_NW*/</script>
 <script id="d-od" type="application/json">/*DATA_OD*/</script>
+<script id="d-hi" type="application/json">/*DATA_HI*/</script>
 <script id="d-cr" type="application/json">/*DATA_CR*/</script>
 <script>/*MODEL_JS*/</script>
 <script>/*UI_JS*/</script>

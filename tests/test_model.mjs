@@ -106,6 +106,10 @@ const MB = [{ home: 'Ath Madrid', away: 'Sevilla', kickoff: '2026-10-25T19:00:00
 const nb = P2.attachBest(MB, { best: [{ home: 'Atlético Madrid', away: 'Sevilla FC', kickoff: '2026-10-25T19:00:00Z', H: [1.9, 'Pinnacle', 8] },
   { home: 'Real Madrid', away: 'Getafe CF', kickoff: '2026-10-25T14:00:00Z', O: [1.8, 'Codere', 6] }] });
 ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor cuota casada (${JSON.stringify(MB.map(m => m.best))})`);
+{ const H = { x: { id: 'x', sport: 'nba', leagueName: 'NBA', home: 'A', away: 'B', kickoff: new Date(Date.now() - 864e5).toISOString(), pick: { label: 'Gana A', p: 0.7123, code: 'H' }, best: { odds: 1.5 }, fair: { H: 1.45 },
+    eval: { ganador: { p: 0.7123, hit: true }, pick: { p: 0.7123, hit: true } } }, y: { id: 'y', kickoff: new Date().toISOString(), pick: { p: 0.6 } } };
+  const R = P2.historyRows(H, Date.now());
+  ok(R.length === 1 && R[0].p === 0.712 && R[0].r === 1 && R[0].o === 1.5 && R[0].f === 1.45 && R[0].mk.ganador[1] === 1 && !R[0].mk.pick, 'historial: solo resueltos, con cuota y mercados'); }
 ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
 ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
 ok(P2.keepBest({ pick: { code: 'H' }, best: { odds: 1.7 } }, { pick: { code: 'H' }, best: { odds: 1.5 } }).best.odds === 1.7, 'la cuota nueva manda sobre la vieja');
