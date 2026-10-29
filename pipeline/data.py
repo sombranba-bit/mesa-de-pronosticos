@@ -1294,7 +1294,7 @@ def update_tennis_espn(rows):
                             if len(names_) == 2 and all(n and n.upper() != 'TBD' for n in names_):
                                 tv = c.get('timeValid', True)   # sin hora confirmada ESPN pone las 4:00 UTC: se usa el mediodía para no cambiar de jornada
                                 upcoming[c.get('id')] = {'tour': tour, 'kickoff': (c['date'] if c['date'].endswith('Z') else c['date'] + 'Z') if tv else c['date'][:10] + 'T11:00Z', 'noTime': not tv,
-                                                         'a': name(names_[0]), 'b': name(names_[1]), 'tourn': tn, 'surf': surf, 'bo': 5 if ev.get('major') and tour == 0 else 3,
+                                                         'a': name(names_[0]), 'b': name(names_[1]), 'fa': names_[0], 'fb': names_[1], 'tourn': tn, 'surf': surf, 'bo': 5 if ev.get('major') and tour == 0 else 3,
                                                          'round': (c.get('round') or {}).get('displayName', '')}
                             continue
                         if c.get('id') in seen or not st.get('completed'): continue
@@ -1316,6 +1316,47 @@ def update_tennis_espn(rows):
     return got
 
 
+def wiki_photo(full):
+    """Foto de Wikipedia/Wikimedia Commons (licencia libre) del tenista, o None. Solo acepta páginas de tenistas."""
+    from urllib.parse import quote
+    import time
+    def wget(url):   # Wikimedia pide un User-Agent identificable y no ir deprisa
+        time.sleep(0.5)
+        r = requests.get(url, headers={'User-Agent': 'MesaDePronosticos/1.0 (https://github.com/sombranba-bit/mesa-de-pronosticos)'}, timeout=30); r.raise_for_status(); return r.content
+    def summ(title):
+        js = json.loads(wget('https://en.wikipedia.org/api/rest_v1/page/summary/' + quote(title.replace(' ', '_'))))
+        txt = f"{js.get('description', '')} {js.get('extract', '')}".lower()
+        th = (js.get('thumbnail') or {}).get('source')
+        return {'img': th.split('?')[0], 'page': ((js.get('content_urls') or {}).get('desktop') or {}).get('page', '')} if th and 'tennis' in txt else None
+    try:
+        hit = summ(full)
+    except requests.HTTPError as e:
+        if e.response is None or e.response.status_code != 404: raise   # 429 u otro fallo: no se guarda como «sin foto»
+        hit = None
+    if not hit:
+        q = json.loads(wget('https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=1&srsearch=' + quote(f'{full} tennis player')))
+        res = q.get('query', {}).get('search', [])
+        if res and full.split()[-1].lower() in res[0]['title'].lower(): hit = summ(res[0]['title'])
+    return hit
+
+
+def update_player_photos(limit=40):
+    """players.json: nombre corto (formato tennis-data) -> foto de Wikipedia. Los que no tienen foto se reintentan a las 2 semanas."""
+    cache = load('players.json') or {}
+    pend = {}
+    for f in load('tennis_next.json') or []:
+        for s, full in ((f.get('a'), f.get('fa')), (f.get('b'), f.get('fb'))):
+            c = cache.get(s)
+            if s and full and (not c or (not c.get('img') and day(TODAY) - c.get('t', 0) >= 14)): pend[s] = full
+    for s, full in list(pend.items())[:limit]:
+        try:
+            cache[s] = {**(wiki_photo(full) or {}), 'n': full, 't': day(TODAY)}
+        except Exception as e:   # Wikipedia limita la velocidad: se sigue en la próxima ejecución
+            warn(f'fotos de tenistas: {e}'); break
+    if pend: save('players.json', cache)
+    print(f"fotos de tenistas: {sum(1 for v in cache.values() if v.get('img'))} con foto, {len(pend)} buscadas")
+
+
 # ============================== PRINCIPAL ==============================
 def main():
     old = load('fixtures.json') or {}
@@ -1335,6 +1376,10 @@ def main():
             fn(fixtures['football'], FB_ROWS)
         except Exception as e:
             warn(f'{fn.__name__}: {e}')
+    try:
+        update_player_photos()
+    except Exception as e:
+        warn(f'fotos de tenistas: {e}')
     try:
         update_uefa_espn(fixtures)
     except Exception as e:

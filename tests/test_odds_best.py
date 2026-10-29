@@ -13,6 +13,13 @@ assert best['H'][:2] == [2.15, 'Winamax'], best   # 4,00 es anómala
 assert best['O'][:2] == [1.72, 'Codere'] and best['U'][:2] == [2.20, 'Pinnacle'] and best['D'][0] == 3.6, best
 print('ok mejor cuota')
 
+import json
+# los exchanges mandan también «h2h_lay» (cuotas para apostar en contra): no deben dar surebets falsas
+lay = {'key': 'matchbook', 'title': 'Matchbook', 'last_update': t, 'markets': [{'key': 'h2h_lay', 'outcomes': [{'name': 'Real Madrid', 'price': 9.0}, {'name': 'Draw', 'price': 9.0}, {'name': 'Barcelona', 'price': 9.0}]}]}
+s_, v_, a_, b_ = O.analyse({**ev, 'bookmakers': ev['bookmakers'] + [lay]})
+assert all('None' not in x['market'] and 'Matchbook' not in json.dumps(x) for x in s_ + v_ + a_) and b_['H'][0] == 2.15, (s_, b_)
+print('ok sin h2h_lay')
+
 # «Ambos marcan»: se pide solo para los pronósticos de ese mercado y se añade a la mejor cuota del partido
 import json, tempfile
 k = (O.NOW + dt.timedelta(hours=5)).isoformat().replace('+00:00', 'Z')

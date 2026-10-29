@@ -52,6 +52,8 @@ def analyse(event):
     for b in event.get('bookmakers', []):
         exch = any(x in b.get('key', '') for x in EXCHANGES)
         for m in b.get('markets', []):
+            if m.get('key') not in ('h2h', 'totals', 'btts'):   # los exchanges también mandan «h2h_lay» (cuota para apostar EN CONTRA): no es una cuota que se pueda coger
+                continue
             if not fresh(m.get('last_update') or b.get('last_update')):
                 continue
             for o in m.get('outcomes', []):

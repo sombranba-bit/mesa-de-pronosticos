@@ -549,7 +549,10 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
   .block, .mkgrid > *, .gcard, .hcard, .cmb, .mrow, .lghead { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 35%; }
 }
 @media (max-width: 520px) { .pring { width: 132px; height: 132px; } .pring .mc-p { font-size: 44px; } .totop { right: 14px; bottom: 14px; } }
+#odWrap { display: flex; flex-direction: column; gap: 18px; margin-top: 6px; }
 label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; } label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.crest.face img, .crest.face.ok img { object-fit: cover; object-position: center 18%; padding: 0; background: #1a1a1a; border-radius: inherit; }
+.crest.face { border-radius: 50%; } .crest.face.xl { border-radius: 50%; box-shadow: 0 0 0 2px #e8b23a66, 0 10px 26px #000a; } .crest.face.xl.ok { background: #1a1a1a; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -571,7 +574,7 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
   <!-- ===== PRONÓSTICOS (automáticos) ===== -->
   <section id="sec-inicio" data-sec="inicio"><div id="home"><p class="note loading">Cargando…</p></div></section>
   <section id="sec-pronosticos" data-sec="pronosticos" hidden>
-    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos partidos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="historial" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>Historial</button><button data-v="cuotas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-coins"/></svg>Cuotas</button></div>
+    <div class="sub" id="sub-pronosticos"><button data-v="proximos" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-calendar"/></svg>Próximos eventos</button><button data-v="aciertos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Aciertos</button><button data-v="apuestas" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-wallet"/></svg>Mis apuestas</button><button data-v="avisos" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Avisos de Telegram</button><button data-v="historial" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>Historial</button></div>
     <div data-view="proximos" class="panel daily" id="prDaily" style="margin-top:12px"><p class="note loading">Cargando pronósticos… (la primera vez puede tardar unos segundos: son varios megas de datos)</p></div>
     <div data-view="proximos" class="panel" style="margin-top:12px">
       <h2>Próximos partidos</h2>
@@ -650,11 +653,11 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
       <div class="row"><label class="check"><input type="checkbox" id="hiOdds"> Solo con cuota real</label><button class="btn ghost" id="hiCsv" type="button">Descargar CSV</button></div>
       <div id="hiOut"><p class="note loading">Cargando…</p></div>
     </div>
-    <div data-view="cuotas" class="panel" style="margin-top:12px" hidden>
+    <div id="odHome" hidden><div id="odWrap" class="odwrap">   <!-- se muestra dentro de «Próximos eventos», pestaña Cuotas -->
       <h2>Cuotas: surebets, valor y errores</h2>
       <p class="note">Esto va aparte de los pronósticos. Compara las cuotas de las casas europeas que publica The Odds API (Pinnacle, William Hill, Betsson, Unibet, Winamax, Codere y otras; Bet365 no está). Las cuotas cambian en minutos: comprueba siempre en tu casa antes de apostar, y ten en cuenta que muchas de estas casas no tienen licencia en España y que las casas limitan a quien gana de forma constante.</p>
       <div id="odOut"></div>
-    </div>
+    </div></div>
   </section>
 
   <!-- ===== FÚTBOL ===== -->
@@ -823,6 +826,7 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
         <tr><td>Liga ACB</td><td>acb.com</td><td>Cada hora</td></tr>
         <tr><td>Tenis</td><td>tennis-data.co.uk (copia en GitHub como respaldo)</td><td>Cada hora</td></tr>
         <tr><td>Escudos y banderas</td><td>ESPN, API de la Euroliga y flagpedia.net</td><td>Una vez al día</td></tr>
+        <tr><td>Fotos de tenistas</td><td>Wikipedia / Wikimedia Commons (licencias libres)</td><td>Al aparecer un jugador nuevo</td></tr>
       </tbody></table></div>
 
       <h3 class="sect">Qué se ha comprobado</h3>
@@ -877,6 +881,7 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
 <script id="d-nw" type="application/json">/*DATA_NW*/</script>
 <script id="d-od" type="application/json">/*DATA_OD*/</script>
 <script id="d-hi" type="application/json">/*DATA_HI*/</script>
+<script id="d-pl" type="application/json">/*DATA_PL*/</script>
 <script id="d-cr" type="application/json">/*DATA_CR*/</script>
 <script>/*MODEL_JS*/</script>
 <script>/*UI_JS*/</script>

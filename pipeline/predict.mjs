@@ -83,6 +83,28 @@ export function whyBasket(m, T) {
   if (homeFav) out.push('Juega en casa');
   return out.slice(0, 3);
 }
+// Mercados extra que solo se guardan para medir (no cambian la selección): [nombre, probabilidad de que ocurra, magnitud, línea].
+// Ocurre si la magnitud del resultado (goles totales, del local, diferencia…) supera la línea. Da variedad a la base de datos.
+const r4 = x => Math.round(x * 1e4) / 1e4, halfLine = x => { const r = Math.round(x * 2) / 2; return Number.isInteger(r) ? r + 0.5 : r; };
+export function footballMx(k) {
+  const pm = l => { let s = 0; for (const [m, p] of k.md) if (m > l) s += p; return s; };
+  return [['más/menos 1,5', k.over(1.5), 'tot', 1.5], ['más/menos 3,5', k.over(3.5), 'tot', 3.5],
+    ['doble oportunidad 1X / 2', k.H + k.D, 'marg', -0.5], ['doble oportunidad 1 / X2', k.H, 'marg', 0.5], ['doble oportunidad 12 / X', k.H + k.A, 'abs', 0.5],
+    ['marca el local', 1 - k.csA, 'home', 0.5], ['marca el visitante', 1 - k.csH, 'away', 0.5],
+    ['local más/menos 1,5 goles', k.overHome(1.5), 'home', 1.5], ['visitante más/menos 1,5 goles', k.overAway(1.5), 'away', 1.5],
+    ['hándicap ±1,5 del local', pm(1.5), 'marg', 1.5], ['hándicap ±1,5 del visitante', pm(-1.5), 'marg', -1.5]].map(([n, p, v, l]) => [n, r4(p), v, l]);
+}
+export function basketMx(P) {
+  const [, , sp, to, tt] = [null, ...P.groups];   // hándicap, totales y puntos de cada equipo a la línea justa del modelo (la fila central)
+  return [['hándicap (línea justa)', sp.rows[2].p, 'marg', -P.line], ['puntos totales (línea justa)', to.rows[2].p, 'tot', P.total],
+    ['puntos del local (línea justa)', tt.rows[0].p, 'home', halfLine(P.P.ph)], ['puntos del visitante (línea justa)', tt.rows[2].p, 'away', halfLine(P.P.pa)]].map(([n, p, v, l]) => [n, r4(p), v, l]);
+}
+export function tennisMx(p, bo, base) {
+  const T = M.tennisFromProb(p, bo, base), X = M.tennisExtras(T.pa, T.pb, T.dist), P = f => M.sum(T.dist.filter(f).map(x => x.p));
+  const lg = halfLine(M.sum(T.dist.map(x => (x.ga + x.gb) * x.p))), ls = bo === 5 ? 3.5 : 2.5;
+  return [['gana el 1er set', X.firstSetA, 's1', 0.5], ['hay tie-break', X.tieBreak, 'tb', 0.5], [`más/menos ${String(ls).replace('.', ',')} sets`, P(x => x.sa + x.sb > ls), 'sets', ls],
+    ['juegos totales (línea justa)', P(x => x.ga + x.gb > lg), 'tot', lg], ['hándicap ±1,5 sets', P(x => x.sa - x.sb > 1.5), 'marg', 1.5]].map(([n, q, v, l]) => [n, r4(q), v, l]);
+}
 export function predictAll(F, B, fixtures, injuries = {}) {
   const matches = [], skipped = [];
   // ---------- fútbol ----------
@@ -99,7 +121,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
       const s = P.summary, pick = M.footballPick(s, f.h, f.a), m = { id: `futbol|${f.league}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: f.league, leagueName: names[f.league],
         kickoff: f.kickoff, home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, corners: s.corners, cards: s.cards,
-        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, pick, ...(f.noTime ? { noTime: true } : {}) };
+        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, scoreP: r4(s.score.p), mx: footballMx(P.k), pick, ...(f.noTime ? { noTime: true } : {}) };
       if (f.ref) m.ref = f.ref;
       m.why = whyFootball(m, T, R.elo, { [f.h]: ih, [f.a]: ia });
       if (adj) { const b = M.footballPredict(sets[c], R.feat(f.h, f.a), f.h, f.a).summary; m.base = { H: b.H, D: b.D, A: b.A };
@@ -110,7 +132,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
     for (const f of fixtures.uefa || []) {
       const P = M.eloPredict(f.eh, f.ea, f.h, f.a), s = P.summary;
       matches.push({ id: `futbol|UEFA|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: 'UEFA', leagueName: f.competition || 'Competiciones europeas', kickoff: f.kickoff, noTime: f.noTime !== false, ...(f.ref ? { ref: f.ref } : {}),
-        home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, score: `${s.score.x}-${s.score.y}`, pick: M.footballPick(s, f.h, f.a) });
+        home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, score: `${s.score.x}-${s.score.y}`, scoreP: r4(s.score.p), mx: footballMx(P.k), pick: M.footballPick(s, f.h, f.a) });
       const u = matches[matches.length - 1], c = u.pick.code;
       u.why = [c === 'H' || c === 'A' || c === 'D' ? `Elo de ClubElo: ${f.h} ${Math.round(f.eh)}, ${f.a} ${Math.round(f.ea)}${c === 'H' ? ' (y juega en casa)' : ''}` : null,
         `Goles esperados ${n1(s.lam)}–${n1(s.mu)}`].filter(Boolean);
@@ -127,7 +149,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       const P = M.basketPredict(m, sd, f.h, f.a, undefined, undefined, fat.adj); if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
       const home = P.pw >= 0.5;
       matches.push({ id: `${sport}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport, league: sport, leagueName: name, kickoff: f.kickoff, home: f.h, away: f.a, ...(f.noTime ? { noTime: true } : {}),
-        pw: P.pw, ph: P.P.ph, pa: P.P.pa, margin: P.P.margin, total: P.P.total,
+        pw: P.pw, ph: P.P.ph, pa: P.P.pa, margin: P.P.margin, total: P.P.total, mx: basketMx(P),
         fatigue: fat.home ? { adj: +fat.adj.toFixed(2), b2bH: fat.home.rest === 1, b2bA: fat.away.rest === 1, restH: fat.home.rest, restA: fat.away.rest } : null,
         pick: { market: 'Ganador', label: `Gana ${home ? f.h : f.a}`, p: Math.max(P.pw, 1 - P.pw), code: home ? 'H' : 'A' } });
       matches[matches.length - 1].why = whyBasket(matches[matches.length - 1], T);
@@ -149,7 +171,7 @@ export function predictTennis(T, fx = []) {
     const few = Math.min(E.N[ia], E.N[ib]) < 10, p3r = M.eloProb(E, ia, ib, f.surf), p3 = few ? 0.5 + (p3r - 0.5) * 0.85 : p3r;
     const p = f.bo === 5 ? M.bo3to5(p3) : p3, home = p >= 0.5, tour = f.tour ? 'wta' : 'atp';
     out.push({ id: `tenis|${tour}|${f.kickoff.slice(0, 10)}|${f.a}|${f.b}`, sport: 'tenis', league: tour, leagueName: `${tour.toUpperCase()} · ${f.tourn}`, kickoff: f.kickoff,
-      ...(f.noTime ? { noTime: true } : {}), home: f.a, away: f.b, pw: p, surf: f.surf, bo: f.bo, round: f.round || '',
+      ...(f.noTime ? { noTime: true } : {}), home: f.a, away: f.b, pw: p, surf: f.surf, bo: f.bo, round: f.round || '', mx: tennisMx(p, f.bo, M.BASE_SERVE[f.tour ? 1 : 0][f.surf] ?? 0.62),
       pick: { market: 'Ganador', label: `Gana ${home ? f.a : f.b}`, p: Math.max(p, 1 - p), code: home ? 'H' : 'A' },
       ...(few ? { fewData: true } : {}),
       why: [...(few ? ['Pocos partidos en los datos: pronóstico prudente'] : []), `Elo ${Math.round(E.R[ia])} frente a ${Math.round(E.R[ib])}`, `En ${SURF_ES[f.surf]}: ${Math.round(E.S[f.surf][ia])} frente a ${Math.round(E.S[f.surf][ib])}`,
@@ -164,9 +186,11 @@ export function tennisResult(e, T) {
   for (let k = T.date.length - 1; k >= 0 && T.date[k] >= d0 - 2; k--) {
     if (T.date[k] > d0 + 2 || !((T.w[k] === a && T.l[k] === b) || (T.w[k] === b && T.l[k] === a))) continue;
     if (!T.completed[k]) return null;   // retirada o walkover: las casas suelen anularlo; no cuenta
-    let ws = 0, ls = 0; for (let i = 1; i <= 5; i++) { const W = T['W' + i][k], L = T['L' + i][k]; if (W == null || L == null) break; if (W > L) ws++; else if (L > W) ls++; }
+    let ws = 0, ls = 0, g = 0, tb = 0, s1 = null; for (let i = 1; i <= 5; i++) { const W = T['W' + i][k], L = T['L' + i][k]; if (W == null || L == null) break;
+      if (W > L) ws++; else if (L > W) ls++; g += W + L; if (W + L === 13) tb = 1; if (i === 1) s1 = W > L; }
     if (!ws) ws = 1;
-    return T.w[k] === a ? { hp: ws, ap: ls } : { hp: ls, ap: ws };
+    const aw = T.w[k] === a, ex = g ? { games: g, tb, s1: s1 == null ? null : +(s1 === aw) } : {};   // s1: 1 si el jugador A ganó el primer set
+    return aw ? { hp: ws, ap: ls, ...ex } : { hp: ls, ap: ws, ...ex };
   }
   return null;
 }
@@ -209,11 +233,15 @@ export function evaluate(e) {
     const c = e.pick.code;
     ev.pick = { p: e.pick.p, hit: c === 'H' || c === 'D' || c === 'A' ? c === y : c === 'O' ? over : c === 'U' ? !over : c === 'BY' ? both : !both };
     e.scoreText = `${r.hg}-${r.ag}`;
+    if (e.scoreP) ev['marcador exacto'] = { p: e.scoreP, hit: e.score === `${r.hg}-${r.ag}` };
   } else {
     ev.ganador = { p: e.pick.p, hit: (e.pick.code === 'H') === (r.hp > r.ap) };
     ev.pick = ev.ganador;
     e.scoreText = `${r.hp}-${r.ap}`;
   }
+  const V = e.sport === 'futbol' ? { tot: r.hg + r.ag, home: r.hg, away: r.ag, marg: r.hg - r.ag, abs: Math.abs(r.hg - r.ag) }
+    : e.sport === 'tenis' ? { sets: r.hp + r.ap, marg: r.hp - r.ap, tot: r.games, s1: r.s1, tb: r.tb } : { tot: r.hp + r.ap, home: r.hp, away: r.ap, marg: r.hp - r.ap };
+  for (const [n, p, v, l] of e.mx || []) if (V[v] != null) ev[n] = side(p, V[v] > l);
   return ev;
 }
 // Apuesta del día y selección: los pronósticos de más probabilidad del día (hora de Madrid), uno por partido y de cualquier deporte.
@@ -305,11 +333,12 @@ const toks = s => norm(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t
 const sameTeam = (a, b) => { const A = toks(a), B = toks(b); return A.some(x => B.some(y => x === y || (x.length >= 4 && y.length >= 4 && (x.startsWith(y) || y.startsWith(x))))); };
 // base de datos pública de pronósticos ya resueltos (para filtrar y probar reglas en la web)
 export function historyRows(hist, now = NOW) {
-  const r2 = x => Math.round(x * 1000) / 1000;
-  return Object.values(hist).filter(e => e.eval && now - Date.parse(e.kickoff) <= 365 * 864e5).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)).map(e => ({
+  const r2 = x => Math.round(x * 1000) / 1000, names = [], ix = n => { let i = names.indexOf(n); if (i < 0) { i = names.length; names.push(n); } return i; };
+  const rows = Object.values(hist).filter(e => e.eval && now - Date.parse(e.kickoff) <= 365 * 864e5).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)).map(e => ({
     d: madridDate(Date.parse(e.kickoff)), s: e.sport, l: e.leagueName, h: e.home, a: e.away, k: e.pick.label, p: r2(e.pick.p), r: e.eval.pick.hit ? 1 : 0,
     ...(e.best?.odds ? { o: e.best.odds } : {}), ...(e.fair?.[e.pick.code] ? { f: e.fair[e.pick.code] } : {}), ...(e.scoreText ? { sc: e.scoreText } : {}),
-    mk: Object.fromEntries(Object.entries(e.eval).filter(([k]) => k !== 'pick').map(([k, v]) => [k, [r2(v.p), v.hit ? 1 : 0]])) }));
+    m: Object.entries(e.eval).filter(([k]) => k !== 'pick').map(([k, v]) => [ix(k), r2(v.p), v.hit ? 1 : 0]) }));   // mercados: [índice en names, prob., acierto]
+  return { names, rows };
 }
 export function keepBest(m, old) {
   if (!m.best && old?.best && old.pick?.code === m.pick.code) m.best = old.best;
@@ -636,7 +665,7 @@ async function main() {
     const age = NOW - Date.parse(e.kickoff);
     if (age < 3 * 3600e3) continue;
     const res = findResult(e, F, B, U, Tn);
-    if (res) { e.result = res; e.eval = evaluate(e); evaluated++; }
+    if (res) { e.result = res; e.eval = evaluate(e); delete e.mx; evaluated++; }   // los mercados extra ya quedan en eval: no se guardan dos veces
     else if (age > 14 * 864e5) delete hist[id];   // aplazado, europeo sin resultado o nunca publicado
   }
   for (const [id, e] of Object.entries(hist)) if (NOW - Date.parse(e.kickoff) > 400 * 864e5) delete hist[id];
@@ -646,7 +675,7 @@ async function main() {
   const wkKey = madridDate(NOW - ((new Date(NOW).getUTCDay() + 6) % 7) * 864e5);
   if (calib.week !== wkKey) { calib = { week: wkKey, sports: fitCalib(hist) }; write(calibFile, calib); console.log('calibración semanal:', JSON.stringify(calib.sports)); }
   write(path.join(DATA, 'performance.json'), perf);
-  write(path.join(DATA, 'historial.json'), { updated: new Date(NOW).toISOString(), rows: historyRows(hist) });
+  write(path.join(DATA, 'historial.json'), { updated: new Date(NOW).toISOString(), ...historyRows(hist) });
   const sel = dailyFor(Object.values(hist));
   const withHit = e => e.eval ? { ...e, hit: e.eval.pick.hit } : e;
   const byIdAll = Object.fromEntries(Object.values(hist).map(e => [e.id, e]));

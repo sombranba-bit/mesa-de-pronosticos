@@ -122,7 +122,7 @@ const pcard = (m, res) => `<div class="pcard" ${openAttr(m)}>
   ${m.why && m.why.length ? `<div class="pc-why">${esc(m.why.join(' · '))}</div>` : ''}</div>`;
 const bindOpen = root => root.querySelectorAll('[data-open]').forEach(x => { const go = () => openMatch(...JSON.parse(x.dataset.open)); x.addEventListener('click', e => { if (e.target.closest('a, [data-bet-open]')) return; go(); }); x.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
 const vs = (h, a, sp) => `${crest(h, sp, 'md')}${esc(h)} – ${crest(a, sp, 'md')}${esc(a)}`, vsText = (m, sp) => { const p = String(m).split(' – '); return p.length === 2 ? vs(p[0], p[1], sp) : esc(m); };
-const crest = (n, sp, size = '') => { const u = crestUrl(n, isB(sp)); return `<span class="crest ${size}" style="--h:${hue(n)}" aria-hidden="true"><b>${esc(initials(n))}</b>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onload="this.parentNode.classList.add('ok')" onerror="this.remove()">` : ''}</span>`; };   // ratings de ClubElo, bajas, noticias y cuotas del día
+const crest = (n, sp, size = '') => { const ph = sp === 'tenis' && PL?.[n]?.img, u = ph || crestUrl(n, isB(sp)); return `<span class="crest ${size}${ph ? ' face' : ''}" style="--h:${hue(n)}" aria-hidden="true"><b>${esc(initials(n))}</b>${u ? `<img src="${esc(u)}" alt="" loading="lazy" onload="this.parentNode.classList.add('ok')" onerror="this.remove()">` : ''}</span>`; };   // ratings de ClubElo, bajas, noticias y cuotas del día
 function buildFB() {
   FB = Fd.date.map((d, k) => { const r = { d, div: Fd.divs[Fd.div[k]], h: Fd.teams[Fd.h[k]], a: Fd.teams[Fd.a[k]], hg: Fd.hg[k], ag: Fd.ag[k] };
     for (const f of FB_FIELDS) r[f] = Fd[f] ? Fd[f][k] : null; return r; });
@@ -192,7 +192,7 @@ function injAdj() {
 function fbPredict() {
   const div = $('fbLeague').value, h = $('fbHome').value, a = $('fbAway').value, out = $('fbOut');
   $('fbInjBox').hidden = !(div && h && a && h !== a);
-  if (!div || !h || !a) { out.innerHTML = emptyPick(I('ball'), 'Elige liga, equipo local y visitante', 'También puedes abrir cualquier partido desde «Próximos partidos» o desde la apuesta del día: se rellena solo.'); return; }
+  if (!div || !h || !a) { out.innerHTML = emptyPick(I('ball'), 'Elige liga, equipo local y visitante', 'También puedes abrir cualquier partido desde «Próximos eventos» o desde la apuesta del día: se rellena solo.'); return; }
   if (h === a) { out.innerHTML = '<p class="note">Elige dos equipos distintos.</p>'; return; }
   injReset(div, h, a);
   const adj = injAdj(), uefa = div === 'UEFA';
@@ -410,7 +410,7 @@ function bkInit(h, a) {
 }
 function bkPredict() {
   const c = $('nbComp').value, h = $('nbHome').value, a = $('nbAway').value, out = $('nbOut');
-  if (!h || !a) { out.innerHTML = emptyPick(I('basket'), 'Elige equipo local y visitante', 'O abre un partido desde «Próximos partidos»: se rellena solo.'); return; }
+  if (!h || !a) { out.innerHTML = emptyPick(I('basket'), 'Elige equipo local y visitante', 'O abre un partido desde «Próximos eventos»: se rellena solo.'); return; }
   if (h === a) { out.innerHTML = '<p class="note">Elige dos equipos distintos.</p>'; return; }
   const { m, last, sd } = bkModel(c), L = fnum($('nbSpread').value), T = fnum($('nbTotal').value);
   const fat = c === 'nba' ? M.nbaFatigue(BK[c].rows, h, a, today()) : { adj: 0 };
@@ -495,7 +495,7 @@ function appendTennis(rows) { // filas importadas -> columnas
   }
   return added;
 }
-const BASE_SERVE = [[0.64, 0.61, 0.67, 0.65], [0.56, 0.54, 0.58, 0.57]]; // circuito x superficie (pista, tierra, hierba, moqueta)
+const BASE_SERVE = M.BASE_SERVE;
 function tnRefresh() {
   ELO = M.runElo(Td, { from: Infinity });
   const tour = +$('tnTour').value, lastDay = Td.date[Td.date.length - 1], recent = new Set();
@@ -526,7 +526,7 @@ function tnPredict() {
     { label: `${B} −1,5 sets`, p: P(x => x.sb - x.sa >= 2) }, { label: `${A} +1,5 sets`, p: 1 - P(x => x.sb - x.sa >= 2) }];
   const totSets = bo === 5 ? [3.5, 4.5] : [2.5];
   const eg = M.sum(tg.map(x => x.t * x.p)), few = Math.min(ELO.NS[s][ia], ELO.NS[s][ib]);
-  out.innerHTML = `<div class="scoreline"><div class="team">${esc(A)}</div><div class="mid">${pct(p, 0)} – ${pct(1 - p, 0)}<small>probabilidad de ganar</small></div><div class="team">${esc(B)}</div></div>
+  out.innerHTML = `<div class="scoreline"><div class="team">${crest(A, 'tenis', 'xl')}<span>${esc(A)}</span></div><div class="mid">${pct(p, 0)} – ${pct(1 - p, 0)}<small>probabilidad de ganar</small></div><div class="team">${crest(B, 'tenis', 'xl')}<span>${esc(B)}</span></div></div>
     <p class="note">Elo ${Math.round(ELO.R[ia])} / ${Math.round(ELO.R[ib])} · en ${['pista dura', 'tierra', 'hierba', 'moqueta'][s]} ${Math.round(ELO.S[s][ia])} / ${Math.round(ELO.S[s][ib])} · puntos ganados al saque ${pct(T.pa, 0)} / ${pct(T.pb, 0)} · ${nf(eg, 1)} juegos esperados${few < 15 ? ' · <span class="chip warn">pocos partidos en esta superficie</span>' : ''}</p>
     <section class="block" id="tnMk"></section>`;
   marketTable($('tnMk'), [
@@ -578,11 +578,12 @@ $('tnFile').addEventListener('change', async e => {
 });
 
 // ============================== PRONÓSTICOS AUTOMÁTICOS ==============================
-let PR = null, PF = null;
+let PR = null, PF = null, PL = null;   // PL: fotos de tenistas (Wikipedia)
 const SPORT_NAME = { futbol: 'Fútbol', tenis: 'Tenis', nba: 'NBA', euroliga: 'Euroliga', eurocup: 'EuroCup', acb: 'Liga ACB', lega: 'Lega A', bbl: 'BBL', lnb: 'Betclic Élite', gbl: 'Liga griega', bsl: 'Liga turca' };
 // Apuesta del día y selección recomendada: las elige el proceso automático (pipeline/predict.mjs, dailyPicks)
 function dailyRender() {
   const box = $('prDaily'), D = PR && PR.daily;
+  $('odHome').appendChild($('odWrap'));   // la sección de cuotas vuelve a su sitio antes de repintar
   if (!D || !D.bet) { box.innerHTML = '<h2>Apuesta del día</h2><p class="verdict">Aparece cuando la mesa funciona desde GitHub: cada hora elige el pronóstico más probable del día entre todos los deportes, y una selección con los más seguros.</p>'; return; }
   const dayTxt = new Date(D.day + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   const when = m => m.noTime ? 'hora por confirmar' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + moonI(m);
@@ -590,7 +591,8 @@ function dailyRender() {
   const open = m => `<button class="linkbtn" data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}">Ver partido</button>`;
   const rate = o => o && o.n ? `${o.hits} de ${o.n} (${pct(o.hits / o.n, 0)})` : 'aún sin datos';
   const T = PF && PF.daily, b = D.bet, P = D.picks || [];
-  const tabs = `<div class="seg" role="tablist">${[['dia', I('star') + 'Apuesta del día'], ['comb', I('layers') + 'Combinadas']].map(([k, l]) => `<button role="tab" data-dv="${k}" aria-selected="${dailyView === k}">${l}</button>`).join('')}</div>`;
+  const tabs = `<div class="seg" role="tablist">${[['dia', I('star') + 'Apuesta del día'], ['comb', I('layers') + 'Combinadas'], ['cuotas', I('coins') + 'Cuotas']].map(([k, l]) => `<button role="tab" data-dv="${k}" aria-selected="${dailyView === k}">${l}</button>`).join('')}</div>`;
+  if (dailyView === 'cuotas') { box.innerHTML = tabs; box.appendChild($('odWrap')); bindSeg(box); return; }
   if (dailyView === 'comb') { box.innerHTML = tabs + combosHTML(D, dayTxt, when, res); bindOpen(box); bindSeg(box); return; }
   let h = tabs + `<h2>Apuesta del día</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · el pronóstico con más probabilidad de todos los deportes</p>
     <div class="mc" ${openAttr(b)}><div class="mc-head">${flag(b.league, 'lg')}<span>${esc(b.leagueName)}</span><span class="mc-sp">${sportIcon(b.sport)} ${(when(b))}${b.noTime ? '' : ` · <span class="cd" data-ko="${esc(b.kickoff)}">${untilTxt(b.kickoff)}</span>`}</span></div>
@@ -729,7 +731,7 @@ function acRender() {
 // ============================== CUOTAS ==============================
 // ---------- Historial: todos los pronósticos ya jugados, como base de datos para filtrar y probar reglas ----------
 let HI = null;
-const hiMk = r => $('hiMk').value === 'pick' ? [r.p, r.r] : r.mk[$('hiMk').value];
+const hiMk = r => { const v = $('hiMk').value; if (v === 'pick') return [r.p, r.r]; const x = r.m.find(q => q[0] === +v); return x && [x[1], x[2]]; };
 function hiRows() {
   const sp = $('hiSport').value, lg = $('hiLeague').value, lo = (fnum($('hiMin').value) || 0) / 100, hi = (fnum($('hiMax').value) || 100) / 100, odds = $('hiOdds').checked, main = $('hiMk').value === 'pick';
   return HI.rows.filter(r => (!sp || r.s === sp) && (!lg || r.l === lg) && hiMk(r) && hiMk(r)[0] >= lo && hiMk(r)[0] <= hi && (!odds || (main && r.o)));
@@ -748,7 +750,7 @@ function hiRender() {
 function hiFill() {
   const sp = $('hiSport').value, R = HI.rows.filter(r => !sp || r.s === sp);
   fillSelect($('hiLeague'), [['', 'Todas'], ...[...new Set(R.map(r => r.l))].sort().map(l => [l, l])]);
-  fillSelect($('hiMk'), [['pick', 'Pronóstico principal'], ...[...new Set(R.flatMap(r => Object.keys(r.mk)))].sort().map(k => [k, k])]);
+  fillSelect($('hiMk'), [['pick', 'Pronóstico principal'], ...[...new Set(R.flatMap(r => r.m.map(q => q[0])))].map(i => [String(i), HI.names[i]]).sort((a, b) => a[1].localeCompare(b[1], 'es'))]);
 }
 async function hiInit() {
   if (HI) return;
@@ -760,7 +762,7 @@ async function hiInit() {
   $('hiCsv').addEventListener('click', () => {
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`, main = $('hiMk').value === 'pick';
     const csv = ['fecha;deporte;competición;local;visitante;pronóstico;probabilidad;acierto;mejor cuota;cuota Pinnacle;resultado',
-      ...hiRows().map(r => [r.d, r.s, r.l, r.h, r.a, main ? r.k : $('hiMk').value, String(hiMk(r)[0]).replace('.', ','), hiMk(r)[1], main && r.o ? String(r.o).replace('.', ',') : '', main && r.f ? String(r.f).replace('.', ',') : '', r.sc].map(q).join(';'))].join('\n');
+      ...hiRows().map(r => [r.d, r.s, r.l, r.h, r.a, main ? r.k : $('hiMk').selectedOptions[0].text, String(hiMk(r)[0]).replace('.', ','), hiMk(r)[1], main && r.o ? String(r.o).replace('.', ',') : '', main && r.f ? String(r.f).replace('.', ',') : '', r.sc].map(q).join(';'))].join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'historial_pronosticos.csv'; a.click();
   });
 }
@@ -936,11 +938,11 @@ function avUpdate() {
 const HOME_LINKS = [   // [icono, título, texto, destino «pestaña:subpestaña:vista»]
   ['star', 'Apuesta del día', 'El pronóstico más probable de la jornada, con su cuota justa y la mejor cuota del mercado.', 'pronosticos:proximos:dia'],
   ['layers', 'Combinadas', 'Segura (los más probables) y con valor (mejor cuota que la justa), de 2 a 3 partidos.', 'pronosticos:proximos:comb'],
-  ['calendar', 'Próximos partidos', 'Todos los pronósticos de fútbol, baloncesto y tenis, filtrables por deporte y liga.', 'pronosticos:proximos'],
+  ['calendar', 'Próximos eventos', 'Todos los pronósticos de fútbol, baloncesto y tenis, filtrables por deporte y liga.', 'pronosticos:proximos'],
   ['chart', 'Aciertos', 'Cada pronóstico comparado con el resultado real y la simulación antes de apostar.', 'pronosticos:aciertos'],
   ['wallet', 'Mis apuestas', 'Apunta lo que apuestas: beneficio real, CLV y cuánto apostar en cada pronóstico.', 'pronosticos:apuestas'],
   ['bell', 'Avisos de Telegram', 'Elige qué deportes, ligas y equipos te llegan al grupo Aldana Bet.', 'pronosticos:avisos'],
-  ['coins', 'Cuotas', 'Surebets, cuotas anómalas y valor frente a Pinnacle.', 'pronosticos:cuotas'],
+  ['coins', 'Cuotas', 'Surebets, cuotas anómalas y valor frente a Pinnacle.', 'pronosticos:proximos:cuotas'],
   ['list', 'Historial', 'Todos los pronósticos ya jugados, estén o no en la selección: filtra, prueba reglas y descárgalo.', 'pronosticos:historial'],
   ['ball', 'Fútbol', 'Ficha de cualquier partido: mercados, bajas, árbitro, estadísticas y precisión histórica.', 'futbol'],
   ['basket', 'Baloncesto', 'NBA, Euroliga, EuroCup y ligas europeas: ganador, hándicap y puntos.', 'baloncesto'],
@@ -1072,8 +1074,8 @@ let READY;
 (async () => {
   wire();
   const h = location.hash.slice(1), first = ['inicio', 'pronosticos', 'futbol', 'baloncesto', 'tenis', 'guia'].includes(h) ? h : 'inicio', LIGHT = ['inicio', 'pronosticos', 'guia'];
-  [PR, PF, CE, IJ, NW, OD, CR] = await Promise.all([loadJSON('d-pr', 'data/predictions.json'), loadJSON('d-pf', 'data/performance.json'), loadJSON('d-ce', 'data/clubelo.json'),
-    loadJSON('d-ij', 'data/injuries.json'), loadJSON('d-nw', 'data/news.json'), loadJSON('d-od', 'data/odds.json'), loadJSON('d-cr', 'data/crests.json')]);
+  [PR, PF, CE, IJ, NW, OD, CR, PL] = await Promise.all([loadJSON('d-pr', 'data/predictions.json'), loadJSON('d-pf', 'data/performance.json'), loadJSON('d-ce', 'data/clubelo.json'),
+    loadJSON('d-ij', 'data/injuries.json'), loadJSON('d-nw', 'data/news.json'), loadJSON('d-od', 'data/odds.json'), loadJSON('d-cr', 'data/crests.json'), loadJSON('d-pl', 'data/players.json')]);
   prRender(); acRender(); odRender(); mbInit(); homeRender();
   if (LIGHT.includes(first)) showTab(first);
   READY = (async () => {

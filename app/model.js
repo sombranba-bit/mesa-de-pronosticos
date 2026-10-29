@@ -517,7 +517,8 @@ const M = (() => {
       { title: 'Hándicap', rows: sp }, { title: 'Puntos totales', rows: to }, { title: 'Puntos de cada equipo', rows: tt }] };
   }
 
-  return { nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
+  const BASE_SERVE = [[0.64, 0.61, 0.67, 0.65], [0.56, 0.54, 0.58, 0.57]];   // puntos ganados al saque: circuito (ATP, WTA) x superficie (pista, tierra, hierba, moqueta)
+  return { BASE_SERVE, nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
     NBA_SD, fitPts, ptsPredict, spreadProbs, totalProbs, runElo, eloProb, holdProb, tiebreakProb, setDist, matchDist, matchWin, tennisFromProb, bo3to5 };
 })();
 if (typeof module !== 'undefined') module.exports = M;
