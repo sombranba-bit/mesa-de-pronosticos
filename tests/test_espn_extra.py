@@ -13,7 +13,10 @@ soc = {'events': [{'competitions': [{'date': '2026-10-25T19:00Z', 'status': {'ty
 nba = {'events': [{'competitions': [{'date': '2026-10-25T23:30Z', 'status': {'type': {'completed': True}}, 'competitors': [
     {'homeAway': 'home', 'team': {'displayName': 'Boston Celtics'}, 'linescores': [{'value': 30}, {'value': 25}, {'value': 28}, {'value': 20}, {'value': 10}]},
     {'homeAway': 'away', 'team': {'displayName': 'New York Knicks'}, 'linescores': [{'value': 25}, {'value': 30}, {'value': 20}, {'value': 28}, {'value': 5}]}]}]}]}
-d.get = lambda url: json.dumps(soc if '/soccer/esp.1/' in url else nba if '/nba/' in url else {'events': []}).encode()
+summ = {'boxscore': {'teams': [{'team': {'displayName': 'Real Madrid'}, 'statistics': [{'name': 'offsides', 'displayValue': '3'}]}, {'team': {'displayName': 'FC Barcelona'}, 'statistics': [{'name': 'offsides', 'displayValue': '1'}]}]}}
+for c_ in soc['events'][0]['competitions'][0]['competitors']: c_.pop('statistics')
+soc['events'][0]['id'] = '99'
+d.get = lambda url: json.dumps(summ if '/summary?event=99' in url else soc if '/soccer/esp.1/scoreboard' in url else nba if '/nba/' in url else {'events': []}).encode()
 d.update_soccer_espn()
 s = d.load('soccer_events.json'); r = s['SP1|2026-10-25|Real Madrid|FC Barcelona']
 assert r['offH'] == 3 and r['offA'] == 1 and [g['min'] for g in r['goals']] == [12, 45, 70] and r['goals'][0]['side'] == 'A' and r['goals'][1]['og'] and len(r['goals']) == 3, r

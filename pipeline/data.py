@@ -1377,10 +1377,12 @@ def update_soccer_espn():
         return
     store = load('soccer_events.json') or {}
     back = 3 if store else 21   # la primera vez, tres semanas hacia atrás
+    oldest = min((v['date'] for v in store.values()), default=TODAY.isoformat())
+    o = dt.date.fromisoformat(oldest)
+    older = [o - dt.timedelta(days=i) for i in range(1, 11)] if (TODAY - o).days < 90 else []   # y cada vez 10 días más atrás, hasta 3 meses (para el máximo goleador y los fueras de juego)
     got = 0
     for div, slug in ESPN_SOCCER.items():
-        for k in range(back, -1, -1):
-            date = TODAY - dt.timedelta(days=k)
+        for date in [TODAY - dt.timedelta(days=k) for k in range(back, -1, -1)] + older:
             try:
                 js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard?dates={date:%Y%m%d}'))
             except Exception as e:
@@ -1400,9 +1402,28 @@ def update_soccer_espn():
                     goals.append({'min': espn_minute(d_.get('clock')), 'side': 'H' if side == 'home' else 'A' if side == 'away' else None, 'p': who[0] if who else '', 'og': bool(d_.get('ownGoal')), 'pen': bool(d_.get('penaltyKick'))})
                 goals.sort(key=lambda g: g['min'] or 999)
                 h, a = ((cs[s].get('team') or {}).get('displayName', '') for s in ('home', 'away'))
-                store[f"{div}|{c.get('date', ev.get('date', ''))[:10]}|{h}|{a}"] = {'div': div, 'date': (c.get('date') or ev.get('date', ''))[:10], 'h': h, 'a': a,
-                    'hg': ival(cs['home'].get('score')), 'ag': ival(cs['away'].get('score')), 'goals': goals, 'offH': st('home', 'offsides'), 'offA': st('away', 'offsides')}
+                key_ = f"{div}|{c.get('date', ev.get('date', ''))[:10]}|{h}|{a}"
+                prev_ = store.get(key_) or {}
+                store[key_] = {'div': div, 'date': (c.get('date') or ev.get('date', ''))[:10], 'h': h, 'a': a, 'eid': ev.get('id'), 'slug': slug,
+                    'hg': ival(cs['home'].get('score')), 'ag': ival(cs['away'].get('score')), 'goals': goals,
+                    'offH': st('home', 'offsides') if st('home', 'offsides') is not None else prev_.get('offH'), 'offA': st('away', 'offsides') if st('away', 'offsides') is not None else prev_.get('offA')}
                 got += 1
+    # los fueras de juego no vienen en el marcador: se piden al resumen de cada partido (como mucho 120 por ejecución)
+    names_seen = set(); n_sum = 0
+    for v in sorted(store.values(), key=lambda x: x['date'], reverse=True):
+        if v.get('offH') is not None or not v.get('eid') or v.get('noOff') or n_sum >= 120: continue
+        try:
+            sm = json.loads(get(f"https://site.api.espn.com/apis/site/v2/sports/soccer/{v['slug']}/summary?event={v['eid']}")); n_sum += 1
+        except Exception as e:
+            warn(f'ESPN resumen {v["eid"]}: {e}'); break
+        teams = (sm.get('boxscore') or {}).get('teams') or []
+        vals = {}
+        for tm in teams:
+            nm = (tm.get('team') or {}).get('displayName'); stats = {x.get('name'): x.get('displayValue') for x in tm.get('statistics') or []}; names_seen |= set(stats)
+            vals[nm] = ival(stats.get('offsides'))
+        if vals.get(v['h']) is not None and vals.get(v['a']) is not None: v['offH'], v['offA'] = vals[v['h']], vals[v['a']]
+        else: v['noOff'] = 1   # ese partido no trae el dato: no se vuelve a pedir
+    if names_seen: (ROOT / 'data' / 'espn_stats.json').write_text(json.dumps(sorted(names_seen)))   # qué estadísticas da ESPN (para añadir mercados)
     cut = (TODAY - dt.timedelta(days=500)).isoformat()
     save('soccer_events.json', {k: v for k, v in store.items() if v.get('date', '') >= cut})
     print(f'ESPN fútbol: {got} partidos con detalle ({len(store)} guardados)')
