@@ -652,6 +652,12 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
       </div>
       <div class="row"><label class="check"><input type="checkbox" id="hiOdds"> Solo con cuota real</label><button class="btn ghost" id="hiCsv" type="button">Descargar CSV</button></div>
       <div id="hiOut"><p class="note loading">Cargando…</p></div>
+      <h3 class="sect">Todos los mercados</h3>
+      <p class="note">Cada partido se pronostica en todos los mercados que el modelo sabe calcular (goles, hándicaps, marcador exacto, descanso, córners, tarjetas, sets, juegos, márgenes…), estén o no en la selección. Aquí se ve cuánto acierta en cada uno frente a lo que esperaba. En los de varios resultados (marcador exacto, descanso/final…) cuenta el más probable. En tenis y baloncesto las líneas son relativas a la línea justa de cada partido.</p>
+      <div class="controls"><div class="field"><label for="hmSport">Deporte</label><select id="hmSport"><option value="futbol">Fútbol</option><option value="tenis">Tenis</option><option value="baloncesto">Baloncesto</option></select></div>
+        <div class="field"><label for="hmQ">Buscar</label><input id="hmQ" type="text" placeholder="córners, descanso, sets…"></div>
+        <div class="field"><label for="hmMin">Mínimo de pronósticos</label><input id="hmMin" type="text" inputmode="numeric" placeholder="0"></div></div>
+      <div id="hmOut"></div>
     </div>
     <div id="odHome" hidden><div id="odWrap" class="odwrap">   <!-- se muestra dentro de «Próximos eventos», pestaña Cuotas -->
       <h2>Cuotas: surebets, valor y errores</h2>
@@ -882,6 +888,7 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
 <script id="d-od" type="application/json">/*DATA_OD*/</script>
 <script id="d-hi" type="application/json">/*DATA_HI*/</script>
 <script id="d-pl" type="application/json">/*DATA_PL*/</script>
+<script id="d-hm" type="application/json">/*DATA_HM*/</script>
 <script id="d-cr" type="application/json">/*DATA_CR*/</script>
 <script>/*MODEL_JS*/</script>
 <script>/*UI_JS*/</script>

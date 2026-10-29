@@ -463,16 +463,16 @@ const M = (() => {
         add('Descanso/final', rows.sort((x, y) => y.p - x.p));
       }
     }
-    let corners = null, cards = null;
-    if (set.co) { const Gc = dcGrid(set.co, h, a, 26); if (Gc) { corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
+    let corners = null, cards = null, GC = null, GK = null;
+    if (set.co) { const Gc = dcGrid(set.co, h, a, 26); if (Gc) { GC = Gc; corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
       add('Córners', [7.5, 8.5, 9.5, 10.5, 11.5].flatMap(l => { const o = nbOver(mc, NB_SIZE.corners, l); return [{ key: 'co' + l, label: `Más de ${nfmt(l)} córners`, p: o }, { key: 'cu' + l, label: `Menos de ${nfmt(l)} córners`, p: 1 - o }]; })
         .concat([{ key: 'coH', label: `Más córners: ${h}`, p: corners.H }, { key: 'coX', label: 'Mismos córners', p: corners.D }, { key: 'coA', label: `Más córners: ${a}`, p: corners.A }])); } }
-    if (set.ca) { const t = set.caTrend || 1, Gk = dcGrid(set.ca, h, a, 16, { h: t, a: t }); if (Gk) { cards = footballMarkets(Gk); const mk = cards.lam + cards.mu;
+    if (set.ca) { const t = set.caTrend || 1, Gk = dcGrid(set.ca, h, a, 16, { h: t, a: t }); if (Gk) { GK = Gk; cards = footballMarkets(Gk); const mk = cards.lam + cards.mu;
       add('Tarjetas (amarillas + rojas)', [2.5, 3.5, 4.5, 5.5].flatMap(l => { const o = nbOver(mk, NB_SIZE.cards, l); return [{ key: 'ka' + l, label: `Más de ${nfmt(l)} tarjetas`, p: o }, { key: 'ku' + l, label: `Menos de ${nfmt(l)} tarjetas`, p: 1 - o }]; })); } }
     const summary = { H: k.H, D: k.D, A: k.A, lam: k.lam, mu: k.mu, o25: k.over(2.5), btts: k.btts, score: k.scores[0],
       corners: corners ? corners.lam + corners.mu : null, cards: cards ? cards.lam + cards.mu : null,
       co95: corners ? nbOver(corners.lam + corners.mu, NB_SIZE.corners, 9.5) : null, ca45: cards ? nbOver(cards.lam + cards.mu, NB_SIZE.cards, 4.5) : null };
-    return { G, k, groups, summary, GH, GS };
+    return { G, k, groups, summary, GH, GS, GC, GK };
   }
   // Pronóstico principal: el resultado más probable entre 1X2, más/menos 2,5 y ambos marcan
   function footballPick(s, h, a) {

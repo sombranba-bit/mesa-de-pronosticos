@@ -652,6 +652,12 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
       </div>
       <div class="row"><label class="check"><input type="checkbox" id="hiOdds"> Solo con cuota real</label><button class="btn ghost" id="hiCsv" type="button">Descargar CSV</button></div>
       <div id="hiOut"><p class="note loading">Cargando…</p></div>
+      <h3 class="sect">Todos los mercados</h3>
+      <p class="note">Cada partido se pronostica en todos los mercados que el modelo sabe calcular (goles, hándicaps, marcador exacto, descanso, córners, tarjetas, sets, juegos, márgenes…), estén o no en la selección. Aquí se ve cuánto acierta en cada uno frente a lo que esperaba. En los de varios resultados (marcador exacto, descanso/final…) cuenta el más probable. En tenis y baloncesto las líneas son relativas a la línea justa de cada partido.</p>
+      <div class="controls"><div class="field"><label for="hmSport">Deporte</label><select id="hmSport"><option value="futbol">Fútbol</option><option value="tenis">Tenis</option><option value="baloncesto">Baloncesto</option></select></div>
+        <div class="field"><label for="hmQ">Buscar</label><input id="hmQ" type="text" placeholder="córners, descanso, sets…"></div>
+        <div class="field"><label for="hmMin">Mínimo de pronósticos</label><input id="hmMin" type="text" inputmode="numeric" placeholder="0"></div></div>
+      <div id="hmOut"></div>
     </div>
     <div id="odHome" hidden><div id="odWrap" class="odwrap">   <!-- se muestra dentro de «Próximos eventos», pestaña Cuotas -->
       <h2>Cuotas: surebets, valor y errores</h2>
@@ -882,6 +888,7 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
 <script id="d-od" type="application/json">/*DATA_OD*/</script>
 <script id="d-hi" type="application/json">/*DATA_HI*/</script>
 <script id="d-pl" type="application/json">/*DATA_PL*/</script>
+<script id="d-hm" type="application/json">/*DATA_HM*/</script>
 <script id="d-cr" type="application/json">/*DATA_CR*/</script>
 <script>// ===== Motor de cálculo (sin DOM). Fútbol: Dixon-Coles · Baloncesto: rating de puntos · Tenis: Elo por superficie + modelo de puntos =====
 const M = (() => {
@@ -1348,16 +1355,16 @@ const M = (() => {
         add('Descanso/final', rows.sort((x, y) => y.p - x.p));
       }
     }
-    let corners = null, cards = null;
-    if (set.co) { const Gc = dcGrid(set.co, h, a, 26); if (Gc) { corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
+    let corners = null, cards = null, GC = null, GK = null;
+    if (set.co) { const Gc = dcGrid(set.co, h, a, 26); if (Gc) { GC = Gc; corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
       add('Córners', [7.5, 8.5, 9.5, 10.5, 11.5].flatMap(l => { const o = nbOver(mc, NB_SIZE.corners, l); return [{ key: 'co' + l, label: `Más de ${nfmt(l)} córners`, p: o }, { key: 'cu' + l, label: `Menos de ${nfmt(l)} córners`, p: 1 - o }]; })
         .concat([{ key: 'coH', label: `Más córners: ${h}`, p: corners.H }, { key: 'coX', label: 'Mismos córners', p: corners.D }, { key: 'coA', label: `Más córners: ${a}`, p: corners.A }])); } }
-    if (set.ca) { const t = set.caTrend || 1, Gk = dcGrid(set.ca, h, a, 16, { h: t, a: t }); if (Gk) { cards = footballMarkets(Gk); const mk = cards.lam + cards.mu;
+    if (set.ca) { const t = set.caTrend || 1, Gk = dcGrid(set.ca, h, a, 16, { h: t, a: t }); if (Gk) { GK = Gk; cards = footballMarkets(Gk); const mk = cards.lam + cards.mu;
       add('Tarjetas (amarillas + rojas)', [2.5, 3.5, 4.5, 5.5].flatMap(l => { const o = nbOver(mk, NB_SIZE.cards, l); return [{ key: 'ka' + l, label: `Más de ${nfmt(l)} tarjetas`, p: o }, { key: 'ku' + l, label: `Menos de ${nfmt(l)} tarjetas`, p: 1 - o }]; })); } }
     const summary = { H: k.H, D: k.D, A: k.A, lam: k.lam, mu: k.mu, o25: k.over(2.5), btts: k.btts, score: k.scores[0],
       corners: corners ? corners.lam + corners.mu : null, cards: cards ? cards.lam + cards.mu : null,
       co95: corners ? nbOver(corners.lam + corners.mu, NB_SIZE.corners, 9.5) : null, ca45: cards ? nbOver(cards.lam + cards.mu, NB_SIZE.cards, 4.5) : null };
-    return { G, k, groups, summary, GH, GS };
+    return { G, k, groups, summary, GH, GS, GC, GK };
   }
   // Pronóstico principal: el resultado más probable entre 1X2, más/menos 2,5 y ambos marcan
   function footballPick(s, h, a) {
@@ -2164,8 +2171,22 @@ function hiFill() {
   fillSelect($('hiLeague'), [['', 'Todas'], ...[...new Set(R.map(r => r.l))].sort().map(l => [l, l])]);
   fillSelect($('hiMk'), [['pick', 'Pronóstico principal'], ...[...new Set(R.flatMap(r => r.m.map(q => q[0])))].map(i => [String(i), HI.names[i]]).sort((a, b) => a[1].localeCompare(b[1], 'es'))]);
 }
+let HM = null;
+function hmRender() {
+  if (!HM) return;
+  const sp = $('hmSport').value, q = $('hmQ').value.trim().toLowerCase(), min = fnum($('hmMin').value) || 0;
+  const L = (HM.sports[sp] || []).filter(x => x.n >= min && (!q || x.l.toLowerCase().includes(q)));
+  const diff = x => (x.hits - x.exp) / x.n;
+  $('hmOut').innerHTML = L.length ? `<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Pronósticos</th><th class="num">Acierto</th><th class="num">Esperaba</th><th class="num">Diferencia</th></tr></thead><tbody>
+    ${L.map(x => { const d = diff(x), c = x.n < 30 ? '' : d >= 0.03 ? 'pos' : d <= -0.03 ? 'neg' : 'warn';
+      return `<tr><td>${esc(x.l)}</td><td class="num">${x.n}</td><td class="num">${pct(x.hits / x.n, 0)}</td><td class="num">${pct(x.exp / x.n, 0)}</td><td class="num">${c ? `<span class="chip ${c}">` : ''}${d >= 0 ? '+' : '−'}${nf(Math.abs(d) * 100, 1)} pts${c ? '</span>' : ''}</td></tr>`; }).join('')}
+    </tbody></table></div><p class="note">${L.length} mercados. En verde, acierta 3 puntos o más de lo que esperaba; en rojo, 3 o más por debajo (con 30 pronósticos o más).</p>` : '<p class="note">Sin mercados con esos filtros.</p>';
+}
 async function hiInit() {
   if (HI) return;
+  HM = await loadJSON('d-hm', 'data/mercados.json');
+  if (HM && HM.sports) { hmRender(); ['hmSport', 'hmQ', 'hmMin'].forEach(id => $(id).addEventListener('input', hmRender)); }
+  else $('hmOut').innerHTML = '<p class="note">Aparece cuando la mesa funciona desde GitHub.</p>';
   HI = await loadJSON('d-hi', 'data/historial.json');
   if (!HI || !HI.rows) { HI = null; $('hiOut').innerHTML = '<p class="verdict">El historial aparece cuando la mesa funciona desde GitHub: se publica en cada actualización.</p>'; return; }
   fillSelect($('hiSport'), [['', 'Todos'], ...[...new Set(HI.rows.map(r => r.s))].map(s => [s, SPORT_NAME[s] || s])]);

@@ -754,8 +754,22 @@ function hiFill() {
   fillSelect($('hiLeague'), [['', 'Todas'], ...[...new Set(R.map(r => r.l))].sort().map(l => [l, l])]);
   fillSelect($('hiMk'), [['pick', 'Pronóstico principal'], ...[...new Set(R.flatMap(r => r.m.map(q => q[0])))].map(i => [String(i), HI.names[i]]).sort((a, b) => a[1].localeCompare(b[1], 'es'))]);
 }
+let HM = null;
+function hmRender() {
+  if (!HM) return;
+  const sp = $('hmSport').value, q = $('hmQ').value.trim().toLowerCase(), min = fnum($('hmMin').value) || 0;
+  const L = (HM.sports[sp] || []).filter(x => x.n >= min && (!q || x.l.toLowerCase().includes(q)));
+  const diff = x => (x.hits - x.exp) / x.n;
+  $('hmOut').innerHTML = L.length ? `<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Pronósticos</th><th class="num">Acierto</th><th class="num">Esperaba</th><th class="num">Diferencia</th></tr></thead><tbody>
+    ${L.map(x => { const d = diff(x), c = x.n < 30 ? '' : d >= 0.03 ? 'pos' : d <= -0.03 ? 'neg' : 'warn';
+      return `<tr><td>${esc(x.l)}</td><td class="num">${x.n}</td><td class="num">${pct(x.hits / x.n, 0)}</td><td class="num">${pct(x.exp / x.n, 0)}</td><td class="num">${c ? `<span class="chip ${c}">` : ''}${d >= 0 ? '+' : '−'}${nf(Math.abs(d) * 100, 1)} pts${c ? '</span>' : ''}</td></tr>`; }).join('')}
+    </tbody></table></div><p class="note">${L.length} mercados. En verde, acierta 3 puntos o más de lo que esperaba; en rojo, 3 o más por debajo (con 30 pronósticos o más).</p>` : '<p class="note">Sin mercados con esos filtros.</p>';
+}
 async function hiInit() {
   if (HI) return;
+  HM = await loadJSON('d-hm', 'data/mercados.json');
+  if (HM && HM.sports) { hmRender(); ['hmSport', 'hmQ', 'hmMin'].forEach(id => $(id).addEventListener('input', hmRender)); }
+  else $('hmOut').innerHTML = '<p class="note">Aparece cuando la mesa funciona desde GitHub.</p>';
   HI = await loadJSON('d-hi', 'data/historial.json');
   if (!HI || !HI.rows) { HI = null; $('hiOut').innerHTML = '<p class="verdict">El historial aparece cuando la mesa funciona desde GitHub: se publica en cada actualización.</p>'; return; }
   fillSelect($('hiSport'), [['', 'Todos'], ...[...new Set(HI.rows.map(r => r.s))].map(s => [s, SPORT_NAME[s] || s])]);

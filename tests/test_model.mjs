@@ -110,19 +110,23 @@ ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor c
     eval: { ganador: { p: 0.7123, hit: true }, pick: { p: 0.7123, hit: true } } }, y: { id: 'y', kickoff: new Date().toISOString(), pick: { p: 0.6 } } };
   const { names, rows: R } = P2.historyRows(H, Date.now());
   ok(R.length === 1 && R[0].p === 0.712 && R[0].r === 1 && R[0].o === 1.5 && R[0].f === 1.45 && names[R[0].m[0][0]] === 'ganador' && R[0].m[0][2] === 1 && !names.includes('pick'), 'historial: solo resueltos, con cuota y mercados'); }
-{ // mercados extra: se evalúan con la magnitud del resultado frente a la línea
-  const e = { sport: 'futbol', H: 0.5, D: 0.3, A: 0.2, o25: 0.55, btts: 0.5, score: '1-0', scoreP: 0.12, pick: { code: 'H', p: 0.5 }, result: { hg: 2, ag: 1 },
-    mx: [['más/menos 1,5', 0.7, 'tot', 1.5], ['marca el visitante', 0.4, 'away', 0.5], ['doble oportunidad 12 / X', 0.7, 'abs', 0.5]] };
-  const ev = P2.evaluate(e);
-  ok(ev['más/menos 1,5'].hit === true && ev['marca el visitante'].hit === false && ev['marca el visitante'].p === 0.6 && ev['doble oportunidad 12 / X'].hit && ev['marcador exacto'].hit === false, 'mercados extra de fútbol');
-  const t = P2.evaluate({ sport: 'tenis', pick: { code: 'H', p: 0.7 }, result: { hp: 2, ap: 1, games: 28, tb: 1, s1: 0 }, mx: [['hay tie-break', 0.4, 'tb', 0.5], ['gana el 1er set', 0.7, 's1', 0.5], ['juegos totales (línea justa)', 0.55, 'tot', 24.5]] });
-  ok(t['hay tie-break'].hit === false && t['gana el 1er set'].hit === false && t['juegos totales (línea justa)'].hit === true && t.ganador.hit, 'mercados extra de tenis');
-  const old = P2.evaluate({ sport: 'nba', pick: { code: 'A', p: 0.6 }, result: { hp: 90, ap: 100 } });
-  ok(Object.keys(old).length === 2, 'partidos antiguos sin mercados extra: igual que antes');
-  const ht = P2.evaluate({ sport: 'futbol', H: 0.5, D: 0.3, A: 0.2, o25: 0.5, btts: 0.5, pick: { code: 'H', p: 0.5 }, result: { hg: 2, ag: 1, hth: 0, hta: 0 },
-    mx: [['1X2 al descanso', 0.42, 'htr', 0, 'eq'], ['descanso/final', 0.3, 'hf', 'X/1', 'eq'], ['gana el local y ambos marcan', 0.3, 'hBtts', 0.5], ['local gana por 1 gol', 0.2, 'h1', 0.5]] });
-  ok(ht['1X2 al descanso'].hit && ht['descanso/final'].hit && ht['gana el local y ambos marcan'].hit === false && ht['local gana por 1 gol'].hit === false, 'descanso y combinados de fútbol');
-  const mx = P2.tennisMx(0.7, 3, 0.62); ok(mx.length >= 10 && mx.every(([, p]) => p > 0 && p < 1), 'tenis: probabilidades de mercados extra válidas'); }
+{ // todos los mercados: código «tipo>línea» o «tipo=valor», probabilidades en tantos por mil, comprobados con el resultado
+  const MKm = await import('../pipeline/markets.mjs');
+  const G = MKm && M.calibrateOU(M.rescaleGrid(M.poisGrid(1.5, 1.1), [0.45, 0.27, 0.28]), [0.45, 0.27, 0.28], 0.5);
+  const fm = MKm.footballMarkets({ G }, { corners: 10, cards: 4.5 });
+  const csSum = Object.entries(fm).filter(([k]) => k.startsWith('cs=')).reduce((s, [, v]) => s + v, 0);
+  ok(Math.abs(fm['tot>2.5'] - 500) <= 1 && fm['marg>-0.5'] > fm['marg>0.5'] && csSum > 950 && csSum <= 1001 && fm['co>9.5'] > 0 && Object.keys(fm).length > 80, `fútbol: ${Object.keys(fm).length} mercados coherentes`);
+  const V = MKm.values('futbol', { hg: 2, ag: 1, hth: 0, hta: 1, corners: 11, cards: 3, ch: 7, cA: 4, kh: 1, ka: 2 });
+  ok(V.tot === 3 && V.hf === '2/1' && V.half === '2' && V.shr === '1' && V.cs === '2-1' && V.wm === 'L1' && V.cor === '1' && V.car === '2' && V.hBtts === 1, 'fútbol: magnitudes del resultado');
+  const tm = MKm.tennisMarkets(0.7, 3, 0.62), ss = Object.entries(tm).filter(([k]) => k.startsWith('ss=')).reduce((s, [, v]) => s + v, 0);
+  ok(Math.abs(ss - 1000) <= 3 && tm['sa>0.5'] > 800 && Object.keys(tm).length > 40, `tenis: ${Object.keys(tm).length} mercados coherentes`);
+  const bm = MKm.basketMarkets({ P: { margin: 6, total: 220, ph: 113, pa: 107 } }, M.NBA_SD), wm = Object.entries(bm).filter(([k]) => k.startsWith('wm=')).reduce((s, [, v]) => s + v, 0);
+  ok(Math.abs(wm - 1000) <= 3 && bm['marg>6.5'] < 500 && bm['marg>4.5'] > 500, 'baloncesto: mercados coherentes');
+  const A = MKm.aggregate([{ s: 'futbol', r: { hg: 2, ag: 1 }, m: { 'tot>2.5': 600, 'tot>3.5': 300, 'cs=1-0': 100, 'cs=2-1': 120 } },
+    { s: 'tenis', r: { hp: 2, ap: 0, games: 20, gdiff: 6 }, m: { 'tot>21.5': 300, 'tot>22.5': 450, 'tot>23.5': 600, 'ss=2-0': 550, 'ss=2-1': 250 } }]);
+  const f = k => A.futbol.find(x => x.k === k), tn = k => A.tenis.find(x => x.k === k);
+  ok(f('tot>2.5').hits === 1 && f('tot>3.5').hits === 1 && f('cs=').hits === 1 && f('cs=').l === 'Marcador exacto (el más probable)' && tn('tot>0').hits === 1 && tn('tot>-1').hits === 1 && tn('ss=').hits === 1, 'agregado: acierto por mercado y líneas relativas en tenis');
+  const old = P2.evaluate({ sport: 'nba', pick: { code: 'A', p: 0.6 }, result: { hp: 90, ap: 100 } }); ok(Object.keys(old).length === 2, 'evaluación principal sin cambios'); }
 ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
 ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
 ok(P2.keepBest({ pick: { code: 'H' }, best: { odds: 1.7 } }, { pick: { code: 'H' }, best: { odds: 1.5 } }).best.odds === 1.7, 'la cuota nueva manda sobre la vieja');
