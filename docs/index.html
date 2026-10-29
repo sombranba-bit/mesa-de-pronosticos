@@ -1281,6 +1281,10 @@ const M = (() => {
       sh: sub(has('hth', 'hta'), r => ({ ...r, hg: r.hg - r.hth, ag: r.ag - r.hta })),
       co: sub(has('hc', 'ac'), r => ({ ...r, hg: r.hc, ag: r.ac })),
       ca: sub(has('hy', 'ay'), r => ({ ...r, hg: r.hy + (r.hr || 0), ag: r.ay + (r.ar || 0) })),
+      // solo para medir (proceso automático): tiros, tiros a puerta y faltas, con el mismo modelo que los córners
+      ss: sub(has('hsh', 'ash'), r => ({ ...r, hg: r.hsh, ag: r.ash })),
+      so: sub(has('hst', 'ast'), r => ({ ...r, hg: r.hst, ag: r.ast })),
+      fo: sub(has('hfo', 'afo'), r => ({ ...r, hg: r.hfo, ag: r.afo })),
     };
     set.caTrend = cardsTrend(set.ca, rows, ref);
     set.mk = fitMarket(rows, ref);
@@ -1364,7 +1368,8 @@ const M = (() => {
     const summary = { H: k.H, D: k.D, A: k.A, lam: k.lam, mu: k.mu, o25: k.over(2.5), btts: k.btts, score: k.scores[0],
       corners: corners ? corners.lam + corners.mu : null, cards: cards ? cards.lam + cards.mu : null,
       co95: corners ? nbOver(corners.lam + corners.mu, NB_SIZE.corners, 9.5) : null, ca45: cards ? nbOver(cards.lam + cards.mu, NB_SIZE.cards, 4.5) : null };
-    return { G, k, groups, summary, GH, GS, GC, GK };
+    const GSS = set.ss && dcGrid(set.ss, h, a, 45), GSO = set.so && dcGrid(set.so, h, a, 20), GFO = set.fo && dcGrid(set.fo, h, a, 35);
+    return { G, k, groups, summary, GH, GS, GC, GK, GSS, GSO, GFO };
   }
   // Pronóstico principal: el resultado más probable entre 1X2, más/menos 2,5 y ambos marcan
   function footballPick(s, h, a) {

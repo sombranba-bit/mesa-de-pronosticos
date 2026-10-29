@@ -21,7 +21,8 @@ DIVS = {'SP1': 'España - LaLiga', 'SP2': 'España - Segunda', 'E0': 'Inglaterra
         'F1': 'Francia - Ligue 1', 'F2': 'Francia - Ligue 2', 'N1': 'Países Bajos - Eredivisie', 'P1': 'Portugal - Primeira',
         'SC0': 'Escocia - Premiership', 'SC1': 'Escocia - Championship', 'B1': 'Bélgica - Pro League', 'T1': 'Turquía - Süper Lig', 'G1': 'Grecia - Super League',
         'SP3': 'España - Primera Federación'}   # SP3 no está en football-data: viene de lapreferente.com
-FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref', 'hst', 'ast', 'il', 'im']
+BK_PERIODS = {}   # cuartos de Euroliga y EuroCup leídos en esta ejecución
+FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref', 'hst', 'ast', 'il', 'im', 'hsh', 'ash', 'hfo', 'afo']
 UNDERSTAT = {'SP1': 'La_liga', 'E0': 'EPL', 'I1': 'Serie_A', 'D1': 'Bundesliga', 'F1': 'Ligue_1'}
 # API-Football: ids de liga para las bajas (https://www.api-football.com/documentation-v3)
 APIF_LEAGUES = {'SP1': 140, 'SP2': 141, 'E0': 39, 'E1': 40, 'I1': 135, 'I2': 136, 'D1': 78, 'D2': 79, 'F1': 61, 'F2': 62, 'N1': 88, 'P1': 94,
@@ -118,7 +119,8 @@ def parse_fd_csv(content, div):
                     'hy': ival(col('HY')[idx]), 'ay': ival(col('AY')[idx]), 'hr': ival(col('HR')[idx]), 'ar': ival(col('AR')[idx]),
                     'oH': num(col('B365H')[idx]), 'oD': num(col('B365D')[idx]), 'oA': num(col('B365A')[idx]),
                     'oO': num(col('B365>2.5')[idx]), 'oU': num(col('B365<2.5')[idx]),
-                    'hst': ival(col('HST')[idx]), 'ast': ival(col('AST')[idx]),
+                    'hst': ival(col('HST')[idx]), 'ast': ival(col('AST')[idx]), 'hsh': ival(col('HS')[idx]), 'ash': ival(col('AS')[idx]),
+                    'hfo': ival(col('HF')[idx]), 'afo': ival(col('AF')[idx]),
                     'ref': ref_name(col('Referee')[idx])})
     return out
 
@@ -176,6 +178,8 @@ def update_football():
     rows = {(r['d'], r['h'], r['a']): r for r in fb_rows_from_json(prev)} if prev else {}
     cur = season_start()
     seasons = range(SINCE.year, cur + 1) if FULL or not prev else ([cur - 1, cur] if TODAY.month in (7, 8) else [cur])
+    if prev and not FULL and not any(r.get('hsh') is not None for r in rows.values() if r['d'] < day(dt.date(cur, 7, 1))):
+        seasons = range(cur - 2, cur + 1)   # una sola vez: tiros y faltas de las temporadas anteriores (para ajustar sus modelos)
     got = 0
     for y in seasons:
         code = f'{y % 100:02d}{(y + 1) % 100:02d}'
@@ -1048,6 +1052,11 @@ def euroleague_games(code, prev_rows):
             if g.get('played') and hs is not None and as_ is not None:
                 d = day(ko.astimezone(madrid).date())
                 rows[(d, h, a)] = {'d': d, 'h': h, 'a': a, 'hp': int(hs), 'ap': int(as_), 'ou': None}; got += 1
+                pl, pr = (g[s].get('partials') or {} for s in ('local', 'road'))
+                q = [[ival(pl.get(f'partials{i}')), ival(pr.get(f'partials{i}'))] for i in range(1, 5)]
+                if all(v is not None for p_ in q for v in p_):
+                    ot = len([k for k, v in (pl.get('extraPeriods') or {}).items() if v is not None]) if isinstance(pl.get('extraPeriods'), dict) else 0
+                    BK_PERIODS[f"{'euroliga' if code == 'E' else 'eurocup'}|{ko.date().isoformat()}|{h}|{a}"] = {'q': q, 'ot': ot}
             elif not g.get('played') and ko > NOW - dt.timedelta(hours=3):
                 fixtures.append({'kickoff': ko.isoformat().replace('+00:00', 'Z'), 'h': h, 'a': a})
     return rows, fixtures, got, ok
@@ -1357,6 +1366,74 @@ def update_player_photos(limit=40):
     print(f"fotos de tenistas: {sum(1 for v in cache.values() if v.get('img'))} con foto, {len(pend)} buscadas")
 
 
+ESPN_SOCCER = {'SP1': 'esp.1', 'SP2': 'esp.2', 'E0': 'eng.1', 'E1': 'eng.2', 'I1': 'ita.1', 'I2': 'ita.2', 'D1': 'ger.1', 'D2': 'ger.2', 'F1': 'fra.1', 'F2': 'fra.2',
+               'N1': 'ned.1', 'P1': 'por.1', 'SC0': 'sco.1', 'SC1': 'sco.2', 'B1': 'bel.1', 'T1': 'tur.1', 'G1': 'gre.1'}
+def espn_minute(c):
+    m = re.match(r"(\d+)", str((c or {}).get('displayValue') or ''))
+    return int(m.group(1)) if m else (round(float((c or {}).get('value') or 0) / 60) or None)
+def update_soccer_espn():
+    """Detalle de los partidos de liga terminados (ESPN, sin clave): primer gol (equipo y minuto), goleadores y fueras de juego. Cada 3 horas."""
+    if not daily_once('fbEspn', 3):
+        return
+    store = load('soccer_events.json') or {}
+    back = 3 if store else 21   # la primera vez, tres semanas hacia atrás
+    got = 0
+    for div, slug in ESPN_SOCCER.items():
+        for k in range(back, -1, -1):
+            date = TODAY - dt.timedelta(days=k)
+            try:
+                js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard?dates={date:%Y%m%d}'))
+            except Exception as e:
+                warn(f'ESPN fútbol {slug} {date}: {e}'); break
+            for ev in js.get('events', []):
+                c = (ev.get('competitions') or [{}])[0]
+                if not ((c.get('status') or {}).get('type') or {}).get('completed'): continue
+                cs = {x.get('homeAway'): x for x in c.get('competitors', [])}
+                if 'home' not in cs or 'away' not in cs: continue
+                tid = {cs[s].get('id') or (cs[s].get('team') or {}).get('id'): s for s in ('home', 'away')}
+                st = lambda s, name: next((ival(x.get('displayValue')) for x in cs[s].get('statistics') or [] if x.get('name') == name), None)
+                goals = []
+                for d_ in c.get('details') or []:
+                    if not d_.get('scoringPlay'): continue
+                    side = tid.get((d_.get('team') or {}).get('id'))
+                    who = [(a.get('displayName') or '') for a in d_.get('athletesInvolved') or []]
+                    goals.append({'min': espn_minute(d_.get('clock')), 'side': 'H' if side == 'home' else 'A' if side == 'away' else None, 'p': who[0] if who else '', 'og': bool(d_.get('ownGoal')), 'pen': bool(d_.get('penaltyKick'))})
+                goals.sort(key=lambda g: g['min'] or 999)
+                h, a = ((cs[s].get('team') or {}).get('displayName', '') for s in ('home', 'away'))
+                store[f"{div}|{c.get('date', ev.get('date', ''))[:10]}|{h}|{a}"] = {'div': div, 'date': (c.get('date') or ev.get('date', ''))[:10], 'h': h, 'a': a,
+                    'hg': ival(cs['home'].get('score')), 'ag': ival(cs['away'].get('score')), 'goals': goals, 'offH': st('home', 'offsides'), 'offA': st('away', 'offsides')}
+                got += 1
+    cut = (TODAY - dt.timedelta(days=500)).isoformat()
+    save('soccer_events.json', {k: v for k, v in store.items() if v.get('date', '') >= cut})
+    print(f'ESPN fútbol: {got} partidos con detalle ({len(store)} guardados)')
+
+
+def update_basket_periods():
+    """Resultados por cuartos (y prórroga) de la NBA (ESPN). La Euroliga y la EuroCup los añade euroleague_games. Cada 3 horas."""
+    if not daily_once('bkQ', 3):
+        return
+    store = load('basket_periods.json') or {}
+    back = 3 if any(k.startswith('nba|') for k in store) else 21
+    for k in range(back, -1, -1):
+        date = TODAY - dt.timedelta(days=k)
+        try:
+            js = json.loads(get(f'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date:%Y%m%d}'))
+        except Exception as e:
+            warn(f'ESPN NBA {date}: {e}'); break
+        for ev in js.get('events', []):
+            c = (ev.get('competitions') or [{}])[0]
+            if not ((c.get('status') or {}).get('type') or {}).get('completed'): continue
+            cs = {x.get('homeAway'): x for x in c.get('competitors', [])}
+            if 'home' not in cs or 'away' not in cs: continue
+            q = [[ival(x.get('value')), ival(y.get('value'))] for x, y in zip(cs['home'].get('linescores') or [], cs['away'].get('linescores') or [])]
+            if len(q) < 4 or any(v is None for p in q for v in p): continue
+            h, a = ((cs[s].get('team') or {}).get('displayName', '') for s in ('home', 'away'))
+            store[f"nba|{(c.get('date') or '')[:10]}|{h}|{a}"] = {'q': q[:4], 'ot': len(q) - 4}
+    store.update(BK_PERIODS)
+    save('basket_periods.json', store)
+    print(f'cuartos de baloncesto: {len(store)} partidos')
+
+
 # ============================== PRINCIPAL ==============================
 def main():
     old = load('fixtures.json') or {}
@@ -1374,6 +1451,11 @@ def main():
     for fn in (update_injuries, update_referees, update_fpl, update_sportsgambler):
         try:
             fn(fixtures['football'], FB_ROWS)
+        except Exception as e:
+            warn(f'{fn.__name__}: {e}')
+    for fn in (update_soccer_espn, update_basket_periods):
+        try:
+            fn()
         except Exception as e:
             warn(f'{fn.__name__}: {e}')
     try:

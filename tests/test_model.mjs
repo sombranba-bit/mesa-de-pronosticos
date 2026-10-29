@@ -126,7 +126,20 @@ ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor c
     { s: 'tenis', r: { hp: 2, ap: 0, games: 20, gdiff: 6 }, m: { 'tot>21.5': 300, 'tot>22.5': 450, 'tot>23.5': 600, 'ss=2-0': 550, 'ss=2-1': 250 } }]);
   const f = k => A.futbol.find(x => x.k === k), tn = k => A.tenis.find(x => x.k === k);
   ok(f('tot>2.5').hits === 1 && f('tot>3.5').hits === 1 && f('cs=').hits === 1 && f('cs=').l === 'Marcador exacto (el más probable)' && tn('tot>0').hits === 1 && tn('tot>-1').hits === 1 && tn('ss=').hits === 1, 'agregado: acierto por mercado y líneas relativas en tenis');
-  const old = P2.evaluate({ sport: 'nba', pick: { code: 'A', p: 0.6 }, result: { hp: 90, ap: 100 } }); ok(Object.keys(old).length === 2, 'evaluación principal sin cambios'); }
+  const old = P2.evaluate({ sport: 'nba', pick: { code: 'A', p: 0.6 }, result: { hp: 90, ap: 100 } }); ok(Object.keys(old).length === 2, 'evaluación principal sin cambios');
+  // ESPN: primer gol, fueras de juego y goleadores (el gol en propia puerta se corrige si no cuadra con el marcador)
+  const rec = { div: 'SP1', date: '2026-10-25', h: 'Real Madrid', a: 'FC Barcelona', hg: 2, ag: 1, offH: 3, offA: 1,
+    goals: [{ min: 12, side: 'A', p: 'Lewandowski', og: false }, { min: 40, side: 'A', p: 'Araujo', og: true }, { min: 70, side: 'H', p: 'Mbappé', og: false }] };
+  const er = P2.espnResult(rec, 'Mbappé', 'Yamal');
+  ok(er.fg === '2' && er.fgm === 12 && er.offH === 3 && er.tsh === 1 && er.tsa === 0, `ESPN: primer gol y goleadores (${JSON.stringify(er)})`);
+  ok(Object.keys(P2.espnResult({ ...rec, hg: 5 })).length === 0, 'ESPN: si los goles no cuadran con el marcador, no se usa');
+  const Ff = { divs: ['SP1'], teams: ['Real Madrid', 'Barcelona'], date: [Math.floor(Date.parse('2026-10-25') / 864e5)], div: [0], h: [0], a: [1] };
+  const ix = P2.espnIndex(Ff, { k: rec });
+  ok(ix.find('SP1', Ff.date[0], 'Real Madrid', 'Barcelona') === rec && ix.off('SP1', 'Real Madrid') === null, 'ESPN: enlace de nombres y mínimo de partidos');
+  const Vf = MKm.values('futbol', { hg: 1, ag: 0, hsh: 12, ash: 9, hst: 5, ast: 2, hfo: 10, afo: 14, fg: '1', fgm: 33, offH: 2, offA: 1, tsh: 1 });
+  ok(Vf.sst === 21 && Vf.sor === '1' && Vf.fo1 === '2' && Vf.fgm === 33 && Vf.off === 3 && Vf.tsh === 1, 'fútbol: tiros, faltas, primer gol y fueras de juego');
+  const Fm = MKm.footballMarkets({ G: M.poisGrid(1.4, 1.1), GSS: M.poisGrid(13, 10, 40), GFO: M.poisGrid(11, 12, 35) }, {}, { offH: 2, offA: 1.5, tsH: { name: 'X', rate: 0.5 } });
+  ok(Fm['fg=1'] > Fm['fg=2'] && Fm['fgm>15'] > Fm['fgm>45'] && Fm['sst>22.5'] > 0 && Fm['off>3.5'] > 0 && Math.abs(Fm['tsh>0.5'] - 393) <= 1, 'fútbol: mercados de tiros, primer gol, fueras de juego y goleador'); }
 ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
 ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
 ok(P2.keepBest({ pick: { code: 'H' }, best: { odds: 1.7 } }, { pick: { code: 'H' }, best: { odds: 1.5 } }).best.odds === 1.7, 'la cuota nueva manda sobre la vieja');

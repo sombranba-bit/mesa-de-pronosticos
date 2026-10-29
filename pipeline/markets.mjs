@@ -26,7 +26,7 @@ const FB_LINES = { tot: range(0.5, 5.5), home: range(0.5, 3.5), away: range(0.5,
   ...Object.fromEntries(['wtnH', 'wtnA', 'btts', 'bttsO', 'bttsU', 'hO', 'aO', 'dO', 'hU', 'aU', 'dU', 'hBtts', 'aBtts', 'odd'].map(k => [k, [0.5]])) };
 const marg1 = g => { const n = g.length, h = new Array(n).fill(0), a = new Array(n).fill(0); g.forEach((r, x) => r.forEach((v, y) => { h[x] += v; a[y] += v; })); return [h, a]; };
 const over = (d, l) => d.reduce((s, v, k) => s + (k > l ? v : 0), 0);
-export function footballMarkets(P, s = P.summary || {}) {
+export function footballMarkets(P, s = P.summary || {}, ext = {}) {
   const out = {}, put = (c, p) => { if (p > 0.0005 && p < 0.9995) out[c] = Math.round(p * 1000); };
   const g = P.G.g;
   for (const [t, ls] of Object.entries(FB_LINES)) for (const l of ls) put(`${t}>${l}`, gridP(g, (x, y) => FB[t](x, y) > l));
@@ -46,6 +46,23 @@ export function footballMarkets(P, s = P.summary || {}) {
     for (const r of ['1', 'X', '2']) put(`cor=${r}`, gridP(P.GC.g, (x, y) => sgn(x, y) === r)); }
   if (P.GK) { const [h, a] = marg1(P.GK.g); for (const l of range(0.5, 4.5)) { put(`cah>${l}`, over(h, l)); put(`caa>${l}`, over(a, l)); }
     for (const r of ['1', 'X', '2']) put(`car=${r}`, gridP(P.GK.g, (x, y) => sgn(x, y) === r)); }
+  // tiros, tiros a puerta y faltas (tablas propias, mismo modelo que los córners)
+  for (const [G, tt, th, ta, tr, lt, lh] of [[P.GSS, 'sst', 'ssh', 'ssa', 'ssr', range(16.5, 32.5, 2), range(6.5, 18.5, 2)], [P.GSO, 'sot', 'soh', 'soa', 'sor', range(4.5, 12.5), range(1.5, 6.5)],
+    [P.GFO, 'fot', 'foh', 'foa', 'fo1', range(16.5, 30.5, 2), range(7.5, 15.5, 2)]]) {
+    if (!G) continue;
+    for (const l of lt) put(`${tt}>${l}`, gridP(G.g, (x, y) => x + y > l));
+    const [h, a] = marg1(G.g); for (const l of lh) { put(`${th}>${l}`, over(h, l)); put(`${ta}>${l}`, over(a, l)); }
+    for (const r of ['1', 'X', '2']) put(`${tr}=${r}`, gridP(G.g, (x, y) => sgn(x, y) === r));
+  }
+  // primer gol: quién y cuándo (goles como procesos de Poisson a ritmo constante)
+  const lam = P.G.lam, mu = P.G.mu, p00 = g[0][0];
+  if (lam > 0 && mu > 0) { put('fg=1', (1 - p00) * lam / (lam + mu)); put('fg=2', (1 - p00) * mu / (lam + mu)); put('fg=none', p00);
+    for (const m of [15, 30, 45, 60]) put(`fgm>${m}`, Math.exp(-(lam + mu) * m / 90)); }
+  // fueras de juego (media de cada equipo en sus últimos partidos, ESPN) y el máximo goleador de cada equipo
+  if (ext.offH != null && ext.offA != null) { const ps = (m, l) => { let c = 0, pk = Math.exp(-m); for (let k = 0; k <= l; k++) { c += pk; pk *= m / (k + 1); } return 1 - c; };
+    for (const l of range(1.5, 6.5)) put(`off>${l}`, ps(ext.offH + ext.offA, l)); for (const l of range(0.5, 3.5)) { put(`offh>${l}`, ps(ext.offH, l)); put(`offa>${l}`, ps(ext.offA, l)); } }
+  if (ext.tsH) put('tsh>0.5', 1 - Math.exp(-ext.tsH.rate));
+  if (ext.tsA) put('tsa>0.5', 1 - Math.exp(-ext.tsA.rate));
   return out;
 }
 
@@ -59,6 +76,13 @@ export function basketMarkets(P, sd) {
   const cdf = x => M.normCdf((x - margin) / sd.margin);   // margen de victoria por tramos de 5 puntos (sin empates: la prórroga los deshace)
   const edges = [[-Infinity, -20.5, 'V5'], [-20.5, -15.5, 'V4'], [-15.5, -10.5, 'V3'], [-10.5, -5.5, 'V2'], [-5.5, 0, 'V1'], [0, 5.5, 'L1'], [5.5, 10.5, 'L2'], [10.5, 15.5, 'L3'], [15.5, 20.5, 'L4'], [20.5, Infinity, 'L5']];
   for (const [a, b, k] of edges) put(`wm=${k}`, cdf(b) - cdf(a));
+  const res3 = (m, s) => { const lo = M.normCdf((-0.5 - m) / s), hi = M.normCdf((0.5 - m) / s); return { 1: 1 - hi, X: hi - lo, 2: lo }; };
+  for (const [ks, f] of [[['q1', 'q2', 'q3', 'q4'], 4], [['h1', 'h2'], 2]]) for (const q of ks) {   // cuartos y mitades: la parte proporcional, con su dispersión
+    const mm = margin / f, sm = sd.margin / Math.sqrt(f), tt = total / f, st = sd.total / Math.sqrt(f);
+    for (const k of range(-4, 4, 2)) put(`${q}t>${half(tt) + k}`, up(tt, st, half(tt) + k));
+    for (const [r, p] of Object.entries(res3(mm, sm))) put(`${q}r=${r}`, p);
+  }
+  put('ot>0.5', M.normCdf((0.5 - margin) / sd.margin) - M.normCdf((-0.5 - margin) / sd.margin));
   return out;
 }
 
@@ -92,6 +116,13 @@ export function values(sport, r) {
     if (r.cards != null) V.ca = r.cards;
     if (r.ch != null) Object.assign(V, { coh: r.ch, coa: r.cA, cor: sgn(r.ch, r.cA) });
     if (r.kh != null) Object.assign(V, { cah: r.kh, caa: r.ka, car: sgn(r.kh, r.ka) });
+    if (r.hsh != null) Object.assign(V, { sst: r.hsh + r.ash, ssh: r.hsh, ssa: r.ash, ssr: sgn(r.hsh, r.ash) });
+    if (r.hst != null) Object.assign(V, { sot: r.hst + r.ast, soh: r.hst, soa: r.ast, sor: sgn(r.hst, r.ast) });
+    if (r.hfo != null) Object.assign(V, { fot: r.hfo + r.afo, foh: r.hfo, foa: r.afo, fo1: sgn(r.hfo, r.afo) });
+    if (r.fg != null) Object.assign(V, { fg: r.fg, fgm: r.fgm });
+    if (r.offH != null) Object.assign(V, { off: r.offH + r.offA, offh: r.offH, offa: r.offA });
+    if (r.tsh != null) V.tsh = r.tsh;
+    if (r.tsa != null) V.tsa = r.tsa;
     return V;
   }
   if (sport === 'tenis') {
@@ -100,7 +131,12 @@ export function values(sport, r) {
     if (r.s1s) Object.assign(V, { s1s: r.s1s, s1g: r.s1s.split('-').reduce((a, b) => +a + +b, 0), tb1: +(r.s1s === '7-6' || r.s1s === '6-7') });
     return V;
   }
-  const d = r.hp - r.ap; return { tot: r.hp + r.ap, home: r.hp, away: r.ap, marg: d, wm: band(d, 5, 5).replace('X', d >= 0 ? 'L1' : 'V1') };
+  const d = r.hp - r.ap, V = { tot: r.hp + r.ap, home: r.hp, away: r.ap, marg: d, wm: band(d, 5, 5).replace('X', d >= 0 ? 'L1' : 'V1') };
+  if (r.q && r.q.length === 4) { const s = p => p[0] + p[1];
+    r.q.forEach((p, i) => { V[`q${i + 1}t`] = s(p); V[`q${i + 1}r`] = sgn(p[0], p[1]); });
+    const h1 = [r.q[0][0] + r.q[1][0], r.q[0][1] + r.q[1][1]], h2 = [r.q[2][0] + r.q[3][0], r.q[2][1] + r.q[3][1]];
+    Object.assign(V, { h1t: s(h1), h1r: sgn(...h1), h2t: s(h2), h2r: sgn(...h2), ot: r.ot || 0 }); }
+  return V;
 }
 
 // ---------- nombres ----------
@@ -112,13 +148,19 @@ const LB = {
     hBtts: 'Gana el local y ambos marcan', aBtts: 'Gana el visitante y ambos marcan', odd: 'Goles totales impares',
     htt: 'Goles en la 1ª parte', hth: 'Marca el local en la 1ª parte', hta: 'Marca el visitante en la 1ª parte', sht: 'Goles en la 2ª parte', shh: 'Marca el local en la 2ª parte', sha: 'Marca el visitante en la 2ª parte',
     co: 'Córners', coh: 'Córners del local', coa: 'Córners del visitante', ca: 'Tarjetas', cah: 'Tarjetas del local', caa: 'Tarjetas del visitante',
+    sst: 'Tiros', ssh: 'Tiros del local', ssa: 'Tiros del visitante', sot: 'Tiros a puerta', soh: 'Tiros a puerta del local', soa: 'Tiros a puerta del visitante',
+    fot: 'Faltas', foh: 'Faltas del local', foa: 'Faltas del visitante', ssr: 'Más tiros (1X2)', sor: 'Más tiros a puerta (1X2)', fo1: 'Más faltas (1X2)',
+    fg: 'Primer gol (local, visitante o ninguno)', fgm: 'Minuto del primer gol', off: 'Fueras de juego', offh: 'Fueras de juego del local', offa: 'Fueras de juego del visitante',
+    tsh: 'Marca el máximo goleador del local', tsa: 'Marca el máximo goleador del visitante',
     cs: 'Marcador exacto', wm: 'Margen de victoria', r: '1X2', htr: '1X2 al descanso', shr: '1X2 de la 2ª parte', half: 'Parte con más goles', hf: 'Descanso/final', cor: 'Más córners (1X2)', car: 'Más tarjetas (1X2)' },
   tenis: { s1: 'Jugador A gana el 1er set', tb: 'Hay tie-break', tb1: 'Tie-break en el 1er set', s1g: 'Juegos del 1er set', sets: 'Número de sets', marg: 'Hándicap de sets (A − B)',
     sa: 'Jugador A gana al menos un set', sb: 'Jugador B gana al menos un set', tot: 'Juegos totales (respecto a la línea justa)', gm: 'Hándicap de juegos (respecto a la línea justa)',
     ga: 'Juegos del jugador A (respecto a la línea justa)', gb: 'Juegos del jugador B (respecto a la línea justa)', ss: 'Resultado exacto en sets', s1s: 'Resultado exacto del 1er set' },
-  basket: { marg: 'Hándicap (respecto a la línea justa)', tot: 'Puntos totales (respecto a la línea justa)', home: 'Puntos del local (respecto a la línea justa)', away: 'Puntos del visitante (respecto a la línea justa)', wm: 'Margen de victoria (tramos de 5)' } };
-const BIN1 = new Set(['abs', 'wtnH', 'wtnA', 'btts', 'bttsO', 'bttsU', 'hO', 'aO', 'dO', 'hU', 'aU', 'dU', 'hBtts', 'aBtts', 'odd', 'hth', 'hta', 'shh', 'sha', 's1', 'tb', 'tb1', 'sa', 'sb']);
-const REL = new Set(['tot', 'gm', 'ga', 'gb', 'marg', 'home', 'away']);   // en tenis y baloncesto la línea es relativa a la justa de cada partido
+  basket: { marg: 'Hándicap (respecto a la línea justa)', tot: 'Puntos totales (respecto a la línea justa)', home: 'Puntos del local (respecto a la línea justa)', away: 'Puntos del visitante (respecto a la línea justa)', wm: 'Margen de victoria (tramos de 5)',
+    q1t: 'Puntos del 1er cuarto', q2t: 'Puntos del 2º cuarto', q3t: 'Puntos del 3er cuarto', q4t: 'Puntos del 4º cuarto', h1t: 'Puntos de la 1ª mitad', h2t: 'Puntos de la 2ª mitad',
+    q1r: 'Ganador del 1er cuarto', q2r: 'Ganador del 2º cuarto', q3r: 'Ganador del 3er cuarto', q4r: 'Ganador del 4º cuarto', h1r: 'Ganador de la 1ª mitad', h2r: 'Ganador de la 2ª mitad', ot: 'Hay prórroga' } };
+const BIN1 = new Set(['tsh', 'tsa', 'ot', 'abs', 'wtnH', 'wtnA', 'btts', 'bttsO', 'bttsU', 'hO', 'aO', 'dO', 'hU', 'aU', 'dU', 'hBtts', 'aBtts', 'odd', 'hth', 'hta', 'shh', 'sha', 's1', 'tb', 'tb1', 'sa', 'sb']);
+const REL = new Set(['tot', 'gm', 'ga', 'gb', 'marg', 'home', 'away', 'q1t', 'q2t', 'q3t', 'q4t', 'h1t', 'h2t']);   // en tenis y baloncesto la línea es relativa a la justa de cada partido
 // Clave de agrupación: en tenis y baloncesto las líneas cambian de un partido a otro, así que se agrupan por distancia a la línea justa
 export function groupKey(sport, code, lines) {
   const [, t, op, v] = /^([A-Za-z0-9]+)([>=])(.*)$/.exec(code);

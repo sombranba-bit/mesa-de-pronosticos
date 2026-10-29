@@ -13,7 +13,7 @@ const read = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, 'utf8
 const write = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + '.tmp', JSON.stringify(o)); fs.renameSync(f + '.tmp', f); };
 const NOW = Date.now(), TODAY = Math.floor(NOW / 864e5);
 const COUNTRY = { SP1: 'ES', SP2: 'ES', SP3: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
-const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg', 'hst', 'ast', 'il', 'im'];
+const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg', 'hst', 'ast', 'il', 'im', 'hsh', 'ash', 'hfo', 'afo'];
 const usDay = ms => Math.round(Date.parse(new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(ms)) + 'T00:00:00Z') / 864e5);
 const madridDate = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms));   // AAAA-MM-DD
 // «Jornada» de apuestas: de 6:00 a 6:00 (hora de Madrid). Los partidos de NBA de madrugada cuentan para la noche anterior,
@@ -85,7 +85,7 @@ export function whyBasket(m, T) {
   return out.slice(0, 3);
 }
 const r4 = x => Math.round(x * 1e4) / 1e4;
-export function predictAll(F, B, fixtures, injuries = {}) {
+export function predictAll(F, B, fixtures, injuries = {}, X = {}) {
   const matches = [], skipped = [];
   // ---------- fútbol ----------
   if (F) {
@@ -101,7 +101,10 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
       const s = P.summary, pick = M.footballPick(s, f.h, f.a), m = { id: `futbol|${f.league}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: f.league, leagueName: names[f.league],
         kickoff: f.kickoff, home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, corners: s.corners, cards: s.cards,
-        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, mx: MK.footballMarkets(P), pick, ...(f.noTime ? { noTime: true } : {}) };
+        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, pick, ...(f.noTime ? { noTime: true } : {}) };
+      const tH = X.espn?.top(f.league, f.h), tA = X.espn?.top(f.league, f.a);
+      m.mx = MK.footballMarkets(P, s, { offH: X.espn?.off(f.league, f.h), offA: X.espn?.off(f.league, f.a), tsH: tH, tsA: tA });
+      if (tH) m.tsH = tH.name; if (tA) m.tsA = tA.name;
       if (f.ref) m.ref = f.ref;
       m.why = whyFootball(m, T, R.elo, { [f.h]: ih, [f.a]: ia });
       if (adj) { const b = M.footballPredict(sets[c], R.feat(f.h, f.a), f.h, f.a).summary; m.base = { H: b.H, D: b.D, A: b.A };
@@ -174,7 +177,38 @@ export function tennisResult(e, T) {
   }
   return null;
 }
-export function findResult(e, F, B, U, T) {
+// ESPN (fútbol): primer gol, goleadores y fueras de juego de cada partido de liga. Los nombres de ESPN se enlazan con los de football-data
+// a través de los propios resultados (misma liga, ±1 día y los dos equipos parecidos).
+export function espnIndex(F, SE) {
+  const recs = Object.values(SE || {}), byDay = new Map(), map = new Map();
+  if (F) for (let k = 0; k < F.date.length; k++) { const key = `${F.divs[F.div[k]]}|${F.date[k]}`; (byDay.get(key) || byDay.set(key, []).get(key)).push(k); }
+  const dayOf = s => Math.floor(Date.parse(s) / 864e5);
+  for (const r of recs) for (const d of [dayOf(r.date) - 1, dayOf(r.date), dayOf(r.date) + 1]) for (const k of byDay.get(`${r.div}|${d}`) || []) {
+    const h = F.teams[F.h[k]], a = F.teams[F.a[k]]; if (sameTeam(h, r.h) && sameTeam(a, r.a)) { map.set(`${r.div}|${h}`, r.h); map.set(`${r.div}|${a}`, r.a); }
+  }
+  const team = (div, t) => map.get(`${div}|${t}`);
+  const last = (div, t, n) => { const T = team(div, t); return T ? recs.filter(r => r.div === div && (r.h === T || r.a === T)).sort((x, y) => y.date.localeCompare(x.date)).slice(0, n).map(r => ({ r, home: r.h === T })) : []; };
+  return {
+    find: (div, d, h, a) => { const H = team(div, h), A = team(div, a); return H && A ? recs.find(r => r.div === div && r.h === H && r.a === A && Math.abs(dayOf(r.date) - d) <= 1) : null; },
+    off: (div, t) => { const L = last(div, t, 10).map(({ r, home }) => home ? r.offH : r.offA).filter(x => x != null); return L.length >= 5 ? L.reduce((s, x) => s + x, 0) / L.length : null; },
+    top: (div, t) => { const L = last(div, t, 15); if (L.length < 5) return null; const c = {};
+      for (const { r, home } of L) for (const g of r.goals || []) if (!g.og && g.p && g.side === (home ? 'H' : 'A')) c[g.p] = (c[g.p] || 0) + 1;
+      const b = Object.entries(c).sort((x, y) => y[1] - x[1])[0]; return b && b[1] >= 2 ? { name: b[0], rate: b[1] / L.length } : null; } };
+}
+// primer gol (equipo y minuto) y goleadores a partir del detalle de ESPN; si los goles no cuadran con el marcador, no se usa
+export function espnResult(rec, tsH, tsA) {
+  if (!rec || !rec.goals) return {};
+  const cnt = gs => [gs.filter(g => g.side === 'H').length, gs.filter(g => g.side === 'A').length];
+  let gs = rec.goals; const [h, a] = cnt(gs);
+  if (h !== rec.hg || a !== rec.ag) { const fl = gs.map(g => g.og ? { ...g, side: g.side === 'H' ? 'A' : 'H' } : g), [h2, a2] = cnt(fl); if (h2 !== rec.hg || a2 !== rec.ag) return {}; gs = fl; }
+  const out = { fg: gs.length ? (gs[0].side === 'H' ? '1' : '2') : 'none', fgm: gs.length ? gs[0].min ?? 999 : 999 };
+  if (rec.offH != null && rec.offA != null) Object.assign(out, { offH: rec.offH, offA: rec.offA });
+  const scored = side => new Set(gs.filter(g => g.side === side && !g.og).map(g => g.p));
+  if (tsH) out.tsh = +scored('H').has(tsH);
+  if (tsA) out.tsa = +scored('A').has(tsA);
+  return out;
+}
+export function findResult(e, F, B, U, T, X = {}) {
   if (e.sport === 'tenis') return tennisResult(e, T);
   const d0 = Math.floor(Date.parse(e.kickoff) / 864e5), v = (c, k) => (F[c] ? F[c][k] : null);
   if (e.league === 'UEFA') {   // resultados de Champions de football-data.org, con nombres de ClubElo
@@ -186,12 +220,15 @@ export function findResult(e, F, B, U, T) {
     for (let k = F.date.length - 1; k >= 0; k--) { const d = F.date[k]; if (d < d0 - 1) break;
       if (d <= d0 + 1 && F.teams[F.h[k]] === e.home && F.teams[F.a[k]] === e.away)
         return { hg: F.hg[k], ag: F.ag[k], ...(v('hth', k) != null ? { hth: v('hth', k), hta: v('hta', k) } : {}),
-          ...(v('hc', k) != null ? { ch: v('hc', k), cA: v('ac', k) } : {}), ...(v('hy', k) != null ? { kh: v('hy', k) + (v('hr', k) || 0), ka: v('ay', k) + (v('ar', k) || 0) } : {}), corners: v('hc', k) != null ? v('hc', k) + v('ac', k) : null,
+          ...(v('hc', k) != null ? { ch: v('hc', k), cA: v('ac', k) } : {}), ...Object.fromEntries(['hsh', 'ash', 'hst', 'ast', 'hfo', 'afo'].filter(c => v(c, k) != null).map(c => [c, v(c, k)])),
+          ...(X.espn ? espnResult(X.espn.find(e.league, F.date[k], e.home, e.away), e.tsH, e.tsA) : {}), ...(v('hy', k) != null ? { kh: v('hy', k) + (v('hr', k) || 0), ka: v('ay', k) + (v('ar', k) || 0) } : {}), corners: v('hc', k) != null ? v('hc', k) + v('ac', k) : null,
           cards: v('hy', k) != null ? v('hy', k) + v('ay', k) + (v('hr', k) || 0) + (v('ar', k) || 0) : null }; }
   } else {
     const D = basketComps(B).find(([s]) => s === e.sport)?.[2]; if (!D) return null;
     for (let k = D.date.length - 1; k >= 0; k--) { const d = D.date[k]; if (d < d0 - 1) break;
-      if (d <= d0 + 1 && D.teams[D.h[k]] === e.home && D.teams[D.a[k]] === e.away) return { hp: D.hp[k], ap: D.ap[k] }; }
+      if (d <= d0 + 1 && D.teams[D.h[k]] === e.home && D.teams[D.a[k]] === e.away) {
+        const q = X.periods && Object.entries(X.periods).find(([key]) => { const [s, dd, h, a] = key.split('|'); return s === e.sport && Math.abs(Math.floor(Date.parse(dd) / 864e5) - d) <= 1 && sameTeam(h, e.home) && sameTeam(a, e.away); });
+        return { hp: D.hp[k], ap: D.ap[k], ...(q ? { q: q[1].q, ot: q[1].ot } : {}) }; } }
   }
   return null;
 }
@@ -626,7 +663,8 @@ async function main() {
   const B = { nba: read(path.join(DATA, 'nba.json')), euroliga: read(path.join(DATA, 'euroliga.json')), extra: read(path.join(DATA, 'basket_extra.json')) };
   const fixtures = read(path.join(DATA, 'fixtures.json'), {}), inj = read(path.join(DATA, 'injuries.json'), {}), cfg = read(path.join(ROOT, 'config.json'), {});
   const U = read(path.join(DATA, 'uefa.json'), { results: [] });
-  const { matches, skipped } = predictAll(F, B, fixtures, inj.teams || {});
+  const X = { espn: espnIndex(F, read(path.join(DATA, 'soccer_events.json'), {})), periods: read(path.join(DATA, 'basket_periods.json'), {}) };
+  const { matches, skipped } = predictAll(F, B, fixtures, inj.teams || {}, X);
   const Tn = read(path.join(DATA, 'tennis.json'));
   const tn = predictTennis(Tn, fixtures.tennis || []); matches.push(...tn);
   if ((fixtures.tennis || []).length) console.log(`tenis: ${tn.length} pronósticos de ${fixtures.tennis.length} partidos próximos (los demás, jugadores con pocos datos)`);
@@ -648,7 +686,7 @@ async function main() {
     if (e.eval) continue;
     const age = NOW - Date.parse(e.kickoff);
     if (age < 3 * 3600e3) continue;
-    const res = findResult(e, F, B, U, Tn);
+    const res = findResult(e, F, B, U, Tn, X);
     if (res) { e.result = res; e.eval = evaluate(e); if (e.mx) appendMarkets(e); delete e.mx; evaluated++; }
     else if (age > 14 * 864e5) delete hist[id];   // aplazado, europeo sin resultado o nunca publicado
   }
