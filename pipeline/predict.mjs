@@ -86,24 +86,50 @@ export function whyBasket(m, T) {
 // Mercados extra que solo se guardan para medir (no cambian la selección): [nombre, probabilidad de que ocurra, magnitud, línea].
 // Ocurre si la magnitud del resultado (goles totales, del local, diferencia…) supera la línea. Da variedad a la base de datos.
 const r4 = x => Math.round(x * 1e4) / 1e4, halfLine = x => { const r = Math.round(x * 2) / 2; return Number.isInteger(r) ? r + 0.5 : r; };
-export function footballMx(k) {
-  const pm = l => { let s = 0; for (const [m, p] of k.md) if (m > l) s += p; return s; };
-  return [['más/menos 1,5', k.over(1.5), 'tot', 1.5], ['más/menos 3,5', k.over(3.5), 'tot', 3.5],
-    ['doble oportunidad 1X / 2', k.H + k.D, 'marg', -0.5], ['doble oportunidad 1 / X2', k.H, 'marg', 0.5], ['doble oportunidad 12 / X', k.H + k.A, 'abs', 0.5],
-    ['marca el local', 1 - k.csA, 'home', 0.5], ['marca el visitante', 1 - k.csH, 'away', 0.5],
-    ['local más/menos 1,5 goles', k.overHome(1.5), 'home', 1.5], ['visitante más/menos 1,5 goles', k.overAway(1.5), 'away', 1.5],
-    ['hándicap ±1,5 del local', pm(1.5), 'marg', 1.5], ['hándicap ±1,5 del visitante', pm(-1.5), 'marg', -1.5]].map(([n, p, v, l]) => [n, r4(p), v, l]);
+// Fútbol: sucesos en función de los goles (x local, y visitante). La misma tabla calcula la probabilidad (sobre la tabla de marcadores) y el resultado.
+const FB_EV = { tot: (x, y) => x + y, home: x => x, away: (x, y) => y, marg: (x, y) => x - y, abs: (x, y) => Math.abs(x - y),
+  wtnH: (x, y) => +(x > y && y === 0), wtnA: (x, y) => +(y > x && x === 0), bttsO: (x, y) => +(x > 0 && y > 0 && x + y > 2.5), bttsU: (x, y) => +(x > 0 && y > 0 && x + y < 2.5),
+  hO: (x, y) => +(x > y && x + y > 2.5), aO: (x, y) => +(y > x && x + y > 2.5), hU: (x, y) => +(x > y && x + y < 2.5), dU: (x, y) => +(x === y && x + y < 2.5),
+  odd: (x, y) => (x + y) % 2, h1: (x, y) => +(x - y === 1), a1: (x, y) => +(y - x === 1), hBtts: (x, y) => +(x > y && y > 0), aBtts: (x, y) => +(y > x && x > 0) };
+const FB_MX = [['más/menos 0,5', 'tot', 0.5], ['más/menos 1,5', 'tot', 1.5], ['más/menos 3,5', 'tot', 3.5], ['más/menos 4,5', 'tot', 4.5],
+  ['doble oportunidad 1X / 2', 'marg', -0.5], ['doble oportunidad 1 / X2', 'marg', 0.5], ['doble oportunidad 12 / X', 'abs', 0.5],
+  ['marca el local', 'home', 0.5], ['marca el visitante', 'away', 0.5], ['local más/menos 1,5 goles', 'home', 1.5], ['visitante más/menos 1,5 goles', 'away', 1.5],
+  ['local más/menos 2,5 goles', 'home', 2.5], ['visitante más/menos 2,5 goles', 'away', 2.5],
+  ['hándicap ±1,5 del local', 'marg', 1.5], ['hándicap ±1,5 del visitante', 'marg', -1.5], ['hándicap ±2,5 del local', 'marg', 2.5], ['hándicap ±2,5 del visitante', 'marg', -2.5],
+  ['local gana sin encajar', 'wtnH', 0.5], ['visitante gana sin encajar', 'wtnA', 0.5], ['ambos marcan y más de 2,5', 'bttsO', 0.5], ['ambos marcan y menos de 2,5', 'bttsU', 0.5],
+  ['gana el local y más de 2,5', 'hO', 0.5], ['gana el visitante y más de 2,5', 'aO', 0.5], ['gana el local y menos de 2,5', 'hU', 0.5], ['empate y menos de 2,5', 'dU', 0.5],
+  ['gana el local y ambos marcan', 'hBtts', 0.5], ['gana el visitante y ambos marcan', 'aBtts', 0.5],
+  ['goles totales impares', 'odd', 0.5], ['local gana por 1 gol', 'h1', 0.5], ['visitante gana por 1 gol', 'a1', 0.5]];
+const gridP = (g, f) => { let s = 0; g.forEach((r, x) => r.forEach((v, y) => { if (f(x, y)) s += v; })); return s; };
+const fav = o => Object.entries(o).reduce((b, x) => x[1] > b[1] ? x : b);   // [resultado más probable, probabilidad]
+// Cada entrada: [nombre, prob., magnitud, línea] (ocurre si magnitud > línea) o [nombre, prob., magnitud, valor, 'eq'] (ocurre si magnitud === valor)
+export function footballMx(P, s = P.summary) {
+  const g = P.G.g, out = FB_MX.map(([n, v, l]) => [n, gridP(g, (x, y) => FB_EV[v](x, y) > l), v, l]);
+  if (s.corners) for (const l of [8.5, 10.5]) out.push([`córners más/menos ${String(l).replace('.', ',')}`, M.nbOver(s.corners, M.NB_SIZE.corners, l), 'co', l]);
+  if (s.cards) for (const l of [3.5, 5.5]) out.push([`tarjetas más/menos ${String(l).replace('.', ',')}`, M.nbOver(s.cards, M.NB_SIZE.cards, l), 'ca', l]);
+  if (P.GH) {   // descanso (con la tabla de la 1ª parte) y descanso/final
+    const h = P.GH.g, d1 = { 1: gridP(h, (x, y) => x > y), 0: gridP(h, (x, y) => x === y), '-1': gridP(h, (x, y) => x < y) }, [r1, p1] = fav(d1);
+    out.push(['1X2 al descanso', p1, 'htr', +r1, 'eq'], ['más/menos 0,5 al descanso', gridP(h, (x, y) => x + y > 0.5), 'htt', 0.5], ['más/menos 1,5 al descanso', gridP(h, (x, y) => x + y > 1.5), 'htt', 1.5]);
+    const m = M.htft(h, P.GS.g), L = ['1', 'X', '2'], hf = {}; m.forEach((r, i) => r.forEach((p, j) => hf[`${L[i]}/${L[j]}`] = p));
+    const [c, pc] = fav(hf); out.push(['descanso/final', pc, 'hf', c, 'eq']);
+  }
+  return out.map(([n, p, ...rest]) => [n, r4(p), ...rest]);
 }
-export function basketMx(P) {
-  const [, , sp, to, tt] = [null, ...P.groups];   // hándicap, totales y puntos de cada equipo a la línea justa del modelo (la fila central)
+export function basketMx(P, sd) {
+  const [, , sp, to, tt] = [null, ...P.groups], m = P.P.margin, tail = l => 1 - M.normCdf((l - m) / sd.margin);   // tail: P(margen local > l)
   return [['hándicap (línea justa)', sp.rows[2].p, 'marg', -P.line], ['puntos totales (línea justa)', to.rows[2].p, 'tot', P.total],
-    ['puntos del local (línea justa)', tt.rows[0].p, 'home', halfLine(P.P.ph)], ['puntos del visitante (línea justa)', tt.rows[2].p, 'away', halfLine(P.P.pa)]].map(([n, p, v, l]) => [n, r4(p), v, l]);
+    ['puntos totales (línea justa −6)', to.rows[0].p, 'tot', P.total - 6], ['puntos totales (línea justa +6)', to.rows[4].p, 'tot', P.total + 6],
+    ['puntos del local (línea justa)', tt.rows[0].p, 'home', halfLine(P.P.ph)], ['puntos del visitante (línea justa)', tt.rows[2].p, 'away', halfLine(P.P.pa)],
+    ['local gana por 11 o más', tail(10.5), 'marg', 10.5], ['visitante gana por 11 o más', 1 - tail(-10.5), 'marg2', 10.5], ['partido igualado (5 puntos o menos)', tail(-5.5) - tail(5.5), 'close', 0.5]].map(([n, p, ...r]) => [n, r4(p), ...r]);
 }
 export function tennisMx(p, bo, base) {
   const T = M.tennisFromProb(p, bo, base), X = M.tennisExtras(T.pa, T.pb, T.dist), P = f => M.sum(T.dist.filter(f).map(x => x.p));
-  const lg = halfLine(M.sum(T.dist.map(x => (x.ga + x.gb) * x.p))), ls = bo === 5 ? 3.5 : 2.5;
+  const lg = halfLine(M.sum(T.dist.map(x => (x.ga + x.gb) * x.p))), ld = halfLine(M.sum(T.dist.map(x => (x.ga - x.gb) * x.p))), ls = bo === 5 ? 3.5 : 2.5;
+  const ex = {}; for (const x of T.dist) ex[`${x.sa}-${x.sb}`] = (ex[`${x.sa}-${x.sb}`] || 0) + x.p; const [sc, psc] = fav(ex);
   return [['gana el 1er set', X.firstSetA, 's1', 0.5], ['hay tie-break', X.tieBreak, 'tb', 0.5], [`más/menos ${String(ls).replace('.', ',')} sets`, P(x => x.sa + x.sb > ls), 'sets', ls],
-    ['juegos totales (línea justa)', P(x => x.ga + x.gb > lg), 'tot', lg], ['hándicap ±1,5 sets', P(x => x.sa - x.sb > 1.5), 'marg', 1.5]].map(([n, q, v, l]) => [n, r4(q), v, l]);
+    ['juegos totales (línea justa)', P(x => x.ga + x.gb > lg), 'tot', lg], ['juegos totales (línea justa −3)', P(x => x.ga + x.gb > lg - 3), 'tot', lg - 3], ['juegos totales (línea justa +3)', P(x => x.ga + x.gb > lg + 3), 'tot', lg + 3],
+    ['hándicap de juegos (línea justa)', P(x => x.ga - x.gb > ld), 'gm', ld], ['hándicap ±1,5 sets', P(x => x.sa - x.sb > 1.5), 'marg', 1.5],
+    ['jugador A gana al menos un set', P(x => x.sa > 0), 'sa', 0.5], ['jugador B gana al menos un set', P(x => x.sb > 0), 'sb', 0.5], ['resultado exacto en sets', psc, 'ss', sc, 'eq']].map(([n, q, ...r]) => [n, r4(q), ...r]);
 }
 export function predictAll(F, B, fixtures, injuries = {}) {
   const matches = [], skipped = [];
@@ -121,7 +147,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
       const s = P.summary, pick = M.footballPick(s, f.h, f.a), m = { id: `futbol|${f.league}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: f.league, leagueName: names[f.league],
         kickoff: f.kickoff, home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, corners: s.corners, cards: s.cards,
-        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, scoreP: r4(s.score.p), mx: footballMx(P.k), pick, ...(f.noTime ? { noTime: true } : {}) };
+        co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, scoreP: r4(s.score.p), mx: footballMx(P), pick, ...(f.noTime ? { noTime: true } : {}) };
       if (f.ref) m.ref = f.ref;
       m.why = whyFootball(m, T, R.elo, { [f.h]: ih, [f.a]: ia });
       if (adj) { const b = M.footballPredict(sets[c], R.feat(f.h, f.a), f.h, f.a).summary; m.base = { H: b.H, D: b.D, A: b.A };
@@ -132,7 +158,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
     for (const f of fixtures.uefa || []) {
       const P = M.eloPredict(f.eh, f.ea, f.h, f.a), s = P.summary;
       matches.push({ id: `futbol|UEFA|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport: 'futbol', league: 'UEFA', leagueName: f.competition || 'Competiciones europeas', kickoff: f.kickoff, noTime: f.noTime !== false, ...(f.ref ? { ref: f.ref } : {}),
-        home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, score: `${s.score.x}-${s.score.y}`, scoreP: r4(s.score.p), mx: footballMx(P.k), pick: M.footballPick(s, f.h, f.a) });
+        home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, score: `${s.score.x}-${s.score.y}`, scoreP: r4(s.score.p), mx: footballMx(P), pick: M.footballPick(s, f.h, f.a) });
       const u = matches[matches.length - 1], c = u.pick.code;
       u.why = [c === 'H' || c === 'A' || c === 'D' ? `Elo de ClubElo: ${f.h} ${Math.round(f.eh)}, ${f.a} ${Math.round(f.ea)}${c === 'H' ? ' (y juega en casa)' : ''}` : null,
         `Goles esperados ${n1(s.lam)}–${n1(s.mu)}`].filter(Boolean);
@@ -149,7 +175,7 @@ export function predictAll(F, B, fixtures, injuries = {}) {
       const P = M.basketPredict(m, sd, f.h, f.a, undefined, undefined, fat.adj); if (!P) { skipped.push(`${f.h}-${f.a}`); continue; }
       const home = P.pw >= 0.5;
       matches.push({ id: `${sport}|${f.kickoff.slice(0, 10)}|${f.h}|${f.a}`, sport, league: sport, leagueName: name, kickoff: f.kickoff, home: f.h, away: f.a, ...(f.noTime ? { noTime: true } : {}),
-        pw: P.pw, ph: P.P.ph, pa: P.P.pa, margin: P.P.margin, total: P.P.total, mx: basketMx(P),
+        pw: P.pw, ph: P.P.ph, pa: P.P.pa, margin: P.P.margin, total: P.P.total, mx: basketMx(P, sd),
         fatigue: fat.home ? { adj: +fat.adj.toFixed(2), b2bH: fat.home.rest === 1, b2bA: fat.away.rest === 1, restH: fat.home.rest, restA: fat.away.rest } : null,
         pick: { market: 'Ganador', label: `Gana ${home ? f.h : f.a}`, p: Math.max(P.pw, 1 - P.pw), code: home ? 'H' : 'A' } });
       matches[matches.length - 1].why = whyBasket(matches[matches.length - 1], T);
@@ -186,15 +212,15 @@ export function tennisResult(e, T) {
   for (let k = T.date.length - 1; k >= 0 && T.date[k] >= d0 - 2; k--) {
     if (T.date[k] > d0 + 2 || !((T.w[k] === a && T.l[k] === b) || (T.w[k] === b && T.l[k] === a))) continue;
     if (!T.completed[k]) return null;   // retirada o walkover: las casas suelen anularlo; no cuenta
-    let ws = 0, ls = 0, g = 0, tb = 0, s1 = null; for (let i = 1; i <= 5; i++) { const W = T['W' + i][k], L = T['L' + i][k]; if (W == null || L == null) break;
-      if (W > L) ws++; else if (L > W) ls++; g += W + L; if (W + L === 13) tb = 1; if (i === 1) s1 = W > L; }
+    let ws = 0, ls = 0, g = 0, gd = 0, tb = 0, s1 = null; for (let i = 1; i <= 5; i++) { const W = T['W' + i][k], L = T['L' + i][k]; if (W == null || L == null) break;
+      if (W > L) ws++; else if (L > W) ls++; g += W + L; gd += W - L; if (W + L === 13) tb = 1; if (i === 1) s1 = W > L; }
     if (!ws) ws = 1;
-    const aw = T.w[k] === a, ex = g ? { games: g, tb, s1: s1 == null ? null : +(s1 === aw) } : {};   // s1: 1 si el jugador A ganó el primer set
+    const aw = T.w[k] === a, ex = g ? { games: g, gdiff: aw ? gd : -gd, tb, s1: s1 == null ? null : +(s1 === aw) } : {};   // s1: 1 si el jugador A ganó el primer set
     return aw ? { hp: ws, ap: ls, ...ex } : { hp: ls, ap: ws, ...ex };
   }
   return null;
 }
-function findResult(e, F, B, U, T) {
+export function findResult(e, F, B, U, T) {
   if (e.sport === 'tenis') return tennisResult(e, T);
   const d0 = Math.floor(Date.parse(e.kickoff) / 864e5), v = (c, k) => (F[c] ? F[c][k] : null);
   if (e.league === 'UEFA') {   // resultados de Champions de football-data.org, con nombres de ClubElo
@@ -205,7 +231,7 @@ function findResult(e, F, B, U, T) {
     if (!F) return null;
     for (let k = F.date.length - 1; k >= 0; k--) { const d = F.date[k]; if (d < d0 - 1) break;
       if (d <= d0 + 1 && F.teams[F.h[k]] === e.home && F.teams[F.a[k]] === e.away)
-        return { hg: F.hg[k], ag: F.ag[k], corners: v('hc', k) != null ? v('hc', k) + v('ac', k) : null,
+        return { hg: F.hg[k], ag: F.ag[k], ...(v('hth', k) != null ? { hth: v('hth', k), hta: v('hta', k) } : {}), corners: v('hc', k) != null ? v('hc', k) + v('ac', k) : null,
           cards: v('hy', k) != null ? v('hy', k) + v('ay', k) + (v('hr', k) || 0) + (v('ar', k) || 0) : null }; }
   } else {
     const D = basketComps(B).find(([s]) => s === e.sport)?.[2]; if (!D) return null;
@@ -239,9 +265,14 @@ export function evaluate(e) {
     ev.pick = ev.ganador;
     e.scoreText = `${r.hp}-${r.ap}`;
   }
-  const V = e.sport === 'futbol' ? { tot: r.hg + r.ag, home: r.hg, away: r.ag, marg: r.hg - r.ag, abs: Math.abs(r.hg - r.ag) }
-    : e.sport === 'tenis' ? { sets: r.hp + r.ap, marg: r.hp - r.ap, tot: r.games, s1: r.s1, tb: r.tb } : { tot: r.hp + r.ap, home: r.hp, away: r.ap, marg: r.hp - r.ap };
-  for (const [n, p, v, l] of e.mx || []) if (V[v] != null) ev[n] = side(p, V[v] > l);
+  let V;
+  if (e.sport === 'futbol') {
+    V = Object.fromEntries(Object.entries(FB_EV).map(([k, f]) => [k, f(r.hg, r.ag)]));
+    Object.assign(V, { co: r.corners, ca: r.cards });
+    if (r.hth != null) { const s = (x, y) => Math.sign(x - y), L = { 1: '1', 0: 'X', '-1': '2' }; Object.assign(V, { htr: s(r.hth, r.hta), htt: r.hth + r.hta, hf: `${L[s(r.hth, r.hta)]}/${L[s(r.hg, r.ag)]}` }); }
+  } else if (e.sport === 'tenis') V = { sets: r.hp + r.ap, marg: r.hp - r.ap, tot: r.games, gm: r.gdiff, s1: r.s1, tb: r.tb, sa: r.hp, sb: r.ap, ss: `${r.hp}-${r.ap}` };
+  else V = { tot: r.hp + r.ap, home: r.hp, away: r.ap, marg: r.hp - r.ap, marg2: r.ap - r.hp, close: +(Math.abs(r.hp - r.ap) <= 5) };
+  for (const [n, p, v, l, eq] of e.mx || []) if (V[v] != null) ev[n] = eq ? { p, hit: V[v] === l } : side(p, V[v] > l);
   return ev;
 }
 // Apuesta del día y selección: los pronósticos de más probabilidad del día (hora de Madrid), uno por partido y de cualquier deporte.

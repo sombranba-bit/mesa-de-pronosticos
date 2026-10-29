@@ -698,6 +698,7 @@ function simBlock(S) {
     ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[[I('shield') + 'segura', S.safe], [I('gem') + 'con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
 }
+const MAIN_MK = ['pronóstico principal', 'ganador', '1X2', '1X2 con bajas', '1X2 sin bajas', 'más/menos 2,5', 'ambos marcan', 'córners más/menos 9,5', 'tarjetas más/menos 4,5'];   // el resto, en Historial
 function acRender() {
   const out = $('acOut');
   if (!PF || !PF.sports) { out.innerHTML = '<p class="verdict">El seguimiento empieza cuando la mesa funciona desde GitHub: cada pronóstico se guarda antes del partido y se compara con el resultado. Para ver cómo habría acertado en el pasado, usa «Precisión histórica» en cada deporte.</p>'; return; }
@@ -709,7 +710,8 @@ function acRender() {
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
     html += `<section class="block"><h3 class="sect">${sportIcon(sp)} ${SPORT_NAME[sp] || sp} <span class="note">· ${s.n} partidos evaluados</span></h3>
-      <div class="stats">${Object.entries(s.markets).map(([k, v]) => statBox(v.n ? pct(v.hits / v.n, 0) : '—', `${k}${v.n ? ` · ${v.n}` : ''}`)).join('')}</div>
+      <div class="stats">${Object.entries(s.markets).filter(([k]) => MAIN_MK.includes(k)).map(([k, v]) => statBox(v.n ? pct(v.hits / v.n, 0) : '—', `${k}${v.n ? ` · ${v.n}` : ''}`)).join('')}</div>
+      ${Object.keys(s.markets).some(k => !MAIN_MK.includes(k)) ? `<p class="note">Y ${Object.keys(s.markets).filter(k => !MAIN_MK.includes(k)).length} mercados más (dobles oportunidades, hándicaps, descanso, sets, juegos…) en <a href="#" data-go="pronosticos:historial">Historial</a>.</p>` : ''}
       <h4 class="sub4">¿Se cumple lo que dice el modelo?</h4>${calibTable(s.preds || [])}</section>`;
   }
   if (PF.leagues && Object.keys(PF.leagues).length) {

@@ -119,7 +119,10 @@ ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor c
   ok(t['hay tie-break'].hit === false && t['gana el 1er set'].hit === false && t['juegos totales (línea justa)'].hit === true && t.ganador.hit, 'mercados extra de tenis');
   const old = P2.evaluate({ sport: 'nba', pick: { code: 'A', p: 0.6 }, result: { hp: 90, ap: 100 } });
   ok(Object.keys(old).length === 2, 'partidos antiguos sin mercados extra: igual que antes');
-  const mx = P2.tennisMx(0.7, 3, 0.62); ok(mx.length === 5 && mx.every(([, p]) => p > 0 && p < 1), 'tenis: probabilidades de mercados extra válidas'); }
+  const ht = P2.evaluate({ sport: 'futbol', H: 0.5, D: 0.3, A: 0.2, o25: 0.5, btts: 0.5, pick: { code: 'H', p: 0.5 }, result: { hg: 2, ag: 1, hth: 0, hta: 0 },
+    mx: [['1X2 al descanso', 0.42, 'htr', 0, 'eq'], ['descanso/final', 0.3, 'hf', 'X/1', 'eq'], ['gana el local y ambos marcan', 0.3, 'hBtts', 0.5], ['local gana por 1 gol', 0.2, 'h1', 0.5]] });
+  ok(ht['1X2 al descanso'].hit && ht['descanso/final'].hit && ht['gana el local y ambos marcan'].hit === false && ht['local gana por 1 gol'].hit === false, 'descanso y combinados de fútbol');
+  const mx = P2.tennisMx(0.7, 3, 0.62); ok(mx.length >= 10 && mx.every(([, p]) => p > 0 && p < 1), 'tenis: probabilidades de mercados extra válidas'); }
 ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
 ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
 ok(P2.keepBest({ pick: { code: 'H' }, best: { odds: 1.7 } }, { pick: { code: 'H' }, best: { odds: 1.5 } }).best.odds === 1.7, 'la cuota nueva manda sobre la vieja');

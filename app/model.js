@@ -451,10 +451,10 @@ const M = (() => {
     const k = footballMarkets(G);
     const out = footballGroups(G, k, h, a);
     const groups = out.groups, add = out.add;
-    let ht = null;
+    let ht = null, GH = null, GS = null;
     if (set.ht && set.sh) {
       const Gh = dcGrid(set.ht, h, a), Gs = dcGrid(set.sh, h, a);
-      if (Gh && Gs) {
+      if (Gh && Gs) { GH = Gh; GS = Gs;
         ht = footballMarkets(Gh);
         add('Descanso', [{ key: 'ht1', label: `1 · ${h}`, p: ht.H }, { key: 'htX', label: 'X · Empate', p: ht.D }, { key: 'ht2', label: `2 · ${a}`, p: ht.A },
           { key: 'hto0.5', label: 'Más de 0,5 goles en la 1ª parte', p: ht.over(0.5) }, { key: 'hto1.5', label: 'Más de 1,5 goles en la 1ª parte', p: ht.over(1.5) }]);
@@ -472,7 +472,7 @@ const M = (() => {
     const summary = { H: k.H, D: k.D, A: k.A, lam: k.lam, mu: k.mu, o25: k.over(2.5), btts: k.btts, score: k.scores[0],
       corners: corners ? corners.lam + corners.mu : null, cards: cards ? cards.lam + cards.mu : null,
       co95: corners ? nbOver(corners.lam + corners.mu, NB_SIZE.corners, 9.5) : null, ca45: cards ? nbOver(cards.lam + cards.mu, NB_SIZE.cards, 4.5) : null };
-    return { G, k, groups, summary };
+    return { G, k, groups, summary, GH, GS };
   }
   // Pronóstico principal: el resultado más probable entre 1X2, más/menos 2,5 y ambos marcan
   function footballPick(s, h, a) {
@@ -518,7 +518,7 @@ const M = (() => {
   }
 
   const BASE_SERVE = [[0.64, 0.61, 0.67, 0.65], [0.56, 0.54, 0.58, 0.57]];   // puntos ganados al saque: circuito (ATP, WTA) x superficie (pista, tierra, hierba, moqueta)
-  return { BASE_SERVE, nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
+  return { NB_SIZE, BASE_SERVE, nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
     NBA_SD, fitPts, ptsPredict, spreadProbs, totalProbs, runElo, eloProb, holdProb, tiebreakProb, setDist, matchDist, matchWin, tennisFromProb, bo3to5 };
 })();
 if (typeof module !== 'undefined') module.exports = M;
