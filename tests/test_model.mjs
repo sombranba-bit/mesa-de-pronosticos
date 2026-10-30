@@ -139,6 +139,12 @@ ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor c
   const Vf = MKm.values('futbol', { hg: 1, ag: 0, hsh: 12, ash: 9, hst: 5, ast: 2, hfo: 10, afo: 14, fg: '1', fgm: 33, offH: 2, offA: 1, tsh: 1 });
   ok(Vf.sst === 21 && Vf.sor === '1' && Vf.fo1 === '2' && Vf.fgm === 33 && Vf.off === 3 && Vf.tsh === 1, 'fútbol: tiros, faltas, primer gol y fueras de juego');
   const Fm = MKm.footballMarkets({ G: M.poisGrid(1.4, 1.1), GSS: M.poisGrid(13, 10, 40), GFO: M.poisGrid(11, 12, 35) }, {}, { offH: 2, offA: 1.5, tsH: { name: 'X', rate: 0.5 } });
+  const Fs = MKm.footballMarkets({ G: M.poisGrid(1.4, 1.1) }, {}, { stats: { pass: { mH: 480, mA: 400, sd: 80 }, sav: { mH: 3, mA: 4, sd: 1.5 }, pos: { mH: 55, mA: 48, sd: 6 } } });
+  ok(Math.abs(Fs['passt>880.5'] - 500) < 10 && Fs['passr=1'] > 700 && Fs['savh>3.5'] < 500 && Fs['posh>50.5'] > 600, 'fútbol: mercados de estadísticas de ESPN');
+  const Vs = MKm.values('futbol', { hg: 1, ag: 1, st: { H: { pass: 500, sav: 2, pos: 61 }, A: { pass: 350, sav: 5, pos: 39 } } });
+  ok(Vs.passt === 850 && Vs.passr === '1' && Vs.sava === 5 && Vs.posh === 61, 'fútbol: magnitudes de las estadísticas de ESPN');
+  const As = MKm.aggregate([{ s: 'futbol', r: { hg: 1, ag: 1, st: { H: { pass: 500 }, A: { pass: 350 } } }, m: { 'passt>800.5': 700, 'passt>840.5': 520, 'passt>880.5': 400 } }]).futbol;
+  ok(As.find(x => x.k === 'passt>0') && As.find(x => x.k === 'passt>0').hits === 1 && As.find(x => x.k === 'passt>0').l.startsWith('Pases (total'), 'fútbol: estadísticas agrupadas por distancia a la línea justa');
   ok(Fm['fg=1'] > Fm['fg=2'] && Fm['fgm>15'] > Fm['fgm>45'] && Fm['sst>22.5'] > 0 && Fm['off>3.5'] > 0 && Math.abs(Fm['tsh>0.5'] - 393) <= 1, 'fútbol: mercados de tiros, primer gol, fueras de juego y goleador'); }
 ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
 ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
@@ -184,7 +190,7 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
 // bot de Telegram: resultados de la noche, avisos de valor, resumen semanal y comandos
 {
   const now = Date.now(), dayOf = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms - 6 * 3600e3));
-  const past = now - 26 * 3600e3, d0 = dayOf(past);
+  const d0 = dayOf(now - 30 * 3600e3), past = Date.parse(`${d0}T11:00:00Z`);   // mediodía de una jornada pasada: no depende de la hora a la que corra la prueba
   const e = (id, p, hit, k, extra = {}) => ({ id, sport: 'futbol', league: 'SP1', leagueName: 'España - LaLiga', kickoff: new Date(k).toISOString(), home: id + ' FC', away: 'Rival', pick: { p, code: 'H', label: `Gana ${id}` },
     ...(hit == null ? {} : { result: { hg: hit ? 2 : 0, ag: 1 }, eval: { pick: { p, hit: hit ? 1 : 0 } } }), ...extra });
   const H = { a: e('a', .8, 1, past), b: e('b', .7, 0, past + 3600e3), c: e('c', .66, null, past + 7200e3) };

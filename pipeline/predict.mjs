@@ -103,7 +103,10 @@ export function predictAll(F, B, fixtures, injuries = {}, X = {}) {
         kickoff: f.kickoff, home: f.h, away: f.a, H: s.H, D: s.D, A: s.A, o25: s.o25, btts: s.btts, lam: s.lam, mu: s.mu, corners: s.corners, cards: s.cards,
         co95: s.co95, ca45: s.ca45, score: `${s.score.x}-${s.score.y}`, pick, ...(f.noTime ? { noTime: true } : {}) };
       const tH = X.espn?.top(f.league, f.h), tA = X.espn?.top(f.league, f.a);
-      m.mx = MK.footballMarkets(P, s, { offH: X.espn?.off(f.league, f.h), offA: X.espn?.off(f.league, f.a), tsH: tH, tsA: tA });
+      const stats = {};
+      for (const k of Object.keys(MK.STAT_STEP)) { const a = X.espn?.stat(f.league, f.h, k), b = X.espn?.stat(f.league, f.a, k), sd = X.espn?.sd?.[k];
+        if (a && b && sd) stats[k] = { mH: (a.for + b.against) / 2, mA: (b.for + a.against) / 2, sd: sd * 0.8 }; }   // 0,8: la media del equipo explica parte de la dispersión
+      m.mx = MK.footballMarkets(P, s, { offH: X.espn?.off(f.league, f.h), offA: X.espn?.off(f.league, f.a), tsH: tH, tsA: tA, stats });
       if (tH) m.tsH = tH.name; if (tA) m.tsA = tA.name;
       if (f.ref) m.ref = f.ref;
       m.why = whyFootball(m, T, R.elo, { [f.h]: ih, [f.a]: ia });
@@ -190,6 +193,11 @@ export function espnIndex(F, SE) {
   const last = (div, t, n) => { const T = team(div, t); return T ? recs.filter(r => r.div === div && (r.h === T || r.a === T)).sort((x, y) => y.date.localeCompare(x.date)).slice(0, n).map(r => ({ r, home: r.h === T })) : []; };
   return {
     find: (div, d, h, a) => { const H = team(div, h), A = team(div, a); return H && A ? recs.find(r => r.div === div && r.h === H && r.a === A && Math.abs(dayOf(r.date) - d) <= 1) : null; },
+    // estadísticas de ESPN (pases, entradas, paradas…): media a favor y en contra de cada equipo en sus últimos 10 partidos (5 como mínimo)
+    stat: (div, t, k) => { const L = last(div, t, 10).filter(({ r }) => r.st?.H?.[k] != null && r.st?.A?.[k] != null); if (L.length < 5) return null;
+      const avg = f => L.reduce((s, x) => s + f(x), 0) / L.length; return { for: avg(({ r, home }) => r.st[home ? 'H' : 'A'][k]), against: avg(({ r, home }) => r.st[home ? 'A' : 'H'][k]) }; },
+    sd: (() => { const o = {}; for (const r of recs) for (const s of ['H', 'A']) for (const [k, v] of Object.entries(r.st?.[s] || {})) (o[k] ||= []).push(v);
+      return Object.fromEntries(Object.entries(o).filter(([, v]) => v.length >= 30).map(([k, v]) => { const m = v.reduce((a, b) => a + b, 0) / v.length; return [k, Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length)]; })); })(),
     off: (div, t) => { const L = last(div, t, 10).map(({ r, home }) => home ? r.offH : r.offA).filter(x => x != null); return L.length >= 5 ? L.reduce((s, x) => s + x, 0) / L.length : null; },
     top: (div, t) => { const L = last(div, t, 15); if (L.length < 5) return null; const c = {};
       for (const { r, home } of L) for (const g of r.goals || []) if (!g.og && g.p && g.side === (home ? 'H' : 'A')) c[g.p] = (c[g.p] || 0) + 1;
@@ -203,6 +211,7 @@ export function espnResult(rec, tsH, tsA) {
   if (h !== rec.hg || a !== rec.ag) { const fl = gs.map(g => g.og ? { ...g, side: g.side === 'H' ? 'A' : 'H' } : g), [h2, a2] = cnt(fl); if (h2 !== rec.hg || a2 !== rec.ag) return {}; gs = fl; }
   const out = { fg: gs.length ? (gs[0].side === 'H' ? '1' : '2') : 'none', fgm: gs.length ? gs[0].min ?? 999 : 999 };
   if (rec.offH != null && rec.offA != null) Object.assign(out, { offH: rec.offH, offA: rec.offA });
+  if (rec.st) out.st = rec.st;
   const scored = side => new Set(gs.filter(g => g.side === side && !g.og).map(g => g.p));
   if (tsH) out.tsh = +scored('H').has(tsH);
   if (tsA) out.tsa = +scored('A').has(tsA);

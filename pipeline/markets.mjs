@@ -14,6 +14,8 @@ const sgn = (x, y) => x > y ? '1' : x === y ? 'X' : '2';
 const band = (d, step, top) => d === 0 ? 'X' : `${d > 0 ? 'L' : 'V'}${Math.min(Math.ceil(Math.abs(d) / step), top)}`;   // margen de victoria por tramos
 
 // ---------- fútbol ----------
+export const STAT_STEP = { pass: 40, apass: 40, tkl: 3, blk: 2, sav: 1, crs: 3, int: 3, clr: 5, lgb: 6, pos: 5 };   // separación entre líneas de cada estadística de ESPN
+const STAT_NAME = { pass: 'Pases', apass: 'Pases buenos', tkl: 'Entradas', blk: 'Tiros bloqueados', sav: 'Paradas', crs: 'Centros', int: 'Intercepciones', clr: 'Despejes', lgb: 'Balones largos' };
 const FB = {   // magnitudes a partir de los goles (x local, y visitante) para los mercados de goles
   tot: (x, y) => x + y, home: x => x, away: (x, y) => y, marg: (x, y) => x - y, abs: (x, y) => Math.abs(x - y),
   wtnH: (x, y) => +(x > y && y === 0), wtnA: (x, y) => +(y > x && x === 0), btts: (x, y) => +(x > 0 && y > 0),
@@ -61,6 +63,15 @@ export function footballMarkets(P, s = P.summary || {}, ext = {}) {
   // fueras de juego (media de cada equipo en sus últimos partidos, ESPN) y el máximo goleador de cada equipo
   if (ext.offH != null && ext.offA != null) { const ps = (m, l) => { let c = 0, pk = Math.exp(-m); for (let k = 0; k <= l; k++) { c += pk; pk *= m / (k + 1); } return 1 - c; };
     for (const l of range(1.5, 6.5)) put(`off>${l}`, ps(ext.offH + ext.offA, l)); for (const l of range(0.5, 3.5)) { put(`offh>${l}`, ps(ext.offH, l)); put(`offa>${l}`, ps(ext.offA, l)); } }
+  // estadísticas de ESPN con media de cada equipo y reparto normal: total y de cada equipo (líneas relativas a la justa) y quién tiene más
+  for (const [k, o] of Object.entries(ext.stats || {})) {
+    const up = (m, s, l) => 1 - M.normCdf((l - m) / s), st = STAT_STEP[k];
+    if (k === 'pos') { const mh = (o.mH + 100 - o.mA) / 2; for (const l of range(40.5, 60.5, 5)) put(`posh>${l}`, up(mh, o.sd, l)); continue; }
+    const mt = o.mH + o.mA, s2 = o.sd * Math.SQRT2;
+    for (const j of [-2, -1, 0, 1, 2]) put(`${k}t>${+(half(mt) + j * st).toFixed(1)}`, up(mt, s2, half(mt) + j * st));
+    for (const j of [-1, 0, 1]) { put(`${k}h>${+(half(o.mH) + j * st).toFixed(1)}`, up(o.mH, o.sd, half(o.mH) + j * st)); put(`${k}a>${+(half(o.mA) + j * st).toFixed(1)}`, up(o.mA, o.sd, half(o.mA) + j * st)); }
+    const d = o.mH - o.mA, lo = M.normCdf((-0.5 - d) / s2), hi = M.normCdf((0.5 - d) / s2); put(`${k}r=1`, 1 - hi); put(`${k}r=X`, hi - lo); put(`${k}r=2`, lo);
+  }
   if (ext.tsH) put('tsh>0.5', 1 - Math.exp(-ext.tsH.rate));
   if (ext.tsA) put('tsa>0.5', 1 - Math.exp(-ext.tsA.rate));
   return out;
@@ -121,6 +132,8 @@ export function values(sport, r) {
     if (r.hfo != null) Object.assign(V, { fot: r.hfo + r.afo, foh: r.hfo, foa: r.afo, fo1: sgn(r.hfo, r.afo) });
     if (r.fg != null) Object.assign(V, { fg: r.fg, fgm: r.fgm });
     if (r.offH != null) Object.assign(V, { off: r.offH + r.offA, offh: r.offH, offa: r.offA });
+    if (r.st) { for (const k of Object.keys(STAT_STEP)) { const h = r.st.H?.[k], a = r.st.A?.[k]; if (h == null || a == null) continue;
+      if (k === 'pos') V.posh = h; else Object.assign(V, { [`${k}t`]: h + a, [`${k}h`]: h, [`${k}a`]: a, [`${k}r`]: sgn(h, a) }); } }
     if (r.tsh != null) V.tsh = r.tsh;
     if (r.tsa != null) V.tsa = r.tsa;
     return V;
@@ -151,6 +164,8 @@ const LB = {
     sst: 'Tiros', ssh: 'Tiros del local', ssa: 'Tiros del visitante', sot: 'Tiros a puerta', soh: 'Tiros a puerta del local', soa: 'Tiros a puerta del visitante',
     fot: 'Faltas', foh: 'Faltas del local', foa: 'Faltas del visitante', ssr: 'Más tiros (1X2)', sor: 'Más tiros a puerta (1X2)', fo1: 'Más faltas (1X2)',
     fg: 'Primer gol (local, visitante o ninguno)', fgm: 'Minuto del primer gol', off: 'Fueras de juego', offh: 'Fueras de juego del local', offa: 'Fueras de juego del visitante',
+    ...Object.fromEntries(Object.entries(STAT_NAME).flatMap(([k, n]) => [[`${k}t`, `${n} (total, respecto a la línea justa)`], [`${k}h`, `${n} del local (respecto a la línea justa)`],
+      [`${k}a`, `${n} del visitante (respecto a la línea justa)`], [`${k}r`, `Más ${n.toLowerCase()} (1X2)`]])), posh: 'Posesión del local (%)',
     tsh: 'Marca el máximo goleador del local', tsa: 'Marca el máximo goleador del visitante',
     cs: 'Marcador exacto', wm: 'Margen de victoria', r: '1X2', htr: '1X2 al descanso', shr: '1X2 de la 2ª parte', half: 'Parte con más goles', hf: 'Descanso/final', cor: 'Más córners (1X2)', car: 'Más tarjetas (1X2)' },
   tenis: { s1: 'Jugador A gana el 1er set', tb: 'Hay tie-break', tb1: 'Tie-break en el 1er set', s1g: 'Juegos del 1er set', sets: 'Número de sets', marg: 'Hándicap de sets (A − B)',
@@ -160,19 +175,20 @@ const LB = {
     q1t: 'Puntos del 1er cuarto', q2t: 'Puntos del 2º cuarto', q3t: 'Puntos del 3er cuarto', q4t: 'Puntos del 4º cuarto', h1t: 'Puntos de la 1ª mitad', h2t: 'Puntos de la 2ª mitad',
     q1r: 'Ganador del 1er cuarto', q2r: 'Ganador del 2º cuarto', q3r: 'Ganador del 3er cuarto', q4r: 'Ganador del 4º cuarto', h1r: 'Ganador de la 1ª mitad', h2r: 'Ganador de la 2ª mitad', ot: 'Hay prórroga' } };
 const BIN1 = new Set(['tsh', 'tsa', 'ot', 'abs', 'wtnH', 'wtnA', 'btts', 'bttsO', 'bttsU', 'hO', 'aO', 'dO', 'hU', 'aU', 'dU', 'hBtts', 'aBtts', 'odd', 'hth', 'hta', 'shh', 'sha', 's1', 'tb', 'tb1', 'sa', 'sb']);
+const REL_FB = /^(pass|apass|tkl|blk|sav|crs|int|clr|lgb)[tha]$/;
 const REL = new Set(['tot', 'gm', 'ga', 'gb', 'marg', 'home', 'away', 'q1t', 'q2t', 'q3t', 'q4t', 'h1t', 'h2t']);   // en tenis y baloncesto la línea es relativa a la justa de cada partido
 // Clave de agrupación: en tenis y baloncesto las líneas cambian de un partido a otro, así que se agrupan por distancia a la línea justa
 export function groupKey(sport, code, lines) {
   const [, t, op, v] = /^([A-Za-z0-9]+)([>=])(.*)$/.exec(code);
   if (op === '=') return `${t}=`;
-  if (sport !== 'futbol' && REL.has(t) && lines && lines[t] != null && !(sport === 'tenis' && t === 'marg')) return `${t}>${+(+v - lines[t]).toFixed(1)}`;
+  if (((sport !== 'futbol' && REL.has(t) && !(sport === 'tenis' && t === 'marg')) || (sport === 'futbol' && REL_FB.test(t))) && lines && lines[t] != null) return `${t}>${+(+v - lines[t]).toFixed(1)}`;
   return code;
 }
 export function label(sport, key) {
   const L = LB[sport === 'futbol' || sport === 'tenis' ? sport : 'basket'], [, t, op, v] = /^([A-Za-z0-9]+)([>=])(.*)$/.exec(key), base = L[t] || t;
   if (op === '=') return `${base} (el más probable)`;
   if (BIN1.has(t)) return base;
-  if (sport !== 'futbol' && REL.has(t) && !(sport === 'tenis' && t === 'marg')) return `${base} ${+v > 0 ? '+' : +v < 0 ? '−' : '±'}${n(Math.abs(+v))}`;
+  if ((sport !== 'futbol' && REL.has(t) && !(sport === 'tenis' && t === 'marg')) || (sport === 'futbol' && REL_FB.test(t))) return `${base} ${+v > 0 ? '+' : +v < 0 ? '−' : '±'}${n(Math.abs(+v))}`;
   return `${base}: más/menos ${n(v)}`;
 }
 
