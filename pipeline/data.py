@@ -1480,10 +1480,6 @@ def main():
         except Exception as e:
             warn(f'{fn.__name__}: {e}')
     try:
-        update_player_photos()
-    except Exception as e:
-        warn(f'fotos de tenistas: {e}')
-    try:
         update_uefa_espn(fixtures)
     except Exception as e:
         warn(f'UEFA ESPN: {e}')
@@ -1507,6 +1503,10 @@ def main():
         update_tennis()
     except Exception as e:
         warn(f'tenis: {e}')
+    try:   # después del tenis: así ya están los nombres completos de los próximos partidos
+        update_player_photos()
+    except Exception as e:
+        warn(f'fotos de tenistas: {e}')
     # partidos de tenis de las próximas 48 h (de ESPN, guardados cada 3 horas)
     fixtures['tennis'] = [f for f in load('tennis_next.json') or [] if NOW - dt.timedelta(hours=3) < dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) <= NOW + dt.timedelta(hours=48)]
     save('fixtures.json', fixtures)
