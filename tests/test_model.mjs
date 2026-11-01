@@ -146,6 +146,22 @@ ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor c
   const As = MKm.aggregate([{ s: 'futbol', r: { hg: 1, ag: 1, st: { H: { pass: 500 }, A: { pass: 350 } } }, m: { 'passt>800.5': 700, 'passt>840.5': 520, 'passt>880.5': 400 } }]).futbol;
   ok(As.find(x => x.k === 'passt>0') && As.find(x => x.k === 'passt>0').hits === 1 && As.find(x => x.k === 'passt>0').l.startsWith('Pases (total'), 'fútbol: estadísticas agrupadas por distancia a la línea justa');
   ok(Fm['fg=1'] > Fm['fg=2'] && Fm['fgm>15'] > Fm['fgm>45'] && Fm['sst>22.5'] > 0 && Fm['off>3.5'] > 0 && Math.abs(Fm['tsh>0.5'] - 393) <= 1, 'fútbol: mercados de tiros, primer gol, fueras de juego y goleador'); }
+{ const now = Date.parse('2026-11-20T12:00:00Z'), e = (k, ev) => ({ kickoff: k, ...(ev ? { eval: { pick: { hit: true } } } : {}) });
+  const { active, months } = P2.splitHistory({ a: e('2026-10-01T18:00:00Z', 1), b: e('2026-11-18T18:00:00Z', 1), c: e('2026-09-30T18:00:00Z', 0), d: e('2026-11-25T18:00:00Z', 0) }, now);
+  ok(Object.keys(active).sort().join() === 'b,c,d' && Object.keys(months['2026-10']).join() === 'a' && Object.keys(months).length === 1, 'historial: resueltos de hace más de 10 días al archivo mensual'); }
+{ const MKc = await import('../pipeline/markets.mjs'), L = [];   // calibración por mercado: el modelo dice 35% y pasa el 55% -> se corrige al alza
+  for (let i = 0; i < 400; i++) L.push({ s: 'futbol', d: `2026-11-${String(3 + i % 25).padStart(2, '0')}`, r: { hg: i % 2 ? 3 : 1, ag: 0, corners: i % 20 < 11 ? 11 : 8 }, m: { 'co>9.5': 350, 'tot>2.5': 500 } });
+  const C = MKc.fitMarketCalib(L), k = C.futbol?.['co>9.5'];
+  ok(k && MKc.calibrate(0.35, k) > 0.48 && MKc.calibrate(0.35, k) < 0.62 && !C.futbol['tot>2.5'], `calibración por mercado (${JSON.stringify(k)})`);
+  const m = [{ sport: 'futbol', home: 'A', away: 'B', H: 0.4, D: 0.3, A: 0.3, o25: 0.35, btts: 0.5, co95: 0.35, pick: { code: 'H', p: 0.4 } }];
+  P2.applyCalib(m, {}, { futbol: { 'tot>2.5': { a: 0.8, c: 1 } } });
+  ok(m[0].o25 > 0.5 && m[0].raw.o25 === 0.35 && m[0].pick.code === 'O', 'calibración aplicada al más/menos 2,5 y al pronóstico principal'); }
+{ const r = P2.marketReport({ futbol: [{ l: 'Córners: más/menos 9,5', n: 180, hits: 83, exp: 117 }, { l: 'Goles: más/menos 1,5', n: 180, hits: 146, exp: 135 }, { l: 'Poco', n: 10, hits: 1, exp: 9 }] });
+  ok(r && r.join('\n').includes('Córners') && r.join('\n').includes('+6,1') && !r.join('\n').includes('Poco'), 'informe semanal de mercados'); }
+{ const mk = (i, p, hit, odds) => ({ sport: 'tenis', kickoff: new Date(Date.UTC(2026, 9, 1) + i * 36e5).toISOString(), pick: { p, code: 'H' }, best: { odds }, eval: { pick: { hit } } });
+  const D = []; for (let i = 0; i < 420; i++) D.push(mk(i, i % 2 ? 0.6 : 0.7, i % 4 !== 0, 1.5));
+  const R = P2.compareRules(D), a = R.find(x => x.name.startsWith('Más probable')), b = R.find(x => x.name.startsWith('Con cuota'));
+  ok(a.n === 210 && Math.abs(a.roi + 0.25) < 0.01 && !a.ok && b.ok && b.roi === 0.5 && R.length === 9, 'comparador de reglas'); }
 ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
 ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
 ok(P2.keepBest({ pick: { code: 'H' }, best: { odds: 1.7 } }, { pick: { code: 'H' }, best: { odds: 1.5 } }).best.odds === 1.7, 'la cuota nueva manda sobre la vieja');

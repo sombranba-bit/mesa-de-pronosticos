@@ -342,6 +342,7 @@ export function performance(hist) {
   const P = sim.picks;
   sim.ready = { need: SIM_N, have: P.withOdds, ok: P.withOdds >= SIM_N && P.roi >= 0 && P.hits / P.n >= P.pAvg - 0.03 };
   daily.sim = sim;
+  daily.rules = compareRules(done);
   // última cuota justa de Pinnacle vista antes de empezar cada partido (para el CLV del registro de apuestas) y resultado
   const closing = {};
   for (const e of Object.values(hist)) if (NOW - Date.parse(e.kickoff) < 120 * 864e5 && (e.fair || e.result))
@@ -369,6 +370,35 @@ function appendMarkets(e) { fs.mkdirSync(MK_DIR, { recursive: true }); fs.append
 function readMarkets(months = 13) {   // último año
   if (!fs.existsSync(MK_DIR)) return [];
   return fs.readdirSync(MK_DIR).filter(f => f.endsWith('.jsonl')).sort().slice(-months).flatMap(f => fs.readFileSync(path.join(MK_DIR, f), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)));
+}
+// Historial en dos partes para que el repositorio no crezca con cada ejecución: data/history.json (pendientes y últimos 10 días,
+// se reescribe cada hora) y data/historial/AAAA-MM.json (resueltos más antiguos, se tocan una vez al día).
+const ARCH_DIR = path.join(STATE, 'historial');
+export function readHistory(file) {
+  const h = {};
+  if (fs.existsSync(ARCH_DIR)) for (const f of fs.readdirSync(ARCH_DIR).filter(f => f.endsWith('.json')).sort()) Object.assign(h, read(path.join(ARCH_DIR, f), {}));
+  return Object.assign(h, read(file, {}));
+}
+export function splitHistory(hist, now = NOW) {
+  const active = {}, months = {};
+  for (const [id, e] of Object.entries(hist)) {
+    if (!e.eval || now - Date.parse(e.kickoff) < 10 * 864e5) active[id] = e;
+    else (months[madridDate(Date.parse(e.kickoff)).slice(0, 7)] ||= {})[id] = e;
+  }
+  return { active, months };
+}
+function writeHistory(file, hist) {
+  const st = read(path.join(STATE, 'state.json'), {}), today = madridDate(NOW);
+  if (st.histArch === today && fs.existsSync(ARCH_DIR)) {   // fuera del archivado diario: los ya archivados no se tocan
+    const archived = new Set(fs.readdirSync(ARCH_DIR).flatMap(f => Object.keys(read(path.join(ARCH_DIR, f), {}))));
+    write(file, Object.fromEntries(Object.entries(hist).filter(([id]) => !archived.has(id)))); return;
+  }
+  const { active, months } = splitHistory(hist);
+  fs.mkdirSync(ARCH_DIR, { recursive: true });
+  for (const f of fs.readdirSync(ARCH_DIR)) if (!months[f.replace('.json', '')]) fs.rmSync(path.join(ARCH_DIR, f));   // meses que ya salieron de los 400 días
+  for (const [m, o] of Object.entries(months)) write(path.join(ARCH_DIR, m + '.json'), o);
+  write(file, active);
+  write(path.join(STATE, 'state.json'), { ...read(path.join(STATE, 'state.json'), {}), histArch: today });
 }
 export function keepBest(m, old) {
   if (!m.best && old?.best && old.pick?.code === m.pick.code) m.best = old.best;
@@ -459,7 +489,7 @@ export function digest(matches, perf, day, cfg = {}, sel = null) {
     const C = (t, c, note) => c ? `<b>${t}</b> · acertarla ${pc(c.p)} · justa ${odds(c.fair)}${c.odds ? ` · mejores cuotas ${odds(c.odds)}` : ''}\n`
       + c.ids.map(id => sel.picks.concat([sel.bet]).find(e => e.id === id) || matches.find(m => m.id === id)).filter(Boolean)
         .map(e => `   • ${tag(e)} ${html(e.home)} – ${html(e.away)}: <b>${html(e.pick.label)}</b> ${pc(e.pick.p)}`).join('\n') : `<b>${t}</b>: ${note}`;
-    S.push(`${SEP}\n🎰 <b>COMBINADAS</b> <i>(máx. ${COMBO_MAX} partidos)</i>\n\n${C('🛡️ Segura', sel.combos.safe, 'hoy no hay 2 pronósticos del 65% o más')}\n\n${C('💎 Con valor', sel.combos.value, 'hoy no hay pronósticos con valor suficiente')}`);
+    S.push(`${SEP}\n🎰 <b>COMBINADAS</b> <i>(máx. ${COMBO_MAX} partidos)</i>\n\n${C('🛡️ Segura', sel.combos.safe, 'hoy no hay 2 pronósticos del 65% o más')}`);   // la de valor solo se mide en la web: en Telegram era ruido (0 de 4)
   }
   if (top.length) S.push(`${SEP}\n🔥 <b>MÁS CONFIANZA</b> <i>(${pc(topMin)} o más)</i>\n\n` + top.slice().sort((a, b) => b.pick.p - a.pick.p).slice(0, 10)
     .map(m => `${tag(m)} <code>${when(m)}</code> ${html(m.home)} – ${html(m.away)}\n    ${pickLine(m)}`).join('\n'));
@@ -504,7 +534,7 @@ export function nightResults(hist, day, porra = null) {
     S.push(`━━━━━━━━━━━━━━━━\n🧩 <b>SELECCIÓN</b> · ${ok} de ${fin} acertados${fin < sel.picks.length ? ` · ${sel.picks.length - fin} ⏳ pendientes` : ''}\n` + sel.picks.map(line).join('\n')); }
   const cLine = (t, c) => { if (!c) return null; const L = c.ids.map(id => byId[id]); const st = L.some(e => e?.eval && !e.eval.pick.hit) ? '❌ fallada' : L.every(e => e?.eval?.pick.hit) ? '✅ acertada' : '⏳ en juego';
     return `${t}: <b>${st}</b> · acertarla era un ${pc(c.p)}${c.odds ? ` · cuota ${odds2(c.odds)}` : ''}`; };
-  const cs = [cLine('🛡️ Segura', sel.combos.safe), cLine('💎 Con valor', sel.combos.value)].filter(Boolean);
+  const cs = [cLine('🛡️ Segura', sel.combos.safe)].filter(Boolean);
   if (cs.length) S.push(`━━━━━━━━━━━━━━━━\n🎰 <b>COMBINADAS</b>\n${cs.join('\n')}`);
   if (porra) { const t = porraText(porraTable(porra, hist, [day]), '🏆 <b>PORRA DE HOY</b>'); if (t) S.push(`━━━━━━━━━━━━━━━━\n${t}`); }
   const rk = betStreak(hist, day);
@@ -527,6 +557,32 @@ export function valueAlerts(matches, alerted = {}, now = NOW) {
 }
 
 // Resumen semanal (lunes): los 7 días anteriores
+// Lunes: los mercados que más se desvían de lo que espera el modelo (con 50 pronósticos o más), por deporte
+export function marketReport(agg, min = 50, top = 3) {
+  const SP = { futbol: '⚽ Fútbol', baloncesto: '🏀 Baloncesto', tenis: '🎾 Tenis' }, pp = x => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1).replace('.', ',')}`;
+  const line = x => `• ${html(x.l)}: <b>${Math.round(100 * x.hits / x.n)}%</b> (esperaba ${Math.round(100 * x.exp / x.n)}%, ${pp((x.hits - x.exp) / x.n)} pts · ${x.n})`;
+  const S = Object.entries(agg || {}).map(([sp, L]) => {
+    const ok = L.filter(x => x.n >= min).map(x => ({ ...x, d: (x.hits - x.exp) / x.n })).sort((a, b) => b.d - a.d);
+    if (ok.length < 2) return null;
+    return `${SP[sp] || sp}\n📈 <i>Mejor de lo esperado</i>\n${ok.slice(0, top).filter(x => x.d > 0).map(line).join('\n') || '• ninguno'}\n📉 <i>Peor de lo esperado</i>\n${ok.slice(-top).reverse().filter(x => x.d < 0).map(line).join('\n') || '• ninguno'}`;
+  }).filter(Boolean);
+  return S.length ? [`🔬 <b>INFORME DE MERCADOS</b>\n<i>Todos los pronósticos guardados, estén o no en la selección: acierto real frente a lo que esperaba el modelo</i>`, ...S.map(s => `━━━━━━━━━━━━━━━━\n${s}`)] : null;
+}
+// Comparador de reglas para la apuesta del día: misma vara (cuota real antes del partido) y dos mitades del periodo.
+// Una regla «cumple» con 200 pronósticos con cuota y beneficio en las dos mitades. No cambia nada solo: avisa.
+export const RULE_N = 200;
+const RULES = [['Más probable (65% o más)', e => e.pick.p >= SEL_MIN], ['Con cuota (55–69%)', e => e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX],
+  ['Con valor (2% o más sobre la justa y Pinnacle)', e => valueEdge(e) >= 0.02], ['Fútbol 65% o más', e => e.sport === 'futbol' && e.pick.p >= SEL_MIN],
+  ['Tenis 65% o más', e => e.sport === 'tenis' && e.pick.p >= SEL_MIN], ['Baloncesto 65% o más', e => !['futbol', 'tenis'].includes(e.sport) && e.pick.p >= SEL_MIN],
+  ['Fútbol con cuota (55–69%)', e => e.sport === 'futbol' && e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX], ['Tenis con cuota (55–69%)', e => e.sport === 'tenis' && e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX],
+  ['Baloncesto con cuota (55–69%)', e => !['futbol', 'tenis'].includes(e.sport) && e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX]];
+export function compareRules(done) {
+  const W = done.filter(e => e.best?.odds > 1 && e.eval?.pick), roi = L => L.length ? L.reduce((s, e) => s + (e.eval.pick.hit ? e.best.odds - 1 : -1), 0) / L.length : null;
+  return RULES.map(([name, f]) => {
+    const L = W.filter(f), h = Math.floor(L.length / 2), r1 = roi(L.slice(0, h)), r2 = roi(L.slice(h));
+    return { name, n: L.length, hits: L.filter(e => e.eval.pick.hit).length, roi: roi(L), r1, r2, ok: L.length >= RULE_N && r1 > 0 && r2 > 0 };
+  });
+}
 export function weeklySummary(hist, perf, now = NOW, porra = null) {
   const all = Object.values(hist), today = slateDay(now), days = [];
   for (let k = 7; k >= 1; k--) days.push(slateDay(now - k * 864e5));
@@ -541,7 +597,7 @@ export function weeklySummary(hist, perf, now = NOW, porra = null) {
   if (!pk[1] && !bet[1]) return null;
   const sm = perf?.daily?.sim, f = d => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(new Date(Date.parse(d + 'T12:00:00Z')));
   return [`📅 <b>RESUMEN SEMANAL</b>\n<i>${f(days[0])} – ${f(days[6])}</i>`,
-    `━━━━━━━━━━━━━━━━\n⭐ Apuesta del día: <b>${rateTxt(...bet)}</b>\n🧩 Selección: <b>${rateTxt(...pk)}</b>${pk[1] ? ` · el modelo esperaba ${pc(pSum / pk[1])}` : ''}\n🎰 Combinada segura: ${rateTxt(...safe)} · con valor: ${rateTxt(...val)}`
+    `━━━━━━━━━━━━━━━━\n⭐ Apuesta del día: <b>${rateTxt(...bet)}</b>\n🧩 Selección: <b>${rateTxt(...pk)}</b>${pk[1] ? ` · el modelo esperaba ${pc(pSum / pk[1])}` : ''}\n🎰 Combinada segura: ${rateTxt(...safe)}`
       + (nOdds ? `\n💰 Rendimiento a la mejor cuota: <b>${prof >= 0 ? '+' : ''}${(prof / nOdds * 100).toFixed(1).replace('.', ',')}%</b> en ${nOdds} pronósticos` : ''),
     (() => { const rk = betStreak(hist, days[6]); return rk.n >= 2 ? `${rk.hit ? '🔥' : '🧊'} Racha de la apuesta del día: ${rk.n} ${rk.hit ? 'aciertos' : 'fallos'} seguidos` : ''; })(),
     porra ? porraText(porraTable(porra, hist, days), '━━━━━━━━━━━━━━━━\n🏆 <b>CLASIFICACIÓN DE LA PORRA</b>') : '',
@@ -571,8 +627,14 @@ export function fitCalib(hist, now = NOW) {
   }
   return out;
 }
-export function applyCalib(matches, calib) {
+const FB_MAIN_CAL = [['o25', 'tot>2.5'], ['btts', 'btts>0.5'], ['co95', 'co>9.5'], ['ca45', 'ca>4.5']];
+export function applyCalib(matches, calib, mk = {}) {
   for (const m of matches) {
+    if (m.sport === 'futbol' && mk.futbol) {   // calibración semanal por mercado: más/menos 2,5, ambos marcan, córners y tarjetas
+      let ch = false;
+      for (const [f, k] of FB_MAIN_CAL) if (m[f] != null && mk.futbol[k]) { (m.raw ||= {})[f] = m[f]; m[f] = MK.calibrate(m[f], mk.futbol[k]); ch = true; }
+      if (ch) m.pick = M.footballPick(m, m.home, m.away);
+    }
     const c = calib?.[m.sport === 'tenis' ? 'tenis' : 'baloncesto']?.c;
     if (m.sport === 'futbol' || !c || c === 1 || m.pw == null) continue;
     m.pwRaw = m.pw;   // se guarda el original: el reajuste siguiente se calcula sobre él, no sobre el ya reajustado
@@ -678,14 +740,15 @@ async function main() {
   const tn = predictTennis(Tn, fixtures.tennis || []); matches.push(...tn);
   if ((fixtures.tennis || []).length) console.log(`tenis: ${tn.length} pronósticos de ${fixtures.tennis.length} partidos próximos (los demás, jugadores con pocos datos)`);
   const calibFile = path.join(STATE, 'calib.json'); let calib = read(calibFile, {});
-  applyCalib(matches, calib.sports);
+  applyCalib(matches, calib.sports, calib.markets);
   const nBest = attachBest(matches, read(path.join(DATA, 'odds.json'), {}));
   if (skipped.length) console.log(`AVISO: ${skipped.length} partidos sin datos suficientes (equipo nuevo o nombre distinto):`, skipped.slice(0, 10).join(', '));
   // historial: se guarda el último pronóstico antes del inicio
-  const histFile = path.join(STATE, 'history.json'), hist = read(histFile, {});
+  const histFile = path.join(STATE, 'history.json'), hist = readHistory(histFile);
   for (const m of matches) if (Date.parse(m.kickoff) > NOW) {
     // la pasada de cuotas de la tarde puede no traer este partido (cupo gastado): se conserva la mejor cuota ya vista si el pronóstico no ha cambiado
     keepBest(m, hist[m.id]); hist[m.id] = { ...m, savedAt: new Date(NOW).toISOString() };
+    if (Date.parse(m.kickoff) - NOW > 6 * 3600e3) delete hist[m.id].mx;   // los cientos de mercados solo se guardan en las últimas 6 h antes del partido (vale el último cálculo): el historial pesa mucho menos
   }
   // partidos futuros que ya no están en el calendario (aplazados, o nombres corregidos): fuera, para que no los elija la apuesta del día
   const live = new Set(matches.map(m => m.id));
@@ -701,13 +764,13 @@ async function main() {
   }
   for (const [id, e] of Object.entries(hist)) if (NOW - Date.parse(e.kickoff) > 400 * 864e5) delete hist[id];
   const perf = performance(hist);
-  write(histFile, hist);
+  writeHistory(histFile, hist);
   // reajuste semanal (lunes): se recalcula la calibración y se aplica desde la siguiente ejecución
   const wkKey = madridDate(NOW - ((new Date(NOW).getUTCDay() + 6) % 7) * 864e5);
-  if (calib.week !== wkKey) { calib = { week: wkKey, sports: fitCalib(hist) }; write(calibFile, calib); console.log('calibración semanal:', JSON.stringify(calib.sports)); }
+  if (calib.week !== wkKey) { calib = { week: wkKey, sports: fitCalib(hist), markets: MK.fitMarketCalib(readMarkets()) }; write(calibFile, calib); console.log('calibración semanal:', JSON.stringify(calib.sports), Object.fromEntries(Object.entries(calib.markets).map(([k, v]) => [k, Object.keys(v).length]))); }
   write(path.join(DATA, 'performance.json'), perf);
   write(path.join(DATA, 'historial.json'), { updated: new Date(NOW).toISOString(), ...historyRows(hist) });
-  write(path.join(DATA, 'mercados.json'), { updated: new Date(NOW).toISOString(), sports: MK.aggregate(readMarkets()) });
+  write(path.join(DATA, 'mercados.json'), { updated: new Date(NOW).toISOString(), sports: MK.aggregate(readMarkets()), calib: calib.markets || {} });
   const sel = dailyFor(Object.values(hist));
   const withHit = e => e.eval ? { ...e, hit: e.eval.pick.hit } : e;
   const byIdAll = Object.fromEntries(Object.values(hist).map(e => [e.id, e]));
@@ -739,11 +802,18 @@ async function main() {
     if (a && await telegram(a.text)) { for (const id of a.ids) st.alerted[id] = NOW; console.log(`avisos de valor: ${a.ids.length}`); }
     save();
   }
+  // comparador de reglas: aviso la primera vez que una cumple
+  for (const r of perf.daily?.rules || []) if (r.ok && !(st.rulesOk || []).includes(r.name)) {
+    if (await telegram([`🧪 <b>REGLA CANDIDATA</b>\n«${html(r.name)}» cumple: ${r.n} pronósticos con cuota real, rendimiento ${(r.roi * 100).toFixed(1).replace('.', ',')}% (primera mitad ${(r.r1 * 100).toFixed(1).replace('.', ',')}%, segunda ${(r.r2 * 100).toFixed(1).replace('.', ',')}%). La apuesta del día no cambia sola: revísalo en «Aciertos».`]))
+      { st.rulesOk = [...(st.rulesOk || []), r.name]; save(); }
+  }
   // resumen semanal (lunes desde las 9:00)
   const wk = madridDate(NOW - ((new Date(NOW).getUTCDay() + 6) % 7) * 864e5);
   if (tg.semanal !== false && new Date(NOW).getUTCDay() === 1 && hour >= 9 && st.lastWeekly !== wk) {
     const t = weeklySummary(hist, perf, NOW, porraOnTop ? st.porra : null);
     if (t && await telegram(t)) console.log('resumen semanal enviado');
+    const mr = marketReport(MK.aggregate(readMarkets()));
+    if (mr && await telegram(mr)) console.log('informe de mercados enviado');
     st.lastWeekly = wk; save();
   }
   // recordatorio de la apuesta del día (entre 30 y 90 minutos antes; el proceso va por horas)

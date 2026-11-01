@@ -36,3 +36,23 @@ O.requests.get = lambda url, **kw: calls.append(url) or Resp()
 O.btts_best('x', [('soccer_spain_la_liga', ev2)], out, O.NOW + dt.timedelta(hours=30), 400)
 assert len(calls) == 1 and out['best'][0]['BY'][:2] == [1.6, 'Codere'] and out['best'][0]['H'][0] == 2.15, out['best'][0]
 print('ok ambos marcan')
+
+# OddsPapi: tenis de la selección sin cuota -> mejor cuota y Pinnacle sin margen (orden de jugadores invertido)
+import os
+os.environ['ODDSPAPI_KEY'] = 'x'
+k2 = (O.NOW + dt.timedelta(hours=4)).isoformat().replace('+00:00', 'Z')
+(O.ROOT / 'docs' / 'data' / 'predictions.json').write_text(json.dumps({'daily': {'bet': {'id': 't1', 'sport': 'tenis', 'home': 'Alcaraz C.', 'away': 'Sinner J.', 'kickoff': k2, 'pick': {'code': 'H', 'p': 0.6}}, 'picks': []}}))
+fx = [{'fixtureId': 'f1', 'participant1Name': 'Jannik Sinner', 'participant2Name': 'Carlos Alcaraz', 'startTime': k2, 'tournamentName': 'Paris'}]
+od = {'bookmakerOdds': {'pinnacle': {'markets': {'121': {'outcomes': {'121': {'players': {'0': {'price': 1.80}}}, '122': {'players': {'0': {'price': 2.10}}}}}}},
+                        'bet365': {'markets': {'121': {'outcomes': {'121': {'players': {'0': {'price': 1.75}}}, '122': {'players': {'0': {'price': 2.20}}}}}}},
+                        'demo': {'markets': {'121': {'outcomes': {'121': {'players': {'0': {'price': 9.0}}}, '122': {'players': {'0': {'price': 9.0}}}}}}}}}
+class R2:
+    def __init__(s, js): s.js = js
+    def json(s): return s.js
+O.requests.get = lambda url, **kw: R2(fx if url.endswith('/fixtures') else od)
+out2, st2 = {'best': []}, {}
+assert O.papi_tennis(out2, st2) == 1, out2
+b = out2['best'][0]
+assert b['home'] == 'Jannik Sinner' and b['A'][:2] == [2.2, 'Bet365'] and b['H'][:2] == [1.8, 'Pinnacle'] and 1.8 < b['fair']['H'] < 1.9 and st2['papi'], b
+assert O.papi_tennis(out2, st2) == 0   # ya tiene cuota: no se vuelve a pedir
+print('ok OddsPapi tenis')

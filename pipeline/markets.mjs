@@ -217,3 +217,36 @@ export function aggregate(lines) {
     .sort((a, b) => b.n - a.n || a.l.localeCompare(b.l, 'es'));
   return out;
 }
+
+// ---------- calibración de cada mercado (semanal) ----------
+// p' = sg(a + c·logit(p)): a corrige un nivel desplazado (como los córners), c lo tajante. Se ajusta con el 75% más antiguo y solo se usa
+// si mejora el 25% más reciente. Las líneas anteriores a un cambio del modelo en ese mercado no cuentan (FROM).
+const FROM = { co: '2026-11-02', coh: '2026-11-02', coa: '2026-11-02', cor: '2026-11-02', sst: '2026-11-02', ssh: '2026-11-02', ssa: '2026-11-02', ssr: '2026-11-02',
+  sot: '2026-11-02', soh: '2026-11-02', soa: '2026-11-02', sor: '2026-11-02', fot: '2026-11-02', foh: '2026-11-02', foa: '2026-11-02', fo1: '2026-11-02' };
+const lg = p => Math.log(p / (1 - p)), sg = x => 1 / (1 + Math.exp(-x));
+const llAC = (P, a, c) => P.reduce((s, x) => { const q = Math.min(Math.max(sg(a + c * lg(x.p)), 1e-6), 1 - 1e-6); return s - Math.log(x.y ? q : 1 - q); }, 0) / P.length;
+export function fitMarketCalib(lines, min = 300, gainMin = 0.002) {
+  const G = {};
+  for (const ln of lines.slice().sort((x, y) => x.d.localeCompare(y.d))) {
+    const V = values(ln.s, ln.r), lines_ = {};
+    for (const code of Object.keys(ln.m)) { const [, t, op, v] = /^([A-Za-z0-9]+)([>=])(.*)$/.exec(code); if (op === '>') (lines_[t] ||= []).push(+v); }
+    for (const t of Object.keys(lines_)) { const ls = lines_[t].sort((a, b) => a - b); lines_[t] = ls[Math.floor(ls.length / 2)]; }
+    const sp = ln.s === 'futbol' || ln.s === 'tenis' ? ln.s : 'baloncesto';
+    for (const [code, pm] of Object.entries(ln.m)) {
+      const [, t, op, v] = /^([A-Za-z0-9]+)([>=])(.*)$/.exec(code);
+      if (op !== '>' || V[t] == null || (FROM[t] && ln.d < FROM[t])) continue;
+      ((G[sp] ||= {})[groupKey(ln.s, code, lines_)] ||= []).push({ p: Math.min(Math.max(pm / 1000, 0.001), 0.999), y: V[t] > +v });
+    }
+  }
+  const out = {};
+  for (const [sp, mk] of Object.entries(G)) for (const [k, P] of Object.entries(mk)) {
+    if (P.length < min) continue;
+    const cut = Math.floor(P.length * 0.75), tr = P.slice(0, cut), te = P.slice(cut);
+    let best = [0, 1], bl = llAC(tr, 0, 1);
+    for (let a = -0.6; a <= 0.6001; a += 0.05) for (let c = 0.6; c <= 1.4001; c += 0.05) { const l = llAC(tr, a, c); if (l < bl) { bl = l; best = [+a.toFixed(2), +c.toFixed(2)]; } }
+    const gain = llAC(te, 0, 1) - llAC(te, ...best);
+    if (gain >= gainMin) (out[sp] ||= {})[k] = { a: best[0], c: best[1], n: P.length, gain: +gain.toFixed(4) };
+  }
+  return out;
+}
+export const calibrate = (p, k) => k ? sg(k.a + k.c * lg(Math.min(Math.max(p, 1e-6), 1 - 1e-6))) : p;

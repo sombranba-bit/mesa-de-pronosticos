@@ -142,6 +142,61 @@ def btts_best(key, events, out, horizon, remaining):
     return remaining, used
 
 
+PAPI = 'https://api.oddspapi.io/v4'
+def papi_tennis(out, st, cap=6):
+    """Segunda fuente (OddsPapi, gratis 250 consultas/mes): mejor cuota y Pinnacle de los pronósticos de tenis de la selección del día
+    que The Odds API no cubre (torneos 250, Challenger…). Como mucho `cap` partidos al día + 1 consulta de calendario."""
+    key = os.environ.get('ODDSPAPI_KEY')
+    pred_p = ROOT / 'docs' / 'data' / 'predictions.json'
+    if not key or not pred_p.exists():
+        return 0
+    daily = json.loads(pred_p.read_text()).get('daily') or {}
+    sel = [daily.get('bet')] + (daily.get('picks') or []) + (daily.get('mid') or []) + [l for c in (daily.get('combos') or {}).values() if c for l in c.get('legs', [])]
+    have = lambda m: any(same_team(m['home'], b['home']) and same_team(m['away'], b['away']) or same_team(m['home'], b['away']) and same_team(m['away'], b['home']) for b in out['best'])
+    want = {m['id']: m for m in sel if m and m.get('sport') == 'tenis' and not m.get('best') and not have(m)
+            and NOW < dt.datetime.fromisoformat(m['kickoff'].replace('Z', '+00:00')) <= NOW + dt.timedelta(hours=30)}
+    day_ = NOW.date().isoformat(); used = st.get('papi', {}).get(day_, 0)
+    if not want or used >= cap:
+        return 0
+    try:
+        fx = requests.get(f'{PAPI}/fixtures', params={'apiKey': key, 'sportId': 12, 'from': day_, 'to': (NOW.date() + dt.timedelta(days=1)).isoformat()}, timeout=120).json()
+    except Exception as e:
+        print('AVISO OddsPapi:', e); return 0
+    got = 0
+    for m in list(want.values())[:cap - used]:
+        f = next((f for f in fx if isinstance(f, dict) and same_team(m['home'], f.get('participant1Name', '')) and same_team(m['away'], f.get('participant2Name', ''))
+                  or isinstance(f, dict) and same_team(m['home'], f.get('participant2Name', '')) and same_team(m['away'], f.get('participant1Name', ''))), None)
+        if not f:
+            continue
+        try:
+            bo = requests.get(f'{PAPI}/odds', params={'apiKey': key, 'fixtureId': f['fixtureId']}, timeout=120).json().get('bookmakerOdds') or {}
+        except Exception as e:
+            print('AVISO OddsPapi:', e); break
+        used += 1
+        prices = {'H': {}, 'A': {}}
+        for slug, b in bo.items():
+            if '+' in slug or slug == 'demo' or b.get('suspended') or b.get('bookmakerIsActive') is False:
+                continue
+            oc = ((b.get('markets') or {}).get('121') or {}).get('outcomes') or {}
+            for code, oid in (('H', '121'), ('A', '122')):
+                pl = ((oc.get(oid) or {}).get('players') or {}).get('0') or {}
+                if pl.get('active', True) and (pl.get('price') or 0) > 1.01:
+                    prices[code][slug] = float(pl['price'])
+        if not prices['H'] or not prices['A']:
+            continue
+        b_ = {'sport': f.get('tournamentName') or 'Tenis', 'home': f.get('participant1Name'), 'away': f.get('participant2Name'), 'kickoff': f.get('startTime'), 'src': 'oddspapi'}
+        for code in ('H', 'A'):
+            book, price = max(prices[code].items(), key=lambda x: x[1])
+            b_[code] = [round(price, 3), book.capitalize(), len(prices[code])]
+        if 'pinnacle' in prices['H'] and 'pinnacle' in prices['A']:
+            fp = fair([prices['H']['pinnacle'], prices['A']['pinnacle']]); b_['fair'] = {'H': round(1 / fp[0], 3), 'A': round(1 / fp[1], 3)}
+        out['best'].append(b_); got += 1
+    st.setdefault('papi', {})[day_] = used
+    st['papi'] = {k: v for k, v in st['papi'].items() if k >= (NOW.date() - dt.timedelta(days=40)).isoformat()}
+    print(f'OddsPapi: {got} partidos de tenis con cuota ({used} consultas hoy)')
+    return got
+
+
 def main():
     key = os.environ.get('ODDS_API_KEY')
     if not key:
@@ -197,6 +252,10 @@ def main():
     out = {'updated': NOW.isoformat().replace('+00:00', 'Z'), 'credits_left': remaining,
            'surebets': sorted(out['surebets'], key=lambda x: -x['profit'])[:40], 'value': sorted(out['value'], key=lambda x: -x['ev'])[:60],
            'anomalies': sorted(out['anomalies'], key=lambda x: -x['ratio'])[:40], 'best': out['best']}
+    try:
+        papi_tennis(out, st)
+    except Exception as e:
+        print('AVISO OddsPapi:', e)
     OUT.write_text(json.dumps(out, ensure_ascii=False))
     st['oddsSlot'] = slot; STATE.parent.mkdir(exist_ok=True); STATE.write_text(json.dumps(st))
     print(f"cuotas: {len(out['surebets'])} surebets, {len(out['value'])} con valor, {len(out['anomalies'])} anómalas · créditos restantes {remaining}")

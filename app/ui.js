@@ -679,6 +679,17 @@ async function openMatch(sport, league, h, a, ref) {
   window.scrollTo({ top: 0 });
 }
 // Simulación sin dinero: ¿la selección acierta lo que dice y ganaría a la mejor cuota?
+// Comparador de reglas para la apuesta del día (cuota real, dos mitades del periodo)
+function rulesBlock(R) {
+  if (!R || !R.length) return '';
+  const sg = x => x == null ? '—' : (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1), cls = x => x == null ? '' : x >= 0 ? 'pos' : 'neg';
+  return `<section class="block"><h3 class="sect">${I('scale')}Comparador de reglas</h3>
+    <p class="note">Cómo habría ido cada forma de elegir la apuesta, cobrando la mejor cuota real antes del partido, en todos los pronósticos guardados (no solo los 5 del día). El periodo se parte en dos mitades: una regla <b>cumple</b> con 200 pronósticos con cuota y beneficio en las dos. La apuesta del día no cambia sola; si una cumple, llega un aviso a Telegram.</p>
+    <div class="tablewrap"><table><thead><tr><th>Regla</th><th class="num">Con cuota</th><th class="num">Aciertos</th><th class="num">Rendimiento</th><th class="num">1ª mitad</th><th class="num">2ª mitad</th><th></th></tr></thead><tbody>
+    ${R.map(r => `<tr><td>${esc(r.name)}</td><td class="num">${r.n}</td><td class="num">${r.n ? pct(r.hits / r.n, 0) : '—'}</td><td class="num"><span class="chip ${cls(r.roi)}">${sg(r.roi)}</span></td>
+      <td class="num">${sg(r.r1)}</td><td class="num">${sg(r.r2)}</td><td>${r.ok ? '<span class="chip pos">Cumple</span>' : `<span class="note">${r.n < 200 ? `faltan ${200 - r.n}` : 'no cumple'}</span>`}</td></tr>`).join('')}
+    </tbody></table></div></section>`;
+}
 function simBlock(S) {
   if (!S) return '';
   const P = S.picks, B = S.bet, sgn = x => (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1);
@@ -705,7 +716,7 @@ function acRender() {
   const rateBox = (o, l) => statBox(o && o.n ? pct(o.hits / o.n, 0) : '—', `${l}${o && o.n ? ` · ${o.hits} de ${o.n}` : ' · aún sin datos'}`);
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
   const D = PF.daily;
-  html += simBlock(D && D.sim);
+  html += simBlock(D && D.sim) + rulesBlock(D && D.rules);
   html += `<section class="block"><h3 class="sect">${I('star')}Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
@@ -760,9 +771,9 @@ function hmRender() {
   const sp = $('hmSport').value, q = $('hmQ').value.trim().toLowerCase(), min = fnum($('hmMin').value) || 0;
   const L = (HM.sports[sp] || []).filter(x => x.n >= min && (!q || x.l.toLowerCase().includes(q)));
   const diff = x => (x.hits - x.exp) / x.n;
-  $('hmOut').innerHTML = L.length ? `<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Pronósticos</th><th class="num">Acierto</th><th class="num">Esperaba</th><th class="num">Diferencia</th></tr></thead><tbody>
+  $('hmOut').innerHTML = L.length ? `<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Pronósticos</th><th class="num">Acierto</th><th class="num">Esperaba</th><th class="num">Diferencia</th><th>Ajuste semanal</th></tr></thead><tbody>
     ${L.map(x => { const d = diff(x), c = x.n < 30 ? '' : d >= 0.03 ? 'pos' : d <= -0.03 ? 'neg' : 'warn';
-      return `<tr><td>${esc(x.l)}</td><td class="num">${x.n}</td><td class="num">${pct(x.hits / x.n, 0)}</td><td class="num">${pct(x.exp / x.n, 0)}</td><td class="num">${c ? `<span class="chip ${c}">` : ''}${d >= 0 ? '+' : '−'}${nf(Math.abs(d) * 100, 1)} pts${c ? '</span>' : ''}</td></tr>`; }).join('')}
+      return `<tr><td>${esc(x.l)}</td><td class="num">${x.n}</td><td class="num">${pct(x.hits / x.n, 0)}</td><td class="num">${pct(x.exp / x.n, 0)}</td><td class="num">${c ? `<span class="chip ${c}">` : ''}${d >= 0 ? '+' : '−'}${nf(Math.abs(d) * 100, 1)} pts${c ? '</span>' : ''}</td><td>${HM.calib?.[sp]?.[x.k] ? `<span class="chip warn" title="Se corrige cada lunes con los datos reales (mejora ${nf(HM.calib[sp][x.k].gain, 4)} de log-loss)">corregido</span>` : ''}</td></tr>`; }).join('')}
     </tbody></table></div><p class="note">${L.length} mercados. En verde, acierta 3 puntos o más de lo que esperaba; en rojo, 3 o más por debajo (con 30 pronósticos o más).</p>` : '<p class="note">Sin mercados con esos filtros.</p>';
 }
 async function hiInit() {

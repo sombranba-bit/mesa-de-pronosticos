@@ -163,7 +163,7 @@ const M = (() => {
     for (let k = 0; k <= Math.floor(L); k++) { cdf += pk; pk *= (k + r) / (k + 1) * (1 - p); } return 1 - cdf; }
   // Córners y tarjetas varían más de lo que supone Poisson. Tamaños ajustados en 17 ligas 2023-25, validados en 2025-26:
   // córners log-loss 0,7188 -> 0,6895; tarjetas 0,6353 -> 0,6344.
-  const NB_SIZE = { corners: 4.7, cards: 22.6 };
+  const NB_SIZE = { corners: 12, cards: 22.6 };
   // Más/menos 2,5 goles: el Dixon-Coles es demasiado tajante. logit(p') = 0,725·logit(p) + 0,092
   // (17 ligas, ajuste 2022-25, prueba 2025-26: 0,6890 -> 0,6845). Se ajusta la tabla de marcadores manteniendo el 1X2.
   const OU_CAL = [0.725, 0.092];
@@ -395,20 +395,26 @@ const M = (() => {
       fo: sub(has('hfo', 'afo'), r => ({ ...r, hg: r.hfo, ag: r.afo })),
     };
     set.caTrend = cardsTrend(set.ca, rows, ref);
+    set.coTrend = cardsTrend(set.co, rows, ref, sumOf('hc', 'ac'), 365); set.ssTrend = cardsTrend(set.ss, rows, ref, sumOf('hsh', 'ash'), 365);
+    set.soTrend = cardsTrend(set.so, rows, ref, sumOf('hst', 'ast'), 365); set.foTrend = cardsTrend(set.fo, rows, ref, sumOf('hfo', 'afo'), 365);
     set.mk = fitMarket(rows, ref);
     return set;
   }
   // Tendencia reciente de tarjetas de la liga (vida media 180 días, encogida con 40 tarjetas): corrige que el árbitraje
   // se endurezca o suavice por temporadas. Premier 2022-26: log-loss de más/menos tarjetas 0,6348 -> 0,6244.
   // El árbitro concreto se probó y no mejora (0,6238 -> 0,6245), por eso solo se muestra como información.
-  function cardsTrend(m, rows, ref) {
+  function cardsTrend(m, rows, ref, tot = r => r.hy == null || r.ay == null ? null : r.hy + r.ay + (r.hr || 0) + (r.ar || 0), hl = 180) {
     if (!m) return 1;
     let a = 40, e = 40;
-    for (const r of rows) { if (r.hy == null || r.ay == null || !m.ix.has(r.h) || !m.ix.has(r.a)) continue;
-      const i = m.ix.get(r.h), j = m.ix.get(r.a), w = Math.pow(0.5, (ref - r.d) / 180);
-      a += w * (r.hy + r.ay + (r.hr || 0) + (r.ar || 0)); e += w * (m.att[i] * m.def[j] * m.home + m.att[j] * m.def[i]); }
+    for (const r of rows) { const y = tot(r); if (y == null || !m.ix.has(r.h) || !m.ix.has(r.a)) continue;
+      const i = m.ix.get(r.h), j = m.ix.get(r.a), w = Math.pow(0.5, (ref - r.d) / hl);
+      a += w * y; e += w * (m.att[i] * m.def[j] * m.home + m.att[j] * m.def[i]); }
     return a / e;
   }
+  // El ajuste encoge ataque y defensa hacia 1 y, con medias altas (córners ~10, tiros ~25), se queda corto: se corrige el nivel con la
+  // relación real/esperado del último año (vida media 365 días). Córners, prueba en los últimos 120 días de 17 ligas (1.088 partidos):
+  // media 8,5 -> 9,6 (real 9,8); log-loss de más/menos 9,5 0,7330 -> 0,6913 con la dispersión reajustada (tamaño 4,7 -> 12).
+  const sumOf = (h, a) => r => r[h] == null || r[a] == null ? null : r[h] + r[a];
   // Mercados que salen de una tabla de marcadores (los usan el modelo de ligas y el europeo)
   function footballGroups(G, k, h, a) {
     const groups = [], add = (title, rows) => rows.length && groups.push({ title, rows });
@@ -468,7 +474,7 @@ const M = (() => {
       }
     }
     let corners = null, cards = null, GC = null, GK = null;
-    if (set.co) { const Gc = dcGrid(set.co, h, a, 26); if (Gc) { GC = Gc; corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
+    if (set.co) { const tc = set.coTrend || 1, Gc = dcGrid(set.co, h, a, 30, { h: tc, a: tc }); if (Gc) { GC = Gc; corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
       add('Córners', [7.5, 8.5, 9.5, 10.5, 11.5].flatMap(l => { const o = nbOver(mc, NB_SIZE.corners, l); return [{ key: 'co' + l, label: `Más de ${nfmt(l)} córners`, p: o }, { key: 'cu' + l, label: `Menos de ${nfmt(l)} córners`, p: 1 - o }]; })
         .concat([{ key: 'coH', label: `Más córners: ${h}`, p: corners.H }, { key: 'coX', label: 'Mismos córners', p: corners.D }, { key: 'coA', label: `Más córners: ${a}`, p: corners.A }])); } }
     if (set.ca) { const t = set.caTrend || 1, Gk = dcGrid(set.ca, h, a, 16, { h: t, a: t }); if (Gk) { GK = Gk; cards = footballMarkets(Gk); const mk = cards.lam + cards.mu;
@@ -476,7 +482,8 @@ const M = (() => {
     const summary = { H: k.H, D: k.D, A: k.A, lam: k.lam, mu: k.mu, o25: k.over(2.5), btts: k.btts, score: k.scores[0],
       corners: corners ? corners.lam + corners.mu : null, cards: cards ? cards.lam + cards.mu : null,
       co95: corners ? nbOver(corners.lam + corners.mu, NB_SIZE.corners, 9.5) : null, ca45: cards ? nbOver(cards.lam + cards.mu, NB_SIZE.cards, 4.5) : null };
-    const GSS = set.ss && dcGrid(set.ss, h, a, 45), GSO = set.so && dcGrid(set.so, h, a, 20), GFO = set.fo && dcGrid(set.fo, h, a, 35);
+    const lv = k => ({ h: set[k + 'Trend'] || 1, a: set[k + 'Trend'] || 1 });
+    const GSS = set.ss && dcGrid(set.ss, h, a, 50, lv('ss')), GSO = set.so && dcGrid(set.so, h, a, 22, lv('so')), GFO = set.fo && dcGrid(set.fo, h, a, 40, lv('fo'));
     return { G, k, groups, summary, GH, GS, GC, GK, GSS, GSO, GFO };
   }
   // Pronóstico principal: el resultado más probable entre 1X2, más/menos 2,5 y ambos marcan

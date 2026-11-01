@@ -842,6 +842,7 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
         <tr><td>Ratings de cuotas pasadas en el 1X2</td><td class="num">1,0105 → 1,0083</td><td><span class="chip pos">Usado</span></td></tr>
         <tr><td>Ratings de cuotas en más/menos 2,5</td><td class="num">0,6843 → 0,6806</td><td><span class="chip pos">Usado</span></td></tr>
         <tr><td>Córners con binomial negativa</td><td class="num">0,719 → 0,690</td><td><span class="chip pos">Usado</span></td></tr>
+        <tr><td>Nivel de córners corregido (se quedaba ~1,5 córners corto) y dispersión reajustada</td><td class="num">0,7330 → 0,6913</td><td><span class="chip pos">Usado</span></td></tr>
         <tr><td>Tendencia de tarjetas de cada liga (Premier)</td><td class="num">0,6348 → 0,6244</td><td><span class="chip pos">Usado</span></td></tr>
         <tr><td>Cansancio en la NBA</td><td class="num">0,6011 → 0,5996</td><td><span class="chip pos">Usado</span></td></tr>
         <tr><td>Tenis con cuotas pasadas</td><td class="num">0,6239 → 0,6172</td><td><span class="chip pos">Usado</span></td></tr>
@@ -1055,7 +1056,7 @@ const M = (() => {
     for (let k = 0; k <= Math.floor(L); k++) { cdf += pk; pk *= (k + r) / (k + 1) * (1 - p); } return 1 - cdf; }
   // Córners y tarjetas varían más de lo que supone Poisson. Tamaños ajustados en 17 ligas 2023-25, validados en 2025-26:
   // córners log-loss 0,7188 -> 0,6895; tarjetas 0,6353 -> 0,6344.
-  const NB_SIZE = { corners: 4.7, cards: 22.6 };
+  const NB_SIZE = { corners: 12, cards: 22.6 };
   // Más/menos 2,5 goles: el Dixon-Coles es demasiado tajante. logit(p') = 0,725·logit(p) + 0,092
   // (17 ligas, ajuste 2022-25, prueba 2025-26: 0,6890 -> 0,6845). Se ajusta la tabla de marcadores manteniendo el 1X2.
   const OU_CAL = [0.725, 0.092];
@@ -1287,20 +1288,26 @@ const M = (() => {
       fo: sub(has('hfo', 'afo'), r => ({ ...r, hg: r.hfo, ag: r.afo })),
     };
     set.caTrend = cardsTrend(set.ca, rows, ref);
+    set.coTrend = cardsTrend(set.co, rows, ref, sumOf('hc', 'ac'), 365); set.ssTrend = cardsTrend(set.ss, rows, ref, sumOf('hsh', 'ash'), 365);
+    set.soTrend = cardsTrend(set.so, rows, ref, sumOf('hst', 'ast'), 365); set.foTrend = cardsTrend(set.fo, rows, ref, sumOf('hfo', 'afo'), 365);
     set.mk = fitMarket(rows, ref);
     return set;
   }
   // Tendencia reciente de tarjetas de la liga (vida media 180 días, encogida con 40 tarjetas): corrige que el árbitraje
   // se endurezca o suavice por temporadas. Premier 2022-26: log-loss de más/menos tarjetas 0,6348 -> 0,6244.
   // El árbitro concreto se probó y no mejora (0,6238 -> 0,6245), por eso solo se muestra como información.
-  function cardsTrend(m, rows, ref) {
+  function cardsTrend(m, rows, ref, tot = r => r.hy == null || r.ay == null ? null : r.hy + r.ay + (r.hr || 0) + (r.ar || 0), hl = 180) {
     if (!m) return 1;
     let a = 40, e = 40;
-    for (const r of rows) { if (r.hy == null || r.ay == null || !m.ix.has(r.h) || !m.ix.has(r.a)) continue;
-      const i = m.ix.get(r.h), j = m.ix.get(r.a), w = Math.pow(0.5, (ref - r.d) / 180);
-      a += w * (r.hy + r.ay + (r.hr || 0) + (r.ar || 0)); e += w * (m.att[i] * m.def[j] * m.home + m.att[j] * m.def[i]); }
+    for (const r of rows) { const y = tot(r); if (y == null || !m.ix.has(r.h) || !m.ix.has(r.a)) continue;
+      const i = m.ix.get(r.h), j = m.ix.get(r.a), w = Math.pow(0.5, (ref - r.d) / hl);
+      a += w * y; e += w * (m.att[i] * m.def[j] * m.home + m.att[j] * m.def[i]); }
     return a / e;
   }
+  // El ajuste encoge ataque y defensa hacia 1 y, con medias altas (córners ~10, tiros ~25), se queda corto: se corrige el nivel con la
+  // relación real/esperado del último año (vida media 365 días). Córners, prueba en los últimos 120 días de 17 ligas (1.088 partidos):
+  // media 8,5 -> 9,6 (real 9,8); log-loss de más/menos 9,5 0,7330 -> 0,6913 con la dispersión reajustada (tamaño 4,7 -> 12).
+  const sumOf = (h, a) => r => r[h] == null || r[a] == null ? null : r[h] + r[a];
   // Mercados que salen de una tabla de marcadores (los usan el modelo de ligas y el europeo)
   function footballGroups(G, k, h, a) {
     const groups = [], add = (title, rows) => rows.length && groups.push({ title, rows });
@@ -1360,7 +1367,7 @@ const M = (() => {
       }
     }
     let corners = null, cards = null, GC = null, GK = null;
-    if (set.co) { const Gc = dcGrid(set.co, h, a, 26); if (Gc) { GC = Gc; corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
+    if (set.co) { const tc = set.coTrend || 1, Gc = dcGrid(set.co, h, a, 30, { h: tc, a: tc }); if (Gc) { GC = Gc; corners = footballMarkets(Gc); const mc = corners.lam + corners.mu;
       add('Córners', [7.5, 8.5, 9.5, 10.5, 11.5].flatMap(l => { const o = nbOver(mc, NB_SIZE.corners, l); return [{ key: 'co' + l, label: `Más de ${nfmt(l)} córners`, p: o }, { key: 'cu' + l, label: `Menos de ${nfmt(l)} córners`, p: 1 - o }]; })
         .concat([{ key: 'coH', label: `Más córners: ${h}`, p: corners.H }, { key: 'coX', label: 'Mismos córners', p: corners.D }, { key: 'coA', label: `Más córners: ${a}`, p: corners.A }])); } }
     if (set.ca) { const t = set.caTrend || 1, Gk = dcGrid(set.ca, h, a, 16, { h: t, a: t }); if (Gk) { GK = Gk; cards = footballMarkets(Gk); const mk = cards.lam + cards.mu;
@@ -1368,7 +1375,8 @@ const M = (() => {
     const summary = { H: k.H, D: k.D, A: k.A, lam: k.lam, mu: k.mu, o25: k.over(2.5), btts: k.btts, score: k.scores[0],
       corners: corners ? corners.lam + corners.mu : null, cards: cards ? cards.lam + cards.mu : null,
       co95: corners ? nbOver(corners.lam + corners.mu, NB_SIZE.corners, 9.5) : null, ca45: cards ? nbOver(cards.lam + cards.mu, NB_SIZE.cards, 4.5) : null };
-    const GSS = set.ss && dcGrid(set.ss, h, a, 45), GSO = set.so && dcGrid(set.so, h, a, 20), GFO = set.fo && dcGrid(set.fo, h, a, 35);
+    const lv = k => ({ h: set[k + 'Trend'] || 1, a: set[k + 'Trend'] || 1 });
+    const GSS = set.ss && dcGrid(set.ss, h, a, 50, lv('ss')), GSO = set.so && dcGrid(set.so, h, a, 22, lv('so')), GFO = set.fo && dcGrid(set.fo, h, a, 40, lv('fo'));
     return { G, k, groups, summary, GH, GS, GC, GK, GSS, GSO, GFO };
   }
   // Pronóstico principal: el resultado más probable entre 1X2, más/menos 2,5 y ambos marcan
@@ -2101,6 +2109,17 @@ async function openMatch(sport, league, h, a, ref) {
   window.scrollTo({ top: 0 });
 }
 // Simulación sin dinero: ¿la selección acierta lo que dice y ganaría a la mejor cuota?
+// Comparador de reglas para la apuesta del día (cuota real, dos mitades del periodo)
+function rulesBlock(R) {
+  if (!R || !R.length) return '';
+  const sg = x => x == null ? '—' : (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1), cls = x => x == null ? '' : x >= 0 ? 'pos' : 'neg';
+  return `<section class="block"><h3 class="sect">${I('scale')}Comparador de reglas</h3>
+    <p class="note">Cómo habría ido cada forma de elegir la apuesta, cobrando la mejor cuota real antes del partido, en todos los pronósticos guardados (no solo los 5 del día). El periodo se parte en dos mitades: una regla <b>cumple</b> con 200 pronósticos con cuota y beneficio en las dos. La apuesta del día no cambia sola; si una cumple, llega un aviso a Telegram.</p>
+    <div class="tablewrap"><table><thead><tr><th>Regla</th><th class="num">Con cuota</th><th class="num">Aciertos</th><th class="num">Rendimiento</th><th class="num">1ª mitad</th><th class="num">2ª mitad</th><th></th></tr></thead><tbody>
+    ${R.map(r => `<tr><td>${esc(r.name)}</td><td class="num">${r.n}</td><td class="num">${r.n ? pct(r.hits / r.n, 0) : '—'}</td><td class="num"><span class="chip ${cls(r.roi)}">${sg(r.roi)}</span></td>
+      <td class="num">${sg(r.r1)}</td><td class="num">${sg(r.r2)}</td><td>${r.ok ? '<span class="chip pos">Cumple</span>' : `<span class="note">${r.n < 200 ? `faltan ${200 - r.n}` : 'no cumple'}</span>`}</td></tr>`).join('')}
+    </tbody></table></div></section>`;
+}
 function simBlock(S) {
   if (!S) return '';
   const P = S.picks, B = S.bet, sgn = x => (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1);
@@ -2127,7 +2146,7 @@ function acRender() {
   const rateBox = (o, l) => statBox(o && o.n ? pct(o.hits / o.n, 0) : '—', `${l}${o && o.n ? ` · ${o.hits} de ${o.n}` : ' · aún sin datos'}`);
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
   const D = PF.daily;
-  html += simBlock(D && D.sim);
+  html += simBlock(D && D.sim) + rulesBlock(D && D.rules);
   html += `<section class="block"><h3 class="sect">${I('star')}Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
@@ -2182,9 +2201,9 @@ function hmRender() {
   const sp = $('hmSport').value, q = $('hmQ').value.trim().toLowerCase(), min = fnum($('hmMin').value) || 0;
   const L = (HM.sports[sp] || []).filter(x => x.n >= min && (!q || x.l.toLowerCase().includes(q)));
   const diff = x => (x.hits - x.exp) / x.n;
-  $('hmOut').innerHTML = L.length ? `<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Pronósticos</th><th class="num">Acierto</th><th class="num">Esperaba</th><th class="num">Diferencia</th></tr></thead><tbody>
+  $('hmOut').innerHTML = L.length ? `<div class="tablewrap"><table><thead><tr><th>Mercado</th><th class="num">Pronósticos</th><th class="num">Acierto</th><th class="num">Esperaba</th><th class="num">Diferencia</th><th>Ajuste semanal</th></tr></thead><tbody>
     ${L.map(x => { const d = diff(x), c = x.n < 30 ? '' : d >= 0.03 ? 'pos' : d <= -0.03 ? 'neg' : 'warn';
-      return `<tr><td>${esc(x.l)}</td><td class="num">${x.n}</td><td class="num">${pct(x.hits / x.n, 0)}</td><td class="num">${pct(x.exp / x.n, 0)}</td><td class="num">${c ? `<span class="chip ${c}">` : ''}${d >= 0 ? '+' : '−'}${nf(Math.abs(d) * 100, 1)} pts${c ? '</span>' : ''}</td></tr>`; }).join('')}
+      return `<tr><td>${esc(x.l)}</td><td class="num">${x.n}</td><td class="num">${pct(x.hits / x.n, 0)}</td><td class="num">${pct(x.exp / x.n, 0)}</td><td class="num">${c ? `<span class="chip ${c}">` : ''}${d >= 0 ? '+' : '−'}${nf(Math.abs(d) * 100, 1)} pts${c ? '</span>' : ''}</td><td>${HM.calib?.[sp]?.[x.k] ? `<span class="chip warn" title="Se corrige cada lunes con los datos reales (mejora ${nf(HM.calib[sp][x.k].gain, 4)} de log-loss)">corregido</span>` : ''}</td></tr>`; }).join('')}
     </tbody></table></div><p class="note">${L.length} mercados. En verde, acierta 3 puntos o más de lo que esperaba; en rojo, 3 o más por debajo (con 30 pronósticos o más).</p>` : '<p class="note">Sin mercados con esos filtros.</p>';
 }
 async function hiInit() {
