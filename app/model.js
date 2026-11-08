@@ -325,13 +325,16 @@ const M = (() => {
   }
   function matchWin(pa, pb, bo) { return sum(matchDist(pa, pb, bo).filter(f => f.sa > f.sb).map(f => f.p)); }
   // Ajusta la diferencia de saque d para que el modelo de puntos reproduzca la probabilidad p de ganar el partido
-  function tennisFromProb(p, bo, base) {
-    const d = bisect(d => matchWin(base + d, base - d, bo) - p, -0.25, 0.25, 30);
-    const dist = matchDist(base + d, base - d, bo);
-    return { d, dist, pa: base + d, pb: base - d };
+  // s: forma del día. El saque real de cada jugador varía de un partido a otro; se mezclan dos escenarios (d+s y d−s) con la
+  // misma probabilidad de ganar. Así salen más partidos desiguales y menos juegos, como en la realidad (ajustado con el historial).
+  function tennisFromProb(p, bo, base, s = 0) {
+    const parts = d => s ? [[base + d + s, base - d - s, 0.5], [base + d - s, base - d + s, 0.5]] : [[base + d, base - d, 1]];
+    const mix = d => parts(d).flatMap(([a, b, w]) => matchDist(a, b, bo).map(x => w === 1 ? x : { ...x, p: x.p * w }));
+    const d = bisect(d => sum(mix(d).filter(f => f.sa > f.sb).map(f => f.p)) - p, -0.25, 0.25, 30);
+    return { d, dist: mix(d), pa: base + d, pb: base - d, parts: parts(d) };
   }
-  function tennisExtras(pa, pb, dist) {
-    const sA = setDist(pa, pb, true), sB = setDist(pa, pb, false), avg = f => (sum(sA.filter(f).map(x => x.p)) + sum(sB.filter(f).map(x => x.p))) / 2;
+  function tennisExtras(pa, pb, dist, parts = [[pa, pb, 1]]) {
+    const S = parts.flatMap(([a, b, w]) => [...setDist(a, b, true), ...setDist(a, b, false)].map(x => ({ ...x, p: x.p * w }))), avg = f => sum(S.filter(f).map(x => x.p)) / 2;
     const tb = avg(x => x.ga + x.gb === 13), nsets = new Map();
     for (const f of dist) nsets.set(f.sa + f.sb, (nsets.get(f.sa + f.sb) || 0) + f.p);
     let noTB = 0; for (const [n, p] of nsets) noTB += p * (1 - tb) ** n;   // shortcut: tie-breaks independientes entre sets
@@ -529,8 +532,9 @@ const M = (() => {
       { title: 'Hándicap', rows: sp }, { title: 'Puntos totales', rows: to }, { title: 'Puntos de cada equipo', rows: tt }] };
   }
 
-  const BASE_SERVE = [[0.64, 0.61, 0.67, 0.65], [0.56, 0.54, 0.58, 0.57]];   // puntos ganados al saque: circuito (ATP, WTA) x superficie (pista, tierra, hierba, moqueta)
-  return { NB_SIZE, BASE_SERVE, nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
+  const BASE_SERVE = [[0.64, 0.61, 0.67, 0.65], [0.56, 0.54, 0.58, 0.57]];
+  const FORM_SD = [0, 0.03];   // forma del día (ATP, WTA): ajustada con 450 partidos de oct-nov 2026; en la ATP no mejoraba, en la WTA sí   // puntos ganados al saque: circuito (ATP, WTA) x superficie (pista, tierra, hierba, moqueta)
+  return { NB_SIZE, BASE_SERVE, FORM_SD, nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
     NBA_SD, fitPts, ptsPredict, spreadProbs, totalProbs, runElo, eloProb, holdProb, tiebreakProb, setDist, matchDist, matchWin, tennisFromProb, bo3to5 };
 })();
 if (typeof module !== 'undefined') module.exports = M;

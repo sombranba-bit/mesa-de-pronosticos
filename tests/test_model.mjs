@@ -172,6 +172,8 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const m = { sport: 'futbol', league: 'SP1', leagueName: 'España - LaLiga', kickoff: new Date(t0).toISOString(), home: 'A & B', away: 'C', H: .5, D: .3, A: .2, o25: .6, pick: { label: 'Gana A', p: .7, code: 'H' }, best: { odds: 1.5, book: 'X' } };
   const S = P2.digest([m], { recent: [] }, day, {}, { day, bet: m, picks: [m] });
   const T = S.join('\n\n');
+  const Sc = P2.digest([m], { recent: [] }, day, { corto: true }, { day, bet: m, picks: [m] }).join('\n');
+  ok(Sc.includes('APUESTA DEL DÍA') && !Sc.includes('TODOS LOS PARTIDOS') && !Sc.includes('MÁS CONFIANZA'), 'resumen corto de la mañana');
   ok(Array.isArray(S) && T.includes('APUESTA DEL DÍA') && T.includes('TODOS LOS PARTIDOS') && T.includes('A &amp; B') && T.includes('1,50 en X'), 'resumen de Telegram con secciones');
   ok(S.every(x => (x.match(/<blockquote/g) || []).length === (x.match(/<\/blockquote>/g) || []).length && (x.match(/<b>/g) || []).length === (x.match(/<\/b>/g) || []).length), 'cada sección cierra sus etiquetas');
 }
@@ -200,8 +202,7 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const e = (id, p, odds, pin) => ({ id, pick: { p, code: 'H' }, best: odds ? { odds } : undefined, fair: pin ? { H: pin } : undefined });
   const C = P2.combos([e('a', .85, 1.15), e('b', .75, 1.45, 1.42), e('c', .7, 1.40), e('d', .66, 1.60, 1.62), e('e', .55, 2.0)]);
   ok(C.safe.ids.join() === 'a,b,c' && Math.abs(C.safe.p - .85 * .75 * .7) < 1e-12 && Math.abs(C.safe.odds - 1.15 * 1.45 * 1.40) < 1e-9, `combinada segura (${C.safe.ids})`);
-  ok(C.value.ids.join() === 'e,b' , `combinada con valor (${C.value?.ids})`);   // d no: Pinnacle 1,62 paga más que 1,60
-  ok(P2.combos([e('a', .9, 1.05)]).safe === null && P2.combos([e('a', .9, 1.05), e('b', .8, 1.1)]).value === null, 'sin combinada si no hay dos partidos que cumplan');
+  ok(P2.combos([e('a', .9, 1.05)]).safe === null && !('value' in P2.combos([e('a', .9, 1.05), e('b', .8, 1.1)])), 'sin combinada si no hay dos partidos que cumplan');
 }
 // bot de Telegram: resultados de la noche, avisos de valor, resumen semanal y comandos
 {
@@ -212,10 +213,6 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const H = { a: e('a', .8, 1, past), b: e('b', .7, 0, past + 3600e3), c: e('c', .66, null, past + 7200e3) };
   const N = P2.nightResults(H, d0).join('\n');
   ok(N.includes('RESULTADOS DE HOY') && N.includes('✅') && N.includes('❌') && N.includes('⏳') && N.includes('1 de 2 acertados'), 'resultados de la noche');
-  const soon = now + 5 * 3600e3, M = [e('v', .6, null, soon, { best: { odds: 1.80, book: 'X' }, fair: { H: 1.70 } }), e('w', .6, null, soon, { best: { odds: 1.70, book: 'X' } }), e('z', .6, null, now + 40 * 3600e3, { best: { odds: 2.5, book: 'X' } })];
-  const A = P2.valueAlerts(M, {}, now);
-  ok(A && A.ids.join() === 'v' && A.text.join().includes('+5,9%'), `avisos de valor (${A?.ids})`);   // w: 1,70 = justa 1,67 · +2%, no llega; z: fuera de las 30 h
-  ok(P2.valueAlerts(M, { v: now }, now) === null, 'no repite avisos ya enviados');
   const W = P2.weeklySummary(H, null, now + 864e5);
   ok(W && W.join().includes('RESUMEN SEMANAL') && W.join().includes('1 de 2'), 'resumen semanal');
   const U = [{ update_id: 1, message: { chat: { id: -100 }, text: '/hoy@AldanaBot' } }, { update_id: 2, message: { chat: { id: 555 }, text: '/hoy' } }, { update_id: 3, message: { chat: { id: -100 }, text: 'hola' } }];
@@ -238,7 +235,7 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const r = P2.tennisResult(P[0], T);
   ok(r && r.hp === 1 && r.ap === 2 && P2.evaluate({ ...P[0], result: r }).pick.hit === true, `tenis: resultado y acierto (${JSON.stringify(r)})`);
 }
-// rachas y porra
+// rachas
 {
   const day = k => new Date((20000 + k) * 864e5 + 18 * 3600e3).toISOString();
   const e = (id, k, hit, extra = {}) => ({ id, sport: 'futbol', league: 'SP1', leagueName: 'L', kickoff: day(k), home: id, away: 'Z', H: .6, D: .25, A: .15, pick: { p: .8, code: 'H', label: 'Gana' },
@@ -248,21 +245,12 @@ ok(P2.attachBest([{ home: 'Real Madrid', away: 'Sevilla', kickoff: '2026-10-25T1
   const rk = P2.betStreak(H, sd(3));
   ok(rk.n === 3 && rk.hit === true, `racha de aciertos (${JSON.stringify(rk)})`);
   ok(P2.nightResults(H, sd(3)).join().includes('3 aciertos seguidos'), 'la racha sale en los resultados de la noche');
-  const m = { id: 'x', sport: 'futbol', home: 'Betis', away: 'Cádiz', leagueName: 'LaLiga', kickoff: day(5), H: .5, D: .3, A: .2, pick: { code: 'H', p: .5 } };
-  const q = P2.porraPoll(m);
-  ok(q.options.join() === 'Gana Betis,Empate,Gana Cádiz' && q.machine === 'H', 'porra: encuesta de fútbol');
-  const porra = { p1: { day: sd(3), id: 'd', codes: ['H', 'D', 'A'], machine: 'A', kickoff: day(3), votes: { 1: { name: 'Ana', code: 'H' }, 2: { name: 'Luis', code: 'D' } } } };
-  const T = P2.porraTable(porra, H, [sd(3)]);
-  ok(T[0][0] === 'Ana' && T[0][1].pts === 1 && T.find(r => r[0] === P2.MACHINE)[1].pts === 0, `porra: clasificación (${JSON.stringify(T)})`);
-  const sel = { day: sd(5), bet: { id: 'x' } };
-  const PM = P2.porraMatches(sel, [m, { ...m, id: 'y', sport: 'nba', pick: { p: .9, code: 'H' } }, { ...m, id: 'z', pick: { p: .7, code: 'H' } }, { ...m, id: 'w', pick: { p: .6, code: 'H' } }], Date.parse(day(5)) - 5 * 3600e3);
-  ok(PM.map(x => x.id).join() === 'x,y,z', `porra: partidos elegidos (${PM.map(x => x.id)})`);
 }
 // mejor cuota en tenis con los jugadores en orden distinto
 { const T = [{ sport: 'tenis', home: 'Sinner J.', away: 'Alcaraz C.', kickoff: '2026-10-30T12:00:00Z', pick: { code: 'H', p: .6 } }];
   P2.attachBest(T, { best: [{ home: 'Carlos Alcaraz', away: 'Jannik Sinner', kickoff: '2026-10-30T12:00:00Z', H: [2.1, 'X', 9], A: [1.8, 'Y', 9], fair: { H: 2.2, A: 1.75 } }] });
   ok(T[0].best?.odds === 1.8 && T[0].best.fair === 1.75, `tenis: mejor cuota con orden cambiado (${JSON.stringify(T[0].best)})`); }
-ok(!P2.activeCommands({}).some(c => c[0] === 'porra') && P2.activeCommands({ porra: true }).some(c => c[0] === 'porra') && !P2.helpText(P2.activeCommands({})).includes('/porra'), 'porra desactivada por defecto');
+ok(!P2.activeCommands().some(c => ['porra', 'valor'].includes(c[0])) && P2.helpText(P2.activeCommands()).includes('/hoy'), 'comandos sin porra ni /valor');
 // reajuste semanal y informe mensual
 {
   const now = Date.UTC(2026, 10, 1, 10), H = {}; let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -276,5 +264,32 @@ ok(!P2.activeCommands({}).some(c => c[0] === 'porra') && P2.activeCommands({ por
   const R = P2.monthlyReport(Object.fromEntries(Object.entries(H).map(([k, e]) => [k, { ...e, kickoff: '2026-10-15T12:00:00Z' }])), null, now);
   ok(R && R[0].includes('OCTUBRE') && R.join().includes('Tenis'), 'informe mensual');
 }
+// un corte de red con Telegram no para la actualización
+{ const f0 = globalThis.fetch, t0 = process.env.TELEGRAM_TOKEN;
+  globalThis.fetch = async () => { throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ETIMEDOUT' } }); }; process.env.TELEGRAM_TOKEN = 'x';
+  let threw = false, r; try { r = await P2.telegram(['hola'], ['-1']); } catch { threw = true; }
+  globalThis.fetch = f0; if (t0 == null) delete process.env.TELEGRAM_TOKEN; else process.env.TELEGRAM_TOKEN = t0;
+  ok(!threw && r === false, 'Telegram sin red: no rompe, devuelve false'); }
+// ---- tenis: la forma del día mantiene la probabilidad de ganar y baja los juegos esperados ----
+{ const g = T => M.sum(T.dist.map(x => (x.ga + x.gb) * x.p)), w = T => M.sum(T.dist.filter(x => x.sa > x.sb).map(x => x.p));
+  const A = M.tennisFromProb(0.6, 3, 0.56, 0), B = M.tennisFromProb(0.6, 3, 0.56, 0.03);
+  near(w(B), 0.6, 1e-4, 'tenis forma del día: misma probabilidad de ganar'); near(M.sum(B.dist.map(x => x.p)), 1, 1e-9, 'tenis forma del día: suma 1');
+  ok(g(B) < g(A) - 0.5, `tenis forma del día: menos juegos (${g(A).toFixed(2)} → ${g(B).toFixed(2)})`); }
+// ---- mezcla con Pinnacle: si el mercado acierta mejor, el peso del modelo baja; si no, se queda en 1 ----
+{ const now = Date.parse('2026-11-01T00:00:00Z'), H = {}, H2 = {};
+  for (let i = 0; i < 200; i++) {
+    const q = 0.5 + (i % 40) / 100, hit = ((i * 7919) % 100) / 100 < q, k = new Date(now - (i + 1) * 36e5 * 10).toISOString();
+    const base = { sport: 'baloncesto', kickoff: k, eval: { pick: { hit } }, fair: { H: 1 / q } };
+    H['b' + i] = { ...base, pick: { code: 'H', p: 0.62 } };   // modelo plano, mercado informativo
+    H2['b' + i] = { ...base, pick: { code: 'H', p: q }, fair: { H: 1 / 0.6 } };   // ahora el modelo sabe y el mercado no
+  }
+  const B = P2.fitBlend(H, now).baloncesto, B2 = P2.fitBlend(H2, now).baloncesto;
+  ok(B.w < 0.5 && B.mercado < B.modelo, `mezcla: con mercado mejor el peso del modelo baja (${B.w})`);
+  ok(B2.w >= 0.8, `mezcla: con modelo mejor el peso se queda alto (${B2.w})`);
+  const m = [{ sport: 'baloncesto', pick: { code: 'H', p: 0.7 }, fair: { H: 2 } }];
+  P2.applyBlend(m, { baloncesto: { w: 0.5 } });
+  near(m[0].pick.p, 1 / (1 + Math.sqrt(0.3 / 0.7)), 1e-9, 'mezcla: media en logit con peso 0,5');
+  ok(m[0].pickRaw === 0.7, 'mezcla: se guarda la probabilidad sin mezclar');
+  const m2 = [{ sport: 'tenis', pick: { code: 'H', p: 0.7 } }]; P2.applyBlend(m2, { tenis: { w: 0.5 } }); ok(m2[0].pick.p === 0.7, 'mezcla: sin cuota de Pinnacle no cambia'); }
 console.log(`${checks - fails} de ${checks} comprobaciones correctas`);
 process.exit(fails ? 1 : 0);

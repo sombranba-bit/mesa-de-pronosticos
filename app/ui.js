@@ -511,7 +511,7 @@ function tnPredict() {
   if (ia === ib) { out.innerHTML = '<p class="note">Elige dos jugadores distintos.</p>'; return; }
   const s = +$('tnSurf').value, bo = +$('tnBo').value, tour = +$('tnTour').value, A = Td.players[ia], B = Td.players[ib];
   const p3 = M.eloProb(ELO, ia, ib, s), p = bo === 5 ? M.bo3to5(p3) : p3;
-  const T = M.tennisFromProb(p, bo, BASE_SERVE[tour][s]), dist = T.dist, X = M.tennisExtras(T.pa, T.pb, dist);
+  const T = M.tennisFromProb(p, bo, BASE_SERVE[tour][s], M.FORM_SD[tour]), dist = T.dist, X = M.tennisExtras(T.pa, T.pb, dist, T.parts);
   const P = f => M.sum(dist.filter(f).map(x => x.p));
   const need = bo === 5 ? 3 : 2, setRows = [];
   for (let l = 0; l < need; l++) setRows.push({ key: `s${need}${l}`, label: `${A} ${need}-${l}`, p: P(x => x.sa === need && x.sb === l) });
@@ -628,7 +628,6 @@ function combosHTML(D, dayTxt, when, res) {
   };
   return `<h2>Combinadas</h2><p class="note" style="margin:-8px 0 0">${esc(dayTxt)} · como mucho ${3} partidos distintos</p>
     ${card(I('shield') + 'Segura', 'los pronósticos más probables (65% o más)', C.safe, 'Hoy no hay dos pronósticos del 65% o más.', S?.safe)}
-    ${card(I('gem') + 'Con valor', 'solo pronósticos cuya mejor cuota supera la cuota justa (y la de Pinnacle) en un 2% o más', C.value, 'Hoy no hay pronósticos con valor suficiente. También es información: mejor no forzar.', S?.value)}
     <p class="note">Una combinada se apuesta entera en una sola casa: la cuota que cuenta es la que te dé tu casa al juntarlas. Si es más baja que la «cuota mínima», no compensa. El margen de la casa se multiplica en cada partido que añades; por eso como mucho 3.</p>`;
 }
 const dayKey = m => { const t = new Date(m.kickoff); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
@@ -690,6 +689,15 @@ function rulesBlock(R) {
       <td class="num">${sg(r.r1)}</td><td class="num">${sg(r.r2)}</td><td>${r.ok ? '<span class="chip pos">Cumple</span>' : `<span class="note">${r.n < 200 ? `faltan ${200 - r.n}` : 'no cumple'}</span>`}</td></tr>`).join('')}
     </tbody></table></div></section>`;
 }
+function blendBlock(B) {
+  if (!B || !Object.keys(B).length) return '';
+  const N = { futbol: 'Fútbol', baloncesto: 'Baloncesto', tenis: 'Tenis' }, f = x => x == null ? '—' : x.toFixed(3).replace('.', ',');
+  return `<section class="block"><h3 class="sect">${I('scale')}Modelo contra Pinnacle</h3>
+    <p class="note">Error medio (log-loss, cuanto más bajo mejor) del pronóstico principal en los partidos con cuota justa de Pinnacle, últimos 120 días. Si mezclar el modelo con el mercado acierta mejor en las semanas más recientes, se usa la mezcla; el peso dice cuánto cuenta el modelo.</p>
+    <div class="tablewrap"><table><thead><tr><th>Deporte</th><th class="num">Partidos</th><th class="num">Modelo</th><th class="num">Pinnacle</th><th class="num">Mezcla</th><th class="num">Peso del modelo</th></tr></thead><tbody>
+    ${Object.entries(B).map(([k, b]) => `<tr><td>${N[k] || esc(k)}</td><td class="num">${b.n}</td><td class="num">${f(b.modelo)}</td><td class="num">${f(b.mercado)}</td><td class="num">${f(b.mezcla)}</td><td class="num">${b.w === 1 ? `<span class="note">${esc(b.note || 'solo modelo')}</span>` : pct(b.w, 0)}</td></tr>`).join('')}
+    </tbody></table></div></section>`;
+}
 function simBlock(S) {
   if (!S) return '';
   const P = S.picks, B = S.bet, sgn = x => (x >= 0 ? '+' : '−') + pct(Math.abs(x), 1);
@@ -706,7 +714,7 @@ function simBlock(S) {
     ${S.mid && S.mid.n ? `<h4 class="sub4">${I('target')}Con cuota (1,45 – 1,82)</h4><div class="stats">${statBox(rate(S.mid), `aciertos · ${S.mid.hits} de ${S.mid.n}`)}${statBox(exp(S.mid), 'lo que esperaba el modelo')}${statBox(S.mid.roi == null ? '—' : sgn(S.mid.roi), `rendimiento a la mejor cuota · ${S.mid.withOdds} con cuota`)}</div>` : ''}
     ${S.all65 && S.all65.n ? `<h4 class="sub4">${I('layers')}Todos los del 65% o más (no solo los 5 del día)</h4><div class="stats">${statBox(rate(S.all65), `aciertos · ${S.all65.hits} de ${S.all65.n}`)}${statBox(exp(S.all65), 'lo que esperaba el modelo')}${statBox(S.all65.roi == null ? '—' : sgn(S.all65.roi), `rendimiento a la mejor cuota · ${S.all65.withOdds} con cuota`)}</div>
       <p class="note">Misma regla que la selección pero con todos los partidos: más volumen para saber antes si funciona. La luz verde sigue dependiendo solo de la selección.</p>` : ''}
-    ${S.safe || S.value ? `<h4 class="sub4">Combinadas</h4><div class="stats">${[[I('shield') + 'segura', S.safe], [I('gem') + 'con valor', S.value]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
+    ${S.safe ? `<h4 class="sub4">Combinada segura</h4><div class="stats">${[[I('shield') + 'segura', S.safe]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
 }
 const MAIN_MK = ['pronóstico principal', 'ganador', '1X2', '1X2 con bajas', '1X2 sin bajas', 'más/menos 2,5', 'ambos marcan', 'córners más/menos 9,5', 'tarjetas más/menos 4,5'];   // el resto, en Historial
@@ -716,7 +724,7 @@ function acRender() {
   const rateBox = (o, l) => statBox(o && o.n ? pct(o.hits / o.n, 0) : '—', `${l}${o && o.n ? ` · ${o.hits} de ${o.n}` : ' · aún sin datos'}`);
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
   const D = PF.daily;
-  html += simBlock(D && D.sim) + rulesBlock(D && D.rules);
+  html += simBlock(D && D.sim) + rulesBlock(D && D.rules) + blendBlock(D && D.blend);
   html += `<section class="block"><h3 class="sect">${I('star')}Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;
@@ -964,7 +972,7 @@ function avUpdate() {
 // ============================== INICIO (portada) ==============================
 const HOME_LINKS = [   // [icono, título, texto, destino «pestaña:subpestaña:vista»]
   ['star', 'Apuesta del día', 'El pronóstico más probable de la jornada, con su cuota justa y la mejor cuota del mercado.', 'pronosticos:proximos:dia'],
-  ['layers', 'Combinadas', 'Segura (los más probables) y con valor (mejor cuota que la justa), de 2 a 3 partidos.', 'pronosticos:proximos:comb'],
+  ['layers', 'Combinadas', 'La combinada segura: los pronósticos más probables del día, de 2 a 3 partidos.', 'pronosticos:proximos:comb'],
   ['calendar', 'Próximos eventos', 'Todos los pronósticos de fútbol, baloncesto y tenis, filtrables por deporte y liga.', 'pronosticos:proximos'],
   ['chart', 'Aciertos', 'Cada pronóstico comparado con el resultado real y la simulación antes de apostar.', 'pronosticos:aciertos'],
   ['wallet', 'Mis apuestas', 'Apunta lo que apuestas: beneficio real, CLV y cuánto apostar en cada pronóstico.', 'pronosticos:apuestas'],
@@ -1010,6 +1018,15 @@ function homeRender() {
   const comb = `<article class="hfeat sm" data-go="pronosticos:proximos:comb" role="button" tabindex="0"><span class="kicker">${I('shield')} Combinada segura</span>
       ${safe ? `<div class="hf-p"><b>${pct(safe.p, 0)}</b><span>${safe.legs.length} partidos · cuota justa ${nf(safe.fair)}${safe.odds ? ` · mejor ${nf(safe.odds)}` : ''}</span></div>` : '<p class="note">Hoy no hay dos pronósticos del 65% o más.</p>'}
       <span class="hf-go">Ver combinadas ${I('arrow')}</span></article>`;
+  const S = T && T.sim, sp = S && S.picks;
+  const light = S ? (S.ready.ok ? ['pos', 'Luz verde', 'La simulación ya justifica apostar con dinero (empieza por la fase de prueba).']
+    : sp.withOdds < S.ready.need ? ['warn', 'Aún no', `${sp.withOdds} de ${S.ready.need} pronósticos simulados con cuota. Faltan datos para fiarse.`]
+    : ['neg', 'No apostar', `Con ${sp.withOdds} pronósticos con cuota el rendimiento simulado no llega: mejor esperar.`]) : null;
+  const sema = light ? `<article class="hfeat sm sema ${light[0]}" data-go="pronosticos:aciertos" role="button" tabindex="0"><span class="kicker">${I('scale')} ¿Apostar con dinero?</span>
+      <div class="hf-p"><b>${light[1]}</b><span>${light[2]}</span></div>
+      <div class="meter" aria-hidden="true"><i style="width:${(Math.min(1, sp.withOdds / S.ready.need) * 100).toFixed(1)}%"></i></div>
+      <span class="hf-go">Ver la simulación ${I('arrow')}</span></article>` : '';
+  const card = ([ic, ti, tx, go], i) => `<button class="hcard" data-go="${go}" style="--i:${i}"><span class="hc-ico">${I(ic)}</span><span class="hc-no">${String(i + 1).padStart(2, '0')}</span><b>${ti}</b><span>${tx}</span><span class="hc-go">${I('arrow')}</span></button>`;
   $('home').innerHTML = `
     <div class="hero">
       <div class="hero-txt">
@@ -1026,9 +1043,11 @@ function homeRender() {
     <div class="kpis">${kpi(r(T && T.bet), '%', `apuesta del día${T && T.bet && T.bet.n ? ` · ${T.bet.hits} de ${T.bet.n}` : ''}`)}${kpi(r(T && T.picks), '%', `selección recomendada${T && T.picks && T.picks.n ? ` · ${T.picks.hits} de ${T.picks.n}` : ''}`)}${kpi(evald || null, '', 'pronósticos comprobados')}${kpi(next.length || null, '', 'próximos partidos')}</div>
     ${tick.length ? `<div class="ticker" aria-label="Pronósticos más probables"><div class="tk-track">${tick.map(tItem).join('')}${tick.map(tItem).join('')}</div></div>` : ''}
     <div class="shead"><span class="no">01</span><h3>Hoy en la mesa</h3></div>
-    <div class="hfeats">${feat}${comb}</div>
-    <div class="shead"><span class="no">02</span><h3>Todo lo que hay dentro</h3></div>
-    <div class="hgrid">${HOME_LINKS.map(([ic, ti, tx, go], i) => `<button class="hcard" data-go="${go}" style="--i:${i}"><span class="hc-ico">${I(ic)}</span><span class="hc-no">${String(i + 1).padStart(2, '0')}</span><b>${ti}</b><span>${tx}</span><span class="hc-go">${I('arrow')}</span></button>`).join('')}</div>`;
+    <div class="hfeats">${feat}${comb}${sema}</div>
+    <div class="shead"><span class="no">02</span><h3>Lo principal</h3></div>
+    <div class="hgrid">${HOME_LINKS.slice(0, 4).map(card).join('')}</div>
+    <details class="hmore"><summary>Más herramientas: apuestas, avisos, cuotas, historial, fichas por deporte y guía</summary>
+      <div class="hgrid">${HOME_LINKS.slice(4).map((l, i) => card(l, i + 4)).join('')}</div></details>`;
   bindOpen($('home')); countUp($('home')); tickLive();
 }
 // ============================== NAVEGACIÓN Y ARRANQUE ==============================

@@ -98,11 +98,11 @@ export function basketMarkets(P, sd) {
 }
 
 // ---------- tenis: modelo de puntos al saque ----------
-export function tennisMarkets(p, bo, base) {
+export function tennisMarkets(p, bo, base, sd = 0) {
   const out = {}, put = (c, q) => { if (q > 0.0005 && q < 0.9995) out[c] = Math.round(q * 1000); };
-  const T = M.tennisFromProb(p, bo, base), D = T.dist, P = f => M.sum(D.filter(f).map(x => x.p)), mean = f => M.sum(D.map(x => f(x) * x.p));
-  const S1 = [...M.setDist(T.pa, T.pb, true).map(x => ({ ...x, p: x.p / 2 })), ...M.setDist(T.pa, T.pb, false).map(x => ({ ...x, p: x.p / 2 }))], P1 = f => M.sum(S1.filter(f).map(x => x.p));
-  const X = M.tennisExtras(T.pa, T.pb, D);
+  const T = M.tennisFromProb(p, bo, base, sd), D = T.dist, P = f => M.sum(D.filter(f).map(x => x.p)), mean = f => M.sum(D.map(x => f(x) * x.p));
+  const S1 = T.parts.flatMap(([a, b, w]) => [...M.setDist(a, b, true), ...M.setDist(a, b, false)].map(x => ({ ...x, p: x.p * w / 2 }))), P1 = f => M.sum(S1.filter(f).map(x => x.p));
+  const X = M.tennisExtras(T.pa, T.pb, D, T.parts);
   put('s1>0.5', P1(x => x.ga > x.gb)); put('tb>0.5', X.tieBreak); put('tb1>0.5', P1(x => x.ga + x.gb === 13));
   for (const l of range(7.5, 11.5)) put(`s1g>${l}`, P1(x => x.ga + x.gb > l));
   const s1 = {}; for (const x of S1) s1[`${x.ga}-${x.gb}`] = (s1[`${x.ga}-${x.gb}`] || 0) + x.p; for (const [k, q] of Object.entries(s1)) put(`s1s=${k}`, q);
