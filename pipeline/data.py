@@ -20,7 +20,8 @@ DIVS = {'SP1': 'España - LaLiga', 'SP2': 'España - Segunda', 'E0': 'Inglaterra
         'I1': 'Italia - Serie A', 'I2': 'Italia - Serie B', 'D1': 'Alemania - Bundesliga', 'D2': 'Alemania - 2. Bundesliga',
         'F1': 'Francia - Ligue 1', 'F2': 'Francia - Ligue 2', 'N1': 'Países Bajos - Eredivisie', 'P1': 'Portugal - Primeira',
         'SC0': 'Escocia - Premiership', 'SC1': 'Escocia - Championship', 'B1': 'Bélgica - Pro League', 'T1': 'Turquía - Süper Lig', 'G1': 'Grecia - Super League',
-        'SP3': 'España - Primera Federación'}   # SP3 no está en football-data: viene de lapreferente.com
+        'SP3': 'España - Primera Federación', 'E2': 'Inglaterra - League One', 'E3': 'Inglaterra - League Two', 'EC': 'Inglaterra - National League',
+        'SC2': 'Escocia - League One', 'SC3': 'Escocia - League Two'}   # segunda fila: más partidos medidos (mismo formato de football-data)   # SP3 no está en football-data: viene de lapreferente.com
 BK_PERIODS = {}   # cuartos de Euroliga y EuroCup leídos en esta ejecución
 FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref', 'hst', 'ast', 'il', 'im', 'hsh', 'ash', 'hfo', 'afo']
 UNDERSTAT = {'SP1': 'La_liga', 'E0': 'EPL', 'I1': 'Serie_A', 'D1': 'Bundesliga', 'F1': 'Ligue_1'}
@@ -121,7 +122,9 @@ def parse_fd_csv(content, div):
                     'oO': num(col('B365>2.5')[idx]), 'oU': num(col('B365<2.5')[idx]),
                     'hst': ival(col('HST')[idx]), 'ast': ival(col('AST')[idx]), 'hsh': ival(col('HS')[idx]), 'ash': ival(col('AS')[idx]),
                     'hfo': ival(col('HF')[idx]), 'afo': ival(col('AF')[idx]),
-                    'ref': ref_name(col('Referee')[idx])})
+                    'ref': ref_name(col('Referee')[idx]),
+                    # cuotas de cierre: Pinnacle y, si falta, la media del mercado (para el CLV de cierre)
+                    'close': [num(col(a)[idx]) or num(col(b)[idx]) for a, b in (('PSCH', 'AvgCH'), ('PSCD', 'AvgCD'), ('PSCA', 'AvgCA'), ('PC>2.5', 'AvgC>2.5'), ('PC<2.5', 'AvgC<2.5'))]})
     return out
 
 
@@ -161,6 +164,18 @@ def fb_rows_from_json(F):
     return rows
 
 
+CLOSING = ROOT / 'data' / 'closing.json'
+def save_closing(rows):
+    """data/closing.json: {"fecha|local|visitante": [1, X, 2, más 2,5, menos 2,5]} cuotas de cierre de los últimos 400 días (fuera de la web: no pesa)."""
+    old = json.loads(CLOSING.read_text()) if CLOSING.exists() else {}
+    lim = (TODAY - dt.timedelta(days=400)).isoformat()
+    for r in rows:
+        iso = (EPOCH + dt.timedelta(days=r['d'])).isoformat()
+        if iso >= lim and any(r.get('close') or []): old[f"{iso}|{r['h']}|{r['a']}"] = r['close']
+    keep = {k: v for k, v in old.items() if k[:10] >= lim}
+    CLOSING.write_text(json.dumps(keep, separators=(',', ':')))
+
+
 def fb_to_json(rows):
     rows = sorted(rows, key=lambda r: (r['d'], r['div'], r['h']))
     teams = sorted({r['h'] for r in rows} | {r['a'] for r in rows})
@@ -180,10 +195,12 @@ def update_football():
     seasons = range(SINCE.year, cur + 1) if FULL or not prev else ([cur - 1, cur] if TODAY.month in (7, 8) else [cur])
     if prev and not FULL and not any(r.get('hsh') is not None for r in rows.values() if r['d'] < day(dt.date(cur, 7, 1))):
         seasons = range(cur - 2, cur + 1)   # una sola vez: tiros y faltas de las temporadas anteriores (para ajustar sus modelos)
+    have = {r['div'] for r in rows.values()}
+    seasons_of = {d: range(cur - 3, cur + 1) for d in DIVS if prev and not FULL and d not in have}   # liga nueva: sus 3 últimas temporadas, una sola vez
     got = 0
-    for y in seasons:
+    for y in sorted(set(seasons).union(*seasons_of.values())):
         code = f'{y % 100:02d}{(y + 1) % 100:02d}'
-        for div in [x for x in DIVS if x != 'SP3']:
+        for div in [x for x in DIVS if x != 'SP3' and (y in seasons_of.get(x, seasons))]:
             try:
                 for r in parse_fd_csv(get(f'https://www.football-data.co.uk/mmz4281/{code}/{div}.csv'), div):
                     old = rows.get((r['d'], r['h'], r['a']))   # conserva lo que añadieron otras fuentes (árbitro de football-data.org, xG)
@@ -200,6 +217,7 @@ def update_football():
         SP3_FIXTURES = update_sp3(rows)
     except Exception as e:
         warn(f'Primera Federación: {e}')
+    save_closing(rows.values())
     if rows:   # nunca se sobrescribe con un fichero vacío
         save('football.json', fb_to_json([r for r in rows.values() if r['d'] >= day(SINCE)]))
     print(f'fútbol: {got} partidos descargados, {len(rows)} en total')
@@ -788,7 +806,7 @@ def update_uefa_espn(fixtures):
 # ============================== ESCUDOS (lista pública de equipos de ESPN, una vez al día) ==============================
 ESPN_SLUGS = {'SP1': 'esp.1', 'SP2': 'esp.2', 'E0': 'eng.1', 'E1': 'eng.2', 'I1': 'ita.1', 'I2': 'ita.2', 'D1': 'ger.1', 'D2': 'ger.2',
               'F1': 'fra.1', 'F2': 'fra.2', 'N1': 'ned.1', 'P1': 'por.1', 'SC0': 'sco.1', 'SC1': 'sco.2', 'B1': 'bel.1', 'T1': 'tur.1', 'G1': 'gre.1',
-              'UEFA': 'uefa.champions'}
+              'E2': 'eng.3', 'E3': 'eng.4', 'EC': 'eng.5', 'SC2': 'sco.3', 'SC3': 'sco.4', 'UEFA': 'uefa.champions'}
 def update_crests(rows, fixtures):
     """crests.json: {equipo: url del escudo}. Fútbol (17 ligas y Champions) y NBA. Sin escudo, la app pone las iniciales."""
     out, n = load('crests.json') or {}, 0
@@ -872,8 +890,8 @@ def update_news(fixtures):
     import xml.etree.ElementTree as ET, urllib.parse, email.utils, time
     soon = NOW + dt.timedelta(hours=48)
     teams = {}
-    country_of = lambda div: next((c for c, ds in {'ES': ['SP1', 'SP2', 'SP3'], 'EN': ['E0', 'E1'], 'IT': ['I1', 'I2'], 'DE': ['D1', 'D2'], 'FR': ['F1', 'F2'],
-                                                  'NL': ['N1'], 'PT': ['P1'], 'SC': ['SC0', 'SC1'], 'BE': ['B1'], 'TR': ['T1'], 'GR': ['G1']}.items() if div in ds), 'EN')
+    country_of = lambda div: next((c for c, ds in {'ES': ['SP1', 'SP2', 'SP3'], 'EN': ['E0', 'E1', 'E2', 'E3', 'EC'], 'IT': ['I1', 'I2'], 'DE': ['D1', 'D2'], 'FR': ['F1', 'F2'],
+                                                  'NL': ['N1'], 'PT': ['P1'], 'SC': ['SC0', 'SC1', 'SC2', 'SC3'], 'BE': ['B1'], 'TR': ['T1'], 'GR': ['G1']}.items() if div in ds), 'EN')
     for f in fixtures.get('football', []):
         if dt.datetime.fromisoformat(f['kickoff'].replace('Z', '+00:00')) <= soon:
             for t in (f['h'], f['a']):
@@ -1367,7 +1385,8 @@ def update_player_photos(limit=40):
 
 
 ESPN_SOCCER = {'SP1': 'esp.1', 'SP2': 'esp.2', 'E0': 'eng.1', 'E1': 'eng.2', 'I1': 'ita.1', 'I2': 'ita.2', 'D1': 'ger.1', 'D2': 'ger.2', 'F1': 'fra.1', 'F2': 'fra.2',
-               'N1': 'ned.1', 'P1': 'por.1', 'SC0': 'sco.1', 'SC1': 'sco.2', 'B1': 'bel.1', 'T1': 'tur.1', 'G1': 'gre.1'}
+               'N1': 'ned.1', 'P1': 'por.1', 'SC0': 'sco.1', 'SC1': 'sco.2', 'B1': 'bel.1', 'T1': 'tur.1', 'G1': 'gre.1',
+               'E2': 'eng.3', 'E3': 'eng.4', 'EC': 'eng.5', 'SC2': 'sco.3', 'SC3': 'sco.4'}
 ESPN_STATS = {'offsides': 'off', 'totalPasses': 'pass', 'accuratePasses': 'apass', 'totalTackles': 'tkl', 'blockedShots': 'blk', 'saves': 'sav', 'totalCrosses': 'crs',
                'interceptions': 'int', 'totalClearance': 'clr', 'totalLongBalls': 'lgb', 'possessionPct': 'pos'}   # estadística de ESPN -> clave corta
 def espn_minute(c):

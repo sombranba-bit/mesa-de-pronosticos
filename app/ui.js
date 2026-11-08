@@ -68,12 +68,12 @@ function fillSelect(sel, items, keep) { const v = keep ?? sel.value; sel.innerHT
 
 // ============================== FÚTBOL ==============================
 let Fd, FB = [], FR = null;
-const COUNTRY = { SP1: 'ES', SP2: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
+const COUNTRY = { SP1: 'ES', SP2: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', E2: 'EL', E3: 'EL', EC: 'EL', SC2: 'SL', SC3: 'SL', B1: 'BE', T1: 'TR', G1: 'GR' };
 const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'oH', 'oD', 'oA', 'oO', 'oU', 'hxg', 'axg', 'ref', 'hst', 'ast', 'il', 'im'];
 let CE = null, IJ = null, NW = null, OD = null, CR = null;   // CR: escudos {equipo: url}
 // ---- elementos gráficos: escudos (o iniciales), banderas por liga y emoji por deporte ----
 const FLAG = { SP1: 'es', SP2: 'es', SP3: 'es', E0: 'gb-eng', E1: 'gb-eng', I1: 'it', I2: 'it', D1: 'de', D2: 'de', F1: 'fr', F2: 'fr', N1: 'nl', P1: 'pt',
-  SC0: 'gb-sct', SC1: 'gb-sct', B1: 'be', T1: 'tr', G1: 'gr', UEFA: 'eu', nba: 'us', euroliga: 'eu', eurocup: 'eu', acb: 'es', lega: 'it', bbl: 'de', lnb: 'fr', gbl: 'gr', bsl: 'tr' };
+  SC0: 'gb-sct', SC1: 'gb-sct', E2: 'gb-eng', E3: 'gb-eng', EC: 'gb-eng', SC2: 'gb-sct', SC3: 'gb-sct', B1: 'be', T1: 'tr', G1: 'gr', UEFA: 'eu', nba: 'us', euroliga: 'eu', eurocup: 'eu', acb: 'es', lega: 'it', bbl: 'de', lnb: 'fr', gbl: 'gr', bsl: 'tr' };
 // bandera a partir del nombre de competición de la fuente de cuotas («La Liga - Spain», «EPL», «NBA»…)
 const flagOf = t => { const x = String(t || '').toLowerCase(); const c = [[/spain|la liga|segunda/, 'es'], [/epl|premier league|championship|england/, 'gb-eng'], [/scot/, 'gb-sct'], [/italy|serie a/, 'it'],
   [/germany|bundesliga/, 'de'], [/france|ligue/, 'fr'], [/netherlands|eredivisie/, 'nl'], [/portugal|primeira/, 'pt'], [/belgium/, 'be'], [/turkey|super lig/, 'tr'], [/greece/, 'gr'],
@@ -384,7 +384,6 @@ const BK = { nba: { raw: null, rows: [], name: 'NBA' }, euroliga: { raw: null, r
 function bkCompsFill() {
   fillSelect($('nbComp'), Object.entries(BK).map(([k, v]) => [k, v.rows.length ? v.name : `${v.name} (sin datos todavía)`]), $('nbComp').value || 'nba');
 }
-const BK_XI = 0.01;
 function buildBK(c) {
   const D = BK[c].raw; if (!D) { BK[c].rows = []; return; }
   const rows = D.date.map((d, k) => ({ d, h: D.teams[D.h[k]], a: D.teams[D.a[k]], hp: D.hp[k], ap: D.ap[k], ou: D.ou ? D.ou[k] : null }));
@@ -395,7 +394,7 @@ function buildBK(c) {
 function bkModel(c) {
   const B = BK[c], rows = B.rows, last = rows[rows.length - 1].d, key = last + '|' + rows.length;
   if (!B.cache || B.cache.key !== key) {
-    const m = M.fitPts(rows.filter(r => r.d >= last - 500), Math.max(last + 1, today()), BK_XI);
+    const bf = M.bkFit(c), m = M.fitPts(rows.filter(r => r.d >= last - bf.days), Math.max(last + 1, today()), bf.xi);
     B.cache = { key, m, last, sd: c === 'nba' ? M.NBA_SD : M.ptsSD(m, rows) };
   }
   return B.cache;
@@ -444,7 +443,7 @@ async function bkBacktest() {
   const days = [...new Set(rows.filter(r => r.d >= from).map(r => r.d))]; $('btNbRun').disabled = true;
   const res = [], sd = c === 'nba' ? M.NBA_SD : bkModel(c).sd;
   for (let i = 0; i < days.length; i++) {
-    const d = days[i], m = M.fitPts(rows.filter(r => r.d < d && r.d >= d - 500), d, BK_XI);
+    const d = days[i], bf = M.bkFit(c), m = M.fitPts(rows.filter(r => r.d < d && r.d >= d - bf.days), d, bf.xi);
     for (const r of rows) if (r.d === d) { const P = M.ptsPredict(m, r.h, r.a); if (!P) continue;
       if (c === 'nba') P.margin += M.nbaFatigue(rows, r.h, r.a, d).adj;   // mismo ajuste por cansancio que en los pronósticos
       res.push({ r, P }); }
@@ -689,14 +688,15 @@ function rulesBlock(R) {
       <td class="num">${sg(r.r1)}</td><td class="num">${sg(r.r2)}</td><td>${r.ok ? '<span class="chip pos">Cumple</span>' : `<span class="note">${r.n < 200 ? `faltan ${200 - r.n}` : 'no cumple'}</span>`}</td></tr>`).join('')}
     </tbody></table></div></section>`;
 }
-function blendBlock(B) {
+function blendBlock(B, L, S) {
   if (!B || !Object.keys(B).length) return '';
+  const lgTxt = !L ? '' : L.on ? `Corrección por liga o torneo: <b>activa</b> en ${Object.keys(L.off).length} competiciones (mejora ${nf(L.gain, 4)} en las semanas recientes).` : `Corrección por liga o torneo: <b>no activa</b> (${L.note || 'sin mejora'}${L.gain != null ? `, cambio ${nf(L.gain, 4)}` : ''}). Se vuelve a probar cada semana.`;
   const N = { futbol: 'Fútbol', baloncesto: 'Baloncesto', tenis: 'Tenis' }, f = x => x == null ? '—' : x.toFixed(3).replace('.', ',');
-  return `<section class="block"><h3 class="sect">${I('scale')}Modelo contra Pinnacle</h3>
-    <p class="note">Error medio (log-loss, cuanto más bajo mejor) del pronóstico principal en los partidos con cuota justa de Pinnacle, últimos 120 días. Si mezclar el modelo con el mercado acierta mejor en las semanas más recientes, se usa la mezcla; el peso dice cuánto cuenta el modelo.</p>
-    <div class="tablewrap"><table><thead><tr><th>Deporte</th><th class="num">Partidos</th><th class="num">Modelo</th><th class="num">Pinnacle</th><th class="num">Mezcla</th><th class="num">Peso del modelo</th></tr></thead><tbody>
+  return `<section class="block"><h3 class="sect">${I('scale')}Modelo contra el mercado</h3>
+    <p class="note">Error medio (log-loss, cuanto más bajo mejor) del pronóstico principal en los partidos con cuota del mercado (Pinnacle sin margen o, si no la ofrece, la mediana de todas las casas), últimos 120 días. Si mezclar el modelo con el mercado acierta mejor en las semanas más recientes, se usa la mezcla; el peso dice cuánto cuenta el modelo.</p>
+    <div class="tablewrap"><table><thead><tr><th>Deporte</th><th class="num">Partidos</th><th class="num">Modelo</th><th class="num">Mercado</th><th class="num">Mezcla</th><th class="num">Peso del modelo</th></tr></thead><tbody>
     ${Object.entries(B).map(([k, b]) => `<tr><td>${N[k] || esc(k)}</td><td class="num">${b.n}</td><td class="num">${f(b.modelo)}</td><td class="num">${f(b.mercado)}</td><td class="num">${f(b.mezcla)}</td><td class="num">${b.w === 1 ? `<span class="note">${esc(b.note || 'solo modelo')}</span>` : pct(b.w, 0)}</td></tr>`).join('')}
-    </tbody></table></div></section>`;
+    </tbody></table></div>${lgTxt ? `<p class="note">${lgTxt}</p>` : ''}${S ? `<p class="note">Segundo modelo (aprende de todo lo guardado: deporte, tipo de mercado y cuota): <b>${S.on ? 'activo' : 'no activo'}</b>${S.modelo != null ? ` · error en las semanas recientes ${nf(S.modelo, 3)} solo el modelo, ${nf(S.apilado, 3)} con el segundo` : ''}${S.on ? '' : ` (${S.note || 'sin mejora'}). Se vuelve a probar cada semana.`}</p>` : ''}</section>`;
 }
 function simBlock(S) {
   if (!S) return '';
@@ -710,9 +710,9 @@ function simBlock(S) {
     <p class="note">Como si hubieras apostado 1 unidad a cada pronóstico de la selección diaria, cobrado a la mejor cuota encontrada antes del partido. Sin dinero real: sirve para saber si fiarse del modelo.</p>
     <div class="sug ${verdict[0]}"><b>${verdict[1]}</b><span>Hace falta: ${S.ready.need} pronósticos con cuota, rendimiento de 0% o más y aciertos como mínimo a 3 puntos de lo que esperaba el modelo.</span>
       <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${S.ready.need}" aria-valuenow="${P.withOdds}"><i style="width:${(prog * 100).toFixed(1)}%"></i></div><small>${P.withOdds} de ${S.ready.need} pronósticos con cuota</small></div>
-    <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
+    <div class="stats">${statBox(rate(P), `aciertos de la selección · ${P.hits} de ${P.n}`)}${statBox(exp(P), 'lo que esperaba el modelo')}${statBox(P.roi == null ? '—' : sgn(P.roi), `rendimiento a la mejor cuota · ${P.withOdds} con cuota`)}${statBox(P.withOdds ? (P.profit >= 0 ? '+' : '−') + nf(Math.abs(P.profit), 1) + ' u' : '—', 'beneficio simulado')}${statBox(P.clv == null ? '—' : sgn(P.clv), 'mejor cuota frente a Pinnacle')}${statBox(P.clvClose == null ? '—' : sgn(P.clvClose), `frente a la cuota de cierre · ${P.clvcN || 0}`)}${statBox(rate(B), `apuesta del día · esperaba ${exp(B)}`)}</div>
     ${S.mid && S.mid.n ? `<h4 class="sub4">${I('target')}Con cuota (1,45 – 1,82)</h4><div class="stats">${statBox(rate(S.mid), `aciertos · ${S.mid.hits} de ${S.mid.n}`)}${statBox(exp(S.mid), 'lo que esperaba el modelo')}${statBox(S.mid.roi == null ? '—' : sgn(S.mid.roi), `rendimiento a la mejor cuota · ${S.mid.withOdds} con cuota`)}</div>` : ''}
-    ${S.all65 && S.all65.n ? `<h4 class="sub4">${I('layers')}Todos los del 65% o más (no solo los 5 del día)</h4><div class="stats">${statBox(rate(S.all65), `aciertos · ${S.all65.hits} de ${S.all65.n}`)}${statBox(exp(S.all65), 'lo que esperaba el modelo')}${statBox(S.all65.roi == null ? '—' : sgn(S.all65.roi), `rendimiento a la mejor cuota · ${S.all65.withOdds} con cuota`)}</div>
+    ${S.all65 && S.all65.n ? `<h4 class="sub4">${I('layers')}Todos los del 65% o más (no solo los 5 del día)</h4><div class="stats">${statBox(rate(S.all65), `aciertos · ${S.all65.hits} de ${S.all65.n}`)}${statBox(exp(S.all65), 'lo que esperaba el modelo')}${statBox(S.all65.roi == null ? '—' : sgn(S.all65.roi), `rendimiento a la mejor cuota · ${S.all65.withOdds} con cuota`)}${statBox(S.all65.clvClose == null ? '—' : sgn(S.all65.clvClose), `mejor cuota frente al cierre · ${S.all65.clvcN} de fútbol`)}</div>
       <p class="note">Misma regla que la selección pero con todos los partidos: más volumen para saber antes si funciona. La luz verde sigue dependiendo solo de la selección.</p>` : ''}
     ${S.safe ? `<h4 class="sub4">Combinada segura</h4><div class="stats">${[[I('shield') + 'segura', S.safe]].map(([l, o]) => o ? statBox(rate(o), `${l} · ${o.hits} de ${o.n} · esperaba ${exp(o)}`) + statBox(o.roi == null ? '—' : sgn(o.roi), `${l}: rendimiento · ${o.withOdds} con cuota`) : '').join('')}</div>` : ''}
   </section>`;
@@ -724,7 +724,7 @@ function acRender() {
   const rateBox = (o, l) => statBox(o && o.n ? pct(o.hits / o.n, 0) : '—', `${l}${o && o.n ? ` · ${o.hits} de ${o.n}` : ' · aún sin datos'}`);
   let html = `<p class="note">Actualizado el ${new Date(PF.updated).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.</p>`;
   const D = PF.daily;
-  html += simBlock(D && D.sim) + rulesBlock(D && D.rules) + blendBlock(D && D.blend);
+  html += simBlock(D && D.sim) + rulesBlock(D && D.rules) + blendBlock(D && D.blend, D && D.league, D && D.stack);
   html += `<section class="block"><h3 class="sect">${I('star')}Apuesta del día y selección</h3><div class="stats">${rateBox(D && D.bet, 'apuesta del día')}${rateBox(D && D.picks, 'pronósticos de la selección')}${rateBox(D && D.full, 'selección completa (todos)')}</div></section>`;
   for (const [sp, s] of Object.entries(PF.sports)) {
     if (!s.n) continue;

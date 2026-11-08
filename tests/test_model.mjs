@@ -161,7 +161,7 @@ ok(nb === 2 && MB[0].best.odds === 1.9 && MB[1].best.book === 'Codere', `mejor c
 { const mk = (i, p, hit, odds) => ({ sport: 'tenis', kickoff: new Date(Date.UTC(2026, 9, 1) + i * 36e5).toISOString(), pick: { p, code: 'H' }, best: { odds }, eval: { pick: { hit } } });
   const D = []; for (let i = 0; i < 420; i++) D.push(mk(i, i % 2 ? 0.6 : 0.7, i % 4 !== 0, 1.5));
   const R = P2.compareRules(D), a = R.find(x => x.name.startsWith('Más probable')), b = R.find(x => x.name.startsWith('Con cuota'));
-  ok(a.n === 210 && Math.abs(a.roi + 0.25) < 0.01 && !a.ok && b.ok && b.roi === 0.5 && R.length === 9, 'comparador de reglas'); }
+  ok(a.n === 210 && Math.abs(a.roi + 0.25) < 0.01 && !a.ok && b.ok && b.roi === 0.5 && R.length === 14, 'comparador de reglas'); }
 ok(P2.keepBest({ pick: { code: 'H' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' }, fair: { H: 1.6 } }).best?.odds === 1.5, 'conserva la mejor cuota vista si la pasada nueva no trae el partido');
 ok(!P2.keepBest({ pick: { code: 'A' } }, { pick: { code: 'H' }, best: { odds: 1.5, book: 'X' } }).best, 'no conserva la cuota si el pronóstico ha cambiado');
 ok(P2.keepBest({ pick: { code: 'H' }, best: { odds: 1.7 } }, { pick: { code: 'H' }, best: { odds: 1.5 } }).best.odds === 1.7, 'la cuota nueva manda sobre la vieja');
@@ -275,6 +275,34 @@ ok(!P2.activeCommands().some(c => ['porra', 'valor'].includes(c[0])) && P2.helpT
   const A = M.tennisFromProb(0.6, 3, 0.56, 0), B = M.tennisFromProb(0.6, 3, 0.56, 0.03);
   near(w(B), 0.6, 1e-4, 'tenis forma del día: misma probabilidad de ganar'); near(M.sum(B.dist.map(x => x.p)), 1, 1e-9, 'tenis forma del día: suma 1');
   ok(g(B) < g(A) - 0.5, `tenis forma del día: menos juegos (${g(A).toFixed(2)} → ${g(B).toFixed(2)})`); }
+// ---- cuota de cierre (football-data): sin margen y buscando también el día anterior (hora UTC) ----
+{ const C = { '2026-11-01|Wigan|Barnsley': [2.05, 3.4, 3.6, 1.9, 1.95] };
+  const c = P2.closingFor({ sport: 'futbol', kickoff: '2026-11-02T00:30:00Z', home: 'Wigan', away: 'Barnsley' }, C);
+  ok(c && c.H > 2.05 && Math.abs(1 / c.H + 1 / c.D + 1 / c.A - 1) < 1e-3 && Math.abs(1 / c.O + 1 / c.U - 1) < 1e-3, 'cierre: cuotas justas que suman 1');
+  ok(P2.closingFor({ sport: 'tenis', kickoff: '2026-11-01T12:00:00Z', home: 'Wigan', away: 'Barnsley' }, C) === null, 'cierre: solo fútbol'); }
+// ---- corrección por liga: una liga sistemáticamente sobrevalorada se corrige; sin sesgo no se activa ----
+{ const now = Date.parse('2026-11-01T00:00:00Z'), H = {}, H2 = {};
+  for (let i = 0; i < 600; i++) {
+    const lgA = i % 2 === 0, j = i >> 1, k = new Date(now - (i + 1) * 36e5 * 6).toISOString(), hit = lgA ? j % 2 === 0 : j % 10 < 7;
+    H['x' + i] = { sport: 'futbol', league: lgA ? 'E2' : 'SP1', leagueName: 'x', kickoff: k, pick: { p: 0.7 }, eval: { pick: { hit } } };
+    H2['x' + i] = { ...H['x' + i], eval: { pick: { hit: j % 10 < 7 } } };
+  }
+  const L = P2.fitLeague(H, now), L2 = P2.fitLeague(H2, now);
+  ok(L.on && L.off['futbol|E2'].b < -0.3 && !L.off['futbol|SP1'], `liga: corrige la liga sesgada (${JSON.stringify(L.off)})`);
+  ok(!L2.on, 'liga: sin sesgo no se activa');
+  const m = [{ sport: 'futbol', league: 'E2', pick: { p: 0.7 } }]; P2.applyLeague(m, L); ok(m[0].pick.p < 0.6 && m[0].pickLg === 0.7, 'liga: se aplica y guarda la original'); }
+// ---- segundo modelo (apilado): aprende que el tenis está sobrevalorado; si todo cuadra, no se activa ----
+{ const now = Date.parse('2026-11-01T00:00:00Z'), H = {}, H2 = {};
+  for (let i = 0; i < 800; i++) {
+    const ten = i % 2 === 0, j = i >> 1, k = new Date(now - (i + 1) * 36e5 * 4).toISOString(), p = 0.6 + (j % 5) * 0.06;
+    const e = { sport: ten ? 'tenis' : 'futbol', league: 'x', kickoff: k, pick: { p, code: 'H' } };
+    H['s' + i] = { ...e, eval: { pick: { hit: ((j * 37) % 100) / 100 < (ten ? p - 0.15 : p) } } };
+    H2['s' + i] = { ...e, eval: { pick: { hit: ((j * 37) % 100) / 100 < p } } };
+  }
+  const S = P2.fitStack(H, now), S2 = P2.fitStack(H2, now);
+  ok(S.on && S.gain > 0.01, `apilado: detecta el sesgo del tenis (${S.gain})`);
+  ok(!S2.on, `apilado: sin sesgo no se activa (${S2.gain})`);
+  const m = [{ sport: 'tenis', pick: { p: 0.75, code: 'H' } }]; P2.applyStack(m, S); ok(m[0].pick.p < 0.68 && m[0].pickSt === 0.75, `apilado: baja el tenis (${m[0].pick.p.toFixed(3)})`); }
 // ---- mezcla con Pinnacle: si el mercado acierta mejor, el peso del modelo baja; si no, se queda en 1 ----
 { const now = Date.parse('2026-11-01T00:00:00Z'), H = {}, H2 = {};
   for (let i = 0; i < 200; i++) {

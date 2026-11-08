@@ -15,11 +15,11 @@ API = 'https://api.the-odds-api.com/v4'
 SPORTS = ['soccer_spain_la_liga', 'soccer_uefa_champs_league', 'soccer_epl', 'soccer_italy_serie_a', 'soccer_germany_bundesliga', 'soccer_france_ligue_one',
           'soccer_spain_segunda_division', 'soccer_uefa_europa_league', 'soccer_netherlands_eredivisie', 'soccer_portugal_primeira_liga', 'soccer_efl_champ',
           'soccer_uefa_europa_conference_league', 'soccer_turkey_super_league', 'soccer_belgium_first_div', 'soccer_spl', 'soccer_greece_super_league',
-          'basketball_euroleague', 'basketball_nba']
+          'basketball_euroleague', 'basketball_nba', 'soccer_england_league1', 'soccer_england_league2']
 # nuestras ligas -> claves de The Odds API (para pedir primero las de la selección del día)
 LEAGUE_KEYS = {'SP1': ['soccer_spain_la_liga'], 'SP2': ['soccer_spain_segunda_division'], 'E0': ['soccer_epl'], 'E1': ['soccer_efl_champ'], 'I1': ['soccer_italy_serie_a'],
                'D1': ['soccer_germany_bundesliga'], 'F1': ['soccer_france_ligue_one'], 'N1': ['soccer_netherlands_eredivisie'], 'P1': ['soccer_portugal_primeira_liga'],
-               'T1': ['soccer_turkey_super_league'], 'B1': ['soccer_belgium_first_div'], 'SC0': ['soccer_spl'], 'G1': ['soccer_greece_super_league'],
+               'T1': ['soccer_turkey_super_league'], 'B1': ['soccer_belgium_first_div'], 'SC0': ['soccer_spl'], 'G1': ['soccer_greece_super_league'], 'E2': ['soccer_england_league1'], 'E3': ['soccer_england_league2'],
                'UEFA': ['soccer_uefa_champs_league', 'soccer_uefa_europa_league', 'soccer_uefa_europa_conference_league'], 'nba': ['basketball_nba'], 'euroliga': ['basketball_euroleague']}
 VALUE_MIN, SURE_MIN, ANOMALY = 0.03, 0.002, 1.25
 EXCHANGES, COMMISSION = ('betfair_ex', 'matchbook', 'smarkets'), 0.05   # en los exchanges se paga comisión sobre la ganancia
@@ -97,6 +97,12 @@ def analyse(event):
             ok = {b2: p for b2, p in prices.items() if len(prices) < 3 or p < ANOMALY * med}
             if ok:
                 b2, p = max(ok.items(), key=lambda x: x[1]); best_ev[code[n]] = [p, b2, len(prices)]
+        # mediana de todas las casas sin margen (consenso, a prueba de cuotas erróneas): segunda referencia cuando Pinnacle no ofrece el partido
+        books = [b2 for b2 in set().union(*(outs[n] for n in names)) if all(b2 in outs[n] for n in names)]
+        if len(books) >= 3:
+            avg = [statistics.median(fair([outs[n][b2] for n in names])[i] for b2 in books) for i, n in enumerate(names)]
+            for n, q in zip(names, avg):
+                if n in code: best_ev.setdefault('cons', {})[code[n]] = round(sum(avg) / q, 3)
         if all(pin.values()):   # cuota justa de Pinnacle (sin margen): referencia para el valor y el CLV del registro de apuestas
             for n, f in zip(names, fair([pin[n] for n in names])):
                 if n in code: best_ev.setdefault('fair', {})[code[n]] = round(1 / f, 3)

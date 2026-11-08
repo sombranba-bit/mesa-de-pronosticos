@@ -12,7 +12,7 @@ const DATA = path.join(ROOT, 'docs', 'data'), STATE = path.join(ROOT, 'data');
 const read = (f, d = null) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
 const write = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + '.tmp', JSON.stringify(o)); fs.renameSync(f + '.tmp', f); };
 const NOW = Date.now(), TODAY = Math.floor(NOW / 864e5);
-const COUNTRY = { SP1: 'ES', SP2: 'ES', SP3: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', B1: 'BE', T1: 'TR', G1: 'GR' };
+const COUNTRY = { SP1: 'ES', SP2: 'ES', SP3: 'ES', E0: 'EN', E1: 'EN', I1: 'IT', I2: 'IT', D1: 'DE', D2: 'DE', F1: 'FR', F2: 'FR', N1: 'NL', P1: 'PT', SC0: 'SC', SC1: 'SC', E2: 'EL', E3: 'EL', EC: 'EL', SC2: 'SL', SC3: 'SL', B1: 'BE', T1: 'TR', G1: 'GR' };
 const FB_FIELDS = ['hth', 'hta', 'hc', 'ac', 'hy', 'ay', 'hr', 'ar', 'hxg', 'axg', 'hst', 'ast', 'il', 'im', 'hsh', 'ash', 'hfo', 'afo'];
 const usDay = ms => Math.round(Date.parse(new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' }).format(new Date(ms)) + 'T00:00:00Z') / 864e5);
 const madridDate = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date(ms));   // AAAA-MM-DD
@@ -128,7 +128,7 @@ export function predictAll(F, B, fixtures, injuries = {}, X = {}) {
   for (const [sport, name, D] of basketComps(B)) {
     const fx = [...(fixtures[sport] || []), ...(fixtures.basket || []).filter(f => f.league === sport)]; if (!fx.length) continue;
     const rows = D.date.map((d, k) => ({ d, h: D.teams[D.h[k]], a: D.teams[D.a[k]], hp: D.hp[k], ap: D.ap[k] })).sort((a, b) => a.d - b.d);
-    const last = rows[rows.length - 1].d, m = M.fitPts(rows.filter(r => r.d >= last - 500), Math.max(TODAY, last + 1), 0.01);
+    const last = rows[rows.length - 1].d, bf = M.bkFit(sport), m = M.fitPts(rows.filter(r => r.d >= last - bf.days), Math.max(TODAY, last + 1), bf.xi);
     const sd = sport === 'nba' ? M.NBA_SD : M.ptsSD(m, rows), T = teamHistory(rows, 'hp', 'ap');
     for (const f of fx) {
       const fat = sport === 'nba' ? M.nbaFatigue(rows, f.h, f.a, usDay(Date.parse(f.kickoff))) : { adj: 0 };
@@ -309,7 +309,7 @@ export function performance(hist) {
   const recent = done.slice(-40).reverse().map(e => ({ date: madridDate(Date.parse(e.kickoff)), sport: e.sport, home: e.home, away: e.away, label: e.pick.label, p: e.pick.p, hit: e.eval.pick.hit, score: e.scoreText }));
   const all = Object.values(hist), daily = { bet: { n: 0, hits: 0 }, picks: { n: 0, hits: 0 }, full: { n: 0, hits: 0 }, recent: [] };
   // Simulación sin dinero: 1 unidad a cada pronóstico de la selección (y a la apuesta del día), cobrada a la mejor cuota vista antes del partido
-  const simNew = () => ({ n: 0, hits: 0, pSum: 0, withOdds: 0, profit: 0, clvSum: 0, clvN: 0 }), sim = { bet: simNew(), picks: simNew(), mid: simNew(), safe: simNew(), all65: simNew() };
+  const simNew = () => ({ n: 0, hits: 0, pSum: 0, withOdds: 0, profit: 0, clvSum: 0, clvN: 0, clvcSum: 0, clvcN: 0 }), sim = { bet: simNew(), picks: simNew(), mid: simNew(), safe: simNew(), all65: simNew() };
   const byId = Object.fromEntries(Object.values(hist).map(e => [e.id, e]));
   const comboAdd = (o, c) => {   // una combinada cuenta cuando se han jugado todos sus partidos
     if (!c) return; const L = c.ids.map(id => byId[id]); if (L.some(e => !e?.eval)) return;
@@ -320,6 +320,7 @@ export function performance(hist) {
     o.n++; o.hits += e.eval.pick.hit; o.pSum += e.pick.p;
     if (e.best?.odds > 1) { o.withOdds++; o.profit += e.eval.pick.hit ? e.best.odds - 1 : -1; }
     const f = e.fair?.[e.pick.code]; if (f && e.best?.odds) { o.clvSum += e.best.odds / f - 1; o.clvN++; }
+    const c = e.close?.[e.pick.code]; if (c && e.best?.odds) { o.clvcSum += e.best.odds / c - 1; o.clvcN++; }   // contra el cierre real (football-data)
   };
   for (const day of [...new Set(done.map(e => slateDay(Date.parse(e.kickoff))))].sort()) {
     const sel = dailyPicks(all, day);
@@ -332,13 +333,15 @@ export function performance(hist) {
   }
   for (const e of done) if (e.pick.p >= SEL_MIN) simAdd(sim.all65, e);   // misma regla del 65% pero con todos los partidos, no solo los 5 del día: más volumen
   daily.recent = daily.recent.slice(0, 30);
-  for (const o of Object.values(sim)) Object.assign(o, { pAvg: o.n ? o.pSum / o.n : null, roi: o.withOdds ? o.profit / o.withOdds : null, clv: o.clvN ? o.clvSum / o.clvN : null });
+  for (const o of Object.values(sim)) Object.assign(o, { pAvg: o.n ? o.pSum / o.n : null, roi: o.withOdds ? o.profit / o.withOdds : null, clv: o.clvN ? o.clvSum / o.clvN : null, clvClose: o.clvcN ? o.clvcSum / o.clvcN : null });
   // listo para apostar con dinero: 100 pronósticos simulados con cuota, rendimiento no negativo y aciertos a la altura de lo que decía el modelo
   const P = sim.picks;
   sim.ready = { need: SIM_N, have: P.withOdds, ok: P.withOdds >= SIM_N && P.roi >= 0 && P.hits / P.n >= P.pAvg - 0.03 };
   daily.sim = sim;
   daily.rules = compareRules(done);
   daily.blend = fitBlend(hist);
+  daily.league = fitLeague(hist);
+  daily.stack = fitStack(hist);
   // última cuota justa de Pinnacle vista antes de empezar cada partido (para el CLV del registro de apuestas) y resultado
   const closing = {};
   for (const e of Object.values(hist)) if (NOW - Date.parse(e.kickoff) < 120 * 864e5 && (e.fair || e.result))
@@ -396,9 +399,20 @@ function writeHistory(file, hist) {
   write(file, active);
   write(path.join(STATE, 'state.json'), { ...read(path.join(STATE, 'state.json'), {}), histArch: today });
 }
+// Cuota de cierre de football-data (Pinnacle o media del mercado) sin margen: {H, D, A, O, U} como cuotas justas
+export function closingFor(e, C) {
+  if (e.sport !== 'futbol' || !C) return null;
+  const t = Date.parse(e.kickoff), r = [0, -864e5, 864e5].map(dd => C[`${new Date(t + dd).toISOString().slice(0, 10)}|${e.home}|${e.away}`]).find(Boolean);
+  if (!r) return null;
+  const out = {}, p3 = M.fairProbs(r.slice(0, 3)), p2 = M.fairProbs(r.slice(3, 5));
+  if (p3) ['H', 'D', 'A'].forEach((k, i) => out[k] = +(1 / p3[i]).toFixed(3));
+  if (p2) ['O', 'U'].forEach((k, i) => out[k] = +(1 / p2[i]).toFixed(3));
+  return Object.keys(out).length ? out : null;
+}
 export function keepBest(m, old) {
   if (!m.best && old?.best && old.pick?.code === m.pick.code) m.best = old.best;
   if (!m.fair && old?.fair) m.fair = old.fair;
+  if (!m.cons && old?.cons) m.cons = old.cons;
   return m;
 }
 export function attachBest(matches, odds) {
@@ -407,10 +421,11 @@ export function attachBest(matches, odds) {
     const near = e => Math.abs(Date.parse(e.kickoff) - Date.parse(m.kickoff)) <= 3 * 3600e3;
     let e = (odds?.best || []).find(e => near(e) && sameTeam(m.home, e.home) && sameTeam(m.away, e.away)), swap = false;
     if (!e && m.sport === 'tenis') { e = (odds?.best || []).find(e => near(e) && sameTeam(m.home, e.away) && sameTeam(m.away, e.home)); swap = !!e; }   // en tenis el orden de los jugadores varía
-    if (e && swap) { const f = { ...e, H: e.A, A: e.H }; if (e.fair) f.fair = { H: e.fair.A, A: e.fair.H }; e = f; }
+    if (e && swap) { const f = { ...e, H: e.A, A: e.H }; if (e.fair) f.fair = { H: e.fair.A, A: e.fair.H }; if (e.cons) f.cons = { H: e.cons.A, A: e.cons.H }; e = f; }
     const b = e && e[m.pick.code];
     if (b) { m.best = { odds: b[0], book: b[1], ...(e.fair?.[m.pick.code] ? { fair: e.fair[m.pick.code] } : {}) }; n++; }
     if (e?.fair) m.fair = e.fair;   // cuotas justas de Pinnacle de todos los resultados (para el registro de apuestas)
+    if (e?.cons) m.cons = e.cons;   // mediana sin margen de todas las casas
   }
   return n;
 }
@@ -440,7 +455,7 @@ const html = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const pc = p => Math.round(p * 100) + '%';
 // emojis para Telegram (en el móvil se ven las banderas)
 const FLAG_EMOJI = { SP1: '🇪🇸', SP2: '🇪🇸', SP3: '🇪🇸', E0: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', E1: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', I1: '🇮🇹', I2: '🇮🇹', D1: '🇩🇪', D2: '🇩🇪', F1: '🇫🇷', F2: '🇫🇷', N1: '🇳🇱', P1: '🇵🇹',
-  SC0: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', SC1: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', B1: '🇧🇪', T1: '🇹🇷', G1: '🇬🇷', UEFA: '🇪🇺', nba: '🇺🇸', euroliga: '🇪🇺', eurocup: '🇪🇺', acb: '🇪🇸', lega: '🇮🇹', bbl: '🇩🇪', lnb: '🇫🇷', gbl: '🇬🇷', bsl: '🇹🇷', atp: '🎾', wta: '🎾' };
+  SC0: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', SC1: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', E2: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', E3: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', EC: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', SC2: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', SC3: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', B1: '🇧🇪', T1: '🇹🇷', G1: '🇬🇷', UEFA: '🇪🇺', nba: '🇺🇸', euroliga: '🇪🇺', eurocup: '🇪🇺', acb: '🇪🇸', lega: '🇮🇹', bbl: '🇩🇪', lnb: '🇫🇷', gbl: '🇬🇷', bsl: '🇹🇷', atp: '🎾', wta: '🎾' };
 const tag = m => m.sport === 'tenis' ? '🎾' : `${m.sport === 'futbol' ? '⚽' : '🏀'}${FLAG_EMOJI[m.league] || ''}`;
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 // Filtros de config.json -> telegram: equipos, competiciones, confianza mínima
@@ -557,7 +572,12 @@ const RULES = [['Más probable (65% o más)', e => e.pick.p >= SEL_MIN], ['Con c
   ['Con valor (2% o más sobre la justa y Pinnacle)', e => valueEdge(e) >= 0.02], ['Fútbol 65% o más', e => e.sport === 'futbol' && e.pick.p >= SEL_MIN],
   ['Tenis 65% o más', e => e.sport === 'tenis' && e.pick.p >= SEL_MIN], ['Baloncesto 65% o más', e => !['futbol', 'tenis'].includes(e.sport) && e.pick.p >= SEL_MIN],
   ['Fútbol con cuota (55–69%)', e => e.sport === 'futbol' && e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX], ['Tenis con cuota (55–69%)', e => e.sport === 'tenis' && e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX],
-  ['Baloncesto con cuota (55–69%)', e => !['futbol', 'tenis'].includes(e.sport) && e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX]];
+  ['Baloncesto con cuota (55–69%)', e => !['futbol', 'tenis'].includes(e.sport) && e.pick.p >= ODDS_PMIN && e.pick.p <= ODDS_PMAX],
+  ['Modelo 3 puntos por encima del mercado', e => { const q = mkt(e); return q > 1 && e.pick.p - 1 / q >= 0.03; }],
+  ['Valor frente a la media de casas (2% o más)', e => e.cons?.[e.pick.code] > 1 && e.best.odds / Math.max(1 / e.pick.p, e.cons[e.pick.code]) - 1 >= 0.02],
+  ['Cuota 1,50 o más y 60% o más', e => e.best.odds >= 1.5 && e.pick.p >= 0.6],
+  ['Fútbol: goles y ambos marcan', e => e.sport === 'futbol' && ['O', 'U', 'BY', 'BN'].includes(e.pick.code)],
+  ['Fútbol: ligas de segunda fila', e => e.sport === 'futbol' && ['E2', 'E3', 'EC', 'SC2', 'SC3', 'SP2', 'E1', 'I2', 'D2', 'F2', 'SC1'].includes(e.league)]];
 export function compareRules(done) {
   const W = done.filter(e => e.best?.odds > 1 && e.eval?.pick), roi = L => L.length ? L.reduce((s, e) => s + (e.eval.pick.hit ? e.best.odds - 1 : -1), 0) / L.length : null;
   return RULES.map(([name, f]) => {
@@ -608,16 +628,18 @@ export function fitCalib(hist, now = NOW) {
   }
   return out;
 }
-// Mezcla con el mercado: p' = sigmoide(w·logit modelo + (1−w)·logit Pinnacle), por deporte, cuando hay cuota justa de Pinnacle.
+// Mezcla con el mercado: p' = sigmoide(w·logit modelo + (1−w)·logit mercado), por deporte. Mercado = cuota justa de Pinnacle o, si no la hay,
+// la mediana sin margen de todas las casas.
 // w se ajusta con el 75% más antiguo (últimos 120 días) y solo se usa si mejora el log-loss del 25% más reciente en 0,002 o más.
 export const BLEND_MIN = 80;
+const mkt = e => e.fair?.[e.pick?.code] || e.cons?.[e.pick?.code];
 const SPORT_G = e => e.sport === 'futbol' ? 'futbol' : e.sport === 'tenis' ? 'tenis' : 'baloncesto';
 const blendP = (p, q, w) => sg(w * lg(Math.min(Math.max(p, 1e-6), 1 - 1e-6)) + (1 - w) * lg(Math.min(Math.max(q, 1e-6), 1 - 1e-6)));
 const llBlend = (P, w) => P.reduce((s, x) => { const r = Math.min(Math.max(blendP(x.p, x.q, w), 1e-6), 1 - 1e-6); return s - Math.log(x.hit ? r : 1 - r); }, 0) / P.length;
 export function fitBlend(hist, now = NOW) {
   const out = {}, groups = {};
   for (const e of Object.values(hist)) {
-    const f = e.fair?.[e.pick?.code];
+    const f = mkt(e);
     if (!e.eval?.pick || !(f > 1) || now - Date.parse(e.kickoff) > 120 * 864e5) continue;
     (groups[SPORT_G(e)] ||= []).push({ t: Date.parse(e.kickoff), p: e.pickRaw ?? e.pick.p, q: 1 / f, hit: !!e.eval.pick.hit });
   }
@@ -634,11 +656,83 @@ export function fitBlend(hist, now = NOW) {
 export function applyBlend(matches, blend = {}) {
   let n = 0;
   for (const m of matches) {
-    const w = blend[SPORT_G(m)]?.w, f = m.fair?.[m.pick.code];
+    const w = blend[SPORT_G(m)]?.w, f = mkt(m);
     if (w == null || w === 1 || !(f > 1)) continue;
     m.pickRaw = m.pick.p;   // probabilidad del modelo sin mezclar: el siguiente ajuste se calcula sobre ella
     m.pick = { ...m.pick, p: blendP(m.pick.p, 1 / f, w) }; n++;
   }
+  return n;
+}
+// Corrección por liga o torneo: desplazamiento b en logit (p' = sigmoide(logit p + b)) del pronóstico principal, con penalización que lo
+// acerca a 0 cuando la liga tiene pocos partidos (LG_PRIOR partidos «neutros»). Se ajusta con el 75% más antiguo de los últimos 180 días
+// y solo se activa si en el 25% más reciente mejora el log-loss del conjunto en 0,002 o más.
+export const LG_PRIOR = 200, LG_MIN = 20;
+const lgKey = e => e.sport === 'tenis' ? `tenis|${e.leagueName.replace(/ · .*/, '')}` : `${e.sport}|${e.league}`;
+const fitOffsets = P => {
+  const by = {}; for (const x of P) (by[x.k] ||= []).push(x);
+  const out = {};
+  for (const [k, L] of Object.entries(by)) {
+    if (L.length < LG_MIN) continue;
+    let best = 0, bl = Infinity;
+    for (let b = -1; b <= 1.0001; b += 0.02) { const v = L.reduce((t, x) => t - Math.log(x.hit ? sg(lg(x.p) + b) : 1 - sg(lg(x.p) + b)), 0) + LG_PRIOR * b * b / 2 * 0.25; if (v < bl) { bl = v; best = +b.toFixed(2); } }
+    if (best) out[k] = { b: best, n: L.length };
+  }
+  return out;
+};
+const llOff = (P, off) => P.reduce((t, x) => { const q = Math.min(Math.max(sg(lg(x.p) + (off[x.k]?.b || 0)), 1e-6), 1 - 1e-6); return t - Math.log(x.hit ? q : 1 - q); }, 0) / P.length;
+export function fitLeague(hist, now = NOW) {
+  const P = [];
+  for (const e of Object.values(hist)) if (e.eval?.pick && now - Date.parse(e.kickoff) <= 180 * 864e5)
+    P.push({ t: Date.parse(e.kickoff), k: lgKey(e), p: Math.min(Math.max(e.pickLg ?? e.pick.p, 0.01), 0.99), hit: !!e.eval.pick.hit });
+  if (P.length < 200) return { on: false, n: P.length, note: 'pocos datos' };
+  P.sort((a, b) => a.t - b.t); const cut = Math.floor(P.length * 0.75), tr = P.slice(0, cut), te = P.slice(cut);
+  const gain = llOff(te, {}) - llOff(te, fitOffsets(tr));
+  return gain >= CALIB_GAIN ? { on: true, n: P.length, gain: +gain.toFixed(4), off: fitOffsets(P) } : { on: false, n: P.length, gain: +gain.toFixed(4), note: 'sin mejora suficiente' };
+}
+export function applyLeague(matches, L) {
+  if (!L?.on) return 0; let n = 0;
+  for (const m of matches) { const b = L.off[lgKey(m)]?.b; if (!b) continue; m.pickLg = m.pick.p; m.pick = { ...m.pick, p: sg(lg(Math.min(Math.max(m.pick.p, 1e-6), 1 - 1e-6)) + b) }; n++; }
+  return n;
+}
+// Segundo modelo (apilado): regresión logística con penalización, entrenada con todo lo guardado, que corrige la probabilidad final
+// según deporte, tipo de mercado y lo que dice el mercado. Mismo examen que el resto: 75% más antiguo para entrenar, 25% más reciente
+// para comprobar; solo se usa si mejora el log-loss en 0,002 o más.
+const ST_RIDGE = 30;
+const stFeat = (e, p) => {
+  const q = mkt(e), l = lg(Math.min(Math.max(p, 0.01), 0.99)), c = e.pick?.code, ten = +(e.sport === 'tenis'), bk = +(e.sport !== 'futbol' && !ten);
+  return [1, l, q ? 1 : 0, q ? lg(Math.min(Math.max(1 / q, 0.01), 0.99)) : 0, ten, bk, +(c === 'D'), +(c === 'A'), +(c === 'O' || c === 'U'), +(c === 'BY' || c === 'BN'), l * ten, l * bk];
+};
+function logit(X, y, ridge = ST_RIDGE) {   // Newton con penalización L2 (la constante no se penaliza)
+  const d = X[0].length; let w = new Array(d).fill(0); w[1] = 1;
+  for (let it = 0; it < 25; it++) {
+    const g = new Array(d).fill(0), H = Array.from({ length: d }, () => new Array(d).fill(0));
+    for (let i = 0; i < X.length; i++) { const x = X[i], p = sg(x.reduce((t, v, j) => t + v * w[j], 0)), r = p - y[i], v = p * (1 - p);
+      for (let a = 0; a < d; a++) { g[a] += r * x[a]; for (let b = 0; b < d; b++) H[a][b] += v * x[a] * x[b]; } }
+    for (let a = 1; a < d; a++) { g[a] += ridge * (w[a] - (a === 1 ? 1 : 0)); H[a][a] += ridge; }   // se acerca a «dejar la probabilidad como está»
+    for (let a = 0; a < d; a++) H[a][a] += 1e-9;
+    const A = H.map((row, i) => [...row, g[i]]);   // H·Δ = g (Gauss)
+    for (let c = 0; c < d; c++) { let piv = c; for (let r = c + 1; r < d; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r; [A[c], A[piv]] = [A[piv], A[c]];
+      for (let r = 0; r < d; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let k = c; k <= d; k++) A[r][k] -= f * A[c][k]; } }
+    const step = A.map((row, i) => row[d] / row[i]); w = w.map((v, i) => v - step[i]);
+    if (Math.max(...step.map(Math.abs)) < 1e-7) break;
+  }
+  return w;
+}
+const stP = (w, x) => sg(x.reduce((t, v, j) => t + v * w[j], 0));
+export function fitStack(hist, now = NOW) {
+  const P = [];
+  for (const e of Object.values(hist)) if (e.eval?.pick && now - Date.parse(e.kickoff) <= 180 * 864e5)
+    P.push({ t: Date.parse(e.kickoff), x: stFeat(e, e.pickSt ?? e.pick.p), p: Math.min(Math.max(e.pickSt ?? e.pick.p, 1e-6), 1 - 1e-6), y: e.eval.pick.hit ? 1 : 0 });
+  if (P.length < 300) return { on: false, n: P.length, note: `faltan ${300 - P.length} pronósticos` };
+  P.sort((a, b) => a.t - b.t); const cut = Math.floor(P.length * 0.75), tr = P.slice(0, cut), te = P.slice(cut);
+  const w = logit(tr.map(r => r.x), tr.map(r => r.y)), ll = f => te.reduce((t, r) => { const q = Math.min(Math.max(f(r), 1e-6), 1 - 1e-6); return t - Math.log(r.y ? q : 1 - q); }, 0) / te.length;
+  const base = ll(r => r.p), st = ll(r => stP(w, r.x)), gain = base - st;
+  const res = { n: P.length, modelo: +base.toFixed(4), apilado: +st.toFixed(4), gain: +gain.toFixed(4) };
+  return gain >= CALIB_GAIN ? { on: true, ...res, w: logit(P.map(r => r.x), P.map(r => r.y)).map(v => +v.toFixed(4)) } : { on: false, ...res, note: 'sin mejora suficiente' };
+}
+export function applyStack(matches, S) {
+  if (!S?.on) return 0; let n = 0;
+  for (const m of matches) { m.pickSt = m.pick.p; m.pick = { ...m.pick, p: stP(S.w, stFeat(m, m.pick.p)) }; n++; }
   return n;
 }
 const FB_MAIN_CAL = [['o25', 'tot>2.5'], ['btts', 'btts>0.5'], ['co95', 'co>9.5'], ['ca45', 'ca>4.5']];
@@ -732,7 +826,7 @@ async function main() {
   const histFile = path.join(STATE, 'history.json'), hist = readHistory(histFile);
   for (const m of matches) if (Date.parse(m.kickoff) > NOW) {
     // la pasada de cuotas de la tarde puede no traer este partido (cupo gastado): se conserva la mejor cuota ya vista si el pronóstico no ha cambiado
-    keepBest(m, hist[m.id]); applyBlend([m], calib.blend); hist[m.id] = { ...m, savedAt: new Date(NOW).toISOString() };   // la mezcla con Pinnacle, tras recuperar la cuota justa ya vista
+    keepBest(m, hist[m.id]); applyBlend([m], calib.blend); applyLeague([m], calib.league); applyStack([m], calib.stack); hist[m.id] = { ...m, savedAt: new Date(NOW).toISOString() };   // la mezcla con Pinnacle, tras recuperar la cuota justa ya vista
     if (Date.parse(m.kickoff) - NOW > 6 * 3600e3) delete hist[m.id].mx;   // los cientos de mercados solo se guardan en las últimas 6 h antes del partido (vale el último cálculo): el historial pesa mucho menos
   }
   // partidos futuros que ya no están en el calendario (aplazados, o nombres corregidos): fuera, para que no los elija la apuesta del día
@@ -748,11 +842,13 @@ async function main() {
     else if (age > 14 * 864e5) delete hist[id];   // aplazado, europeo sin resultado o nunca publicado
   }
   for (const [id, e] of Object.entries(hist)) if (NOW - Date.parse(e.kickoff) > 400 * 864e5) delete hist[id];
+  const CL = read(path.join(STATE, 'closing.json'), {});   // football-data publica las cuotas de cierre unos días después
+  for (const e of Object.values(hist)) if (e.eval && !e.close && NOW - Date.parse(e.kickoff) < 30 * 864e5) { const c = closingFor(e, CL); if (c) e.close = c; }
   const perf = performance(hist);
   writeHistory(histFile, hist);
   // reajuste semanal (lunes): se recalcula la calibración y se aplica desde la siguiente ejecución
   const wkKey = madridDate(NOW - ((new Date(NOW).getUTCDay() + 6) % 7) * 864e5);
-  if (calib.week !== wkKey) { calib = { week: wkKey, sports: fitCalib(hist), markets: MK.fitMarketCalib(readMarkets()), blend: fitBlend(hist) }; write(calibFile, calib); console.log('calibración semanal:', JSON.stringify(calib.sports), JSON.stringify(calib.blend), Object.fromEntries(Object.entries(calib.markets).map(([k, v]) => [k, Object.keys(v).length]))); }
+  if (calib.week !== wkKey) { calib = { week: wkKey, sports: fitCalib(hist), markets: MK.fitMarketCalib(readMarkets()), blend: fitBlend(hist), league: fitLeague(hist), stack: fitStack(hist) }; write(calibFile, calib); console.log('calibración semanal:', JSON.stringify(calib.sports), JSON.stringify(calib.blend), Object.fromEntries(Object.entries(calib.markets).map(([k, v]) => [k, Object.keys(v).length]))); }
   write(path.join(DATA, 'performance.json'), perf);
   write(path.join(DATA, 'historial.json'), { updated: new Date(NOW).toISOString(), ...historyRows(hist) });
   write(path.join(DATA, 'mercados.json'), { updated: new Date(NOW).toISOString(), sports: MK.aggregate(readMarkets()), calib: calib.markets || {} });

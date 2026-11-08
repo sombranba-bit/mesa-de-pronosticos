@@ -231,14 +231,16 @@ const M = (() => {
   }
 
   // ---------- TENIS: Elo general + Elo por superficie (K de FiveThirtyEight) ----------
-  const eloK = n => 250 / Math.pow(n + 5, 0.4);
+  // K de Elo: baja con los partidos jugados y sube tras un parón (vuelve de lesión: su nivel real es más incierto). Ajustado con validación
+  // temporal (2022-24 para elegir, 2025-26 para comprobar): log-loss 0,6273 -> 0,6269; peso de la superficie 0,3 -> 0,5.
+  const eloK = (n, gap = 0) => 210 / Math.pow(n + 5, 0.35) * (1 + 1.5 * Math.min(Math.max(gap, 0), 365) / 365);
   // El Elo crudo es demasiado confiado: logit(p') = 0,75·logit(p), ajustado en 2021-23 y validado en 2024-26
   // (log-loss 0,6308 -> 0,6239; lo pronosticado al 74% se cumple el 73,6%).
   const ELO_C = 0.75, eloCalib = p => 1 / (1 + Math.exp(-ELO_C * Math.log(p / (1 - p))));
   function runElo(T, opts = {}) {
-    const wS = opts.surfWeight ?? 0.3, minN = opts.minN ?? 10, from = opts.from ?? Infinity, P = T.players.length;
+    const wS = opts.surfWeight ?? 0.5, minN = opts.minN ?? 10, from = opts.from ?? Infinity, P = T.players.length;
     const R = new Float64Array(P).fill(1500), S = [0, 1, 2, 3].map(() => new Float64Array(P).fill(1500));
-    const Nn = new Float64Array(P), NS = [0, 1, 2, 3].map(() => new Float64Array(P)), preds = [];
+    const Nn = new Float64Array(P), NS = [0, 1, 2, 3].map(() => new Float64Array(P)), preds = [], last = new Float64Array(P).fill(-1);
     const Mk = new Float64Array(P), Ms = new Uint8Array(P);   // rating de mercado (cuotas Pinnacle de partidos pasados)
     for (let k = 0; k < T.date.length; k++) {
       const w = T.w[k], l = T.l[k], s = T.surf[k];
@@ -252,10 +254,11 @@ const M = (() => {
         Mk[w] += TN_MK.k * e; Mk[l] -= TN_MK.k * e; Ms[w] = Ms[l] = 1;
       }
       if (T.completed[k]) {
-        R[w] += eloK(Nn[w]) * (1 - p); R[l] -= eloK(Nn[l]) * (1 - p);
+        const gw = last[w] < 0 ? 0 : T.date[k] - last[w], gl = last[l] < 0 ? 0 : T.date[k] - last[l];
+        R[w] += eloK(Nn[w], gw) * (1 - p); R[l] -= eloK(Nn[l], gl) * (1 - p);
         const ps = 1 / (1 + Math.pow(10, (S[s][l] - S[s][w]) / 400));
-        S[s][w] += eloK(NS[s][w]) * (1 - ps); S[s][l] -= eloK(NS[s][l]) * (1 - ps);
-        Nn[w]++; Nn[l]++; NS[s][w]++; NS[s][l]++;
+        S[s][w] += eloK(NS[s][w], gw) * (1 - ps); S[s][l] -= eloK(NS[s][l], gl) * (1 - ps);
+        Nn[w]++; Nn[l]++; NS[s][w]++; NS[s][l]++; last[w] = last[l] = T.date[k];
       }
     }
     return { R, S, N: Nn, NS, preds, wS, Mk, Ms };
@@ -533,8 +536,11 @@ const M = (() => {
   }
 
   const BASE_SERVE = [[0.64, 0.61, 0.67, 0.65], [0.56, 0.54, 0.58, 0.57]];
+  // Olvido de los puntos en baloncesto (validación temporal semana a semana, último año): Euroliga y EuroCup juegan pocos partidos y
+  // conviene recordar más (Euroliga log-loss 0,6435 -> 0,6359; EuroCup 0,6244 -> 0,6150). NBA y ACB se quedan como estaban.
+  const bkFit = c => c === 'euroliga' || c === 'eurocup' ? { xi: 0.004, days: 800 } : { xi: 0.01, days: 500 };
   const FORM_SD = [0, 0.03];   // forma del día (ATP, WTA): ajustada con 450 partidos de oct-nov 2026; en la ATP no mejoraba, en la WTA sí   // puntos ganados al saque: circuito (ATP, WTA) x superficie (pista, tierra, hierba, moqueta)
-  return { NB_SIZE, BASE_SERVE, FORM_SD, nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
+  return { NB_SIZE, BASE_SERVE, FORM_SD, bkFit, nbOver, calibrateOU, poisGrid, eloGoals, eloPredict, footballGroups, nbaFatigue, NBA_ARENA, fitFootballSet, footballPredict, footballPick, basketPredict, sum, normCdf, bisect, fairProbs, blend, kelly, fitDC, dcGrid, footballMarkets, fitMarket, marketPredict, MK, GAP, marginDist, ahTerms, ENS, ordLogit, footballRatings, ensemble1x2, rescaleGrid, htft, teamSD, ptsSD, tennisExtras,
     NBA_SD, fitPts, ptsPredict, spreadProbs, totalProbs, runElo, eloProb, holdProb, tiebreakProb, setDist, matchDist, matchWin, tennisFromProb, bo3to5 };
 })();
 if (typeof module !== 'undefined') module.exports = M;

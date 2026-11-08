@@ -12,6 +12,9 @@ best = O.analyse(ev)[3]
 assert best['H'][:2] == [2.15, 'Winamax'], best   # 4,00 es anómala
 assert best['O'][:2] == [1.72, 'Codere'] and best['U'][:2] == [2.20, 'Pinnacle'] and best['D'][0] == 3.6, best
 print('ok mejor cuota')
+c = best['cons']   # media sin margen de las 4 casas: suma 1 y queda entre la más alta y la más baja
+assert abs(sum(1 / c[k] for k in 'HDA') - 1) < 0.01 and abs(1 / c['O'] + 1 / c['U'] - 1) < 0.01 and 2.0 < c['H'] < 2.6, c
+print('ok consenso')
 
 import json
 # los exchanges mandan también «h2h_lay» (cuotas para apostar en contra): no deben dar surebets falsas
