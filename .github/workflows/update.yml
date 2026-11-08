@@ -33,9 +33,12 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ODDSPAPI_KEY: ${{ secrets.ODDSPAPI_KEY }}
         run: python pipeline/odds.py
       - name: Comprobaciones del modelo
         run: node tests/test_model.mjs
+      - name: Pruebas Python
+        run: for f in tests/*.py; do python $f || exit 1; done
       - name: Calcular pronósticos y evaluar aciertos
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -52,3 +55,9 @@ jobs:
           if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
           git commit -q -m "Pronósticos $(date -u +%Y-%m-%dT%H:%MZ)"
           git pull --rebase -q && git push -q
+      - name: Avisar si algo falla
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_ADMIN_ID }}" \
+            -d text="⚠️ La actualización de la Mesa de Pronósticos ha fallado: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
