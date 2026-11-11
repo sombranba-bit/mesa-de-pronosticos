@@ -108,7 +108,7 @@ const crestUrl = (n, b) => {
 const isB = sp => !!sp && (/^(b|nba|euroliga|eurocup|acb|lega|bbl|lnb|gbl|bsl)$/i.test(sp) || /nba|basket|euroleague|eurocup/i.test(sp));
 const twoLines = (h, a, sp) => `<div class="tline">${crest(h, sp, 'md')}<span>${esc(h)}</span></div><div class="tline">${crest(a, sp, 'md')}<span>${esc(a)}</span></div>`;
 const openAttr = m => `data-open="${esc(JSON.stringify([m.sport, m.league, m.home, m.away, m.ref || '']))}" role="button" tabindex="0"`;
-const isNight = m => new Date(m.kickoff).getHours() < 6, night = m => isNight(m) ? ' 🌙' : '', moonI = m => isNight(m) ? ' ' + I('moon', 'moon') : '';   // madrugada: cuenta para la jornada de la noche anterior
+const isNight = m => new Date(m.kickoff).getHours() < 6, night = m => isNight(m) ? ' · madrugada' : '', moonI = m => isNight(m) ? ' ' + I('moon', 'moon') : '';   // madrugada: cuenta para la jornada de la noche anterior
 const hhmm = m => m.noTime ? '—' : new Date(m.kickoff).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 // tarjeta compacta de un pronóstico (selección recomendada)
 const oddsChips = m => `<div class="odds"><span class="oc"><small>Cuota justa</small><b>${nf(1 / m.pick.p)}</b></span>${m.best
@@ -635,7 +635,7 @@ function prRender() {
   const out = $('prOut');
   if (!PR || !PR.matches) { out.innerHTML = `<p class="verdict">Aquí aparecen los pronósticos de los próximos partidos cuando la mesa funciona desde GitHub, que los calcula sola cada hora. Mientras tanto, usa las pestañas de cada deporte para pronosticar el partido que quieras.</p>`; return; }
   // «Deporte» agrupa (fútbol, baloncesto, tenis); las ligas van en «Competición»
-  const GROUP_NAME = { futbol: '⚽ Fútbol', baloncesto: '🏀 Baloncesto', tenis: '🎾 Tenis' };
+  const GROUP_NAME = { futbol: 'Fútbol', baloncesto: 'Baloncesto', tenis: 'Tenis' };
   const group = m => m.sport === 'futbol' ? 'futbol' : m.sport === 'tenis' ? 'tenis' : 'baloncesto';
   fillSelect($('prSport'), [['', 'Todos'], ...Object.keys(GROUP_NAME).filter(g => PR.matches.some(m => group(m) === g)).map(g => [g, GROUP_NAME[g]])]);
   const sp = $('prSport').value, conf = +$('prConf').value, now = Date.now();
@@ -650,7 +650,7 @@ function prRender() {
     if (m.league !== curL) { curL = m.league; html += `<div class="lghead">${flag(m.league, 'lg')}<span>${esc(m.leagueName)}</span><span class="mc-sp">${sportIcon(m.sport)}</span></div>`; }
     const kv = (k, v) => `<span class="kv"><em>${k}</em><b>${v}</b></span>`;
     const probs = m.sport === 'futbol'
-      ? `${kv('1 · X · 2', `${pct(m.H, 0)} · ${pct(m.D, 0)} · ${pct(m.A, 0)}`)}${kv('Más de 2,5', pct(m.o25, 0))}${kv('Ambos marcan', pct(m.btts, 0))}${kv('Goles esperados', `${nf(m.lam, 1)} – ${nf(m.mu, 1)}`)}${m.corners ? kv('Córners' + (shaky('Córners') ? ' ⚠️' : ''), nf(m.corners, 1)) : ''}${m.base ? kv('Sin bajas', `${pct(m.base.H, 0)} · ${pct(m.base.D, 0)} · ${pct(m.base.A, 0)}`) : ''}`
+      ? `${kv('1 · X · 2', `${pct(m.H, 0)} · ${pct(m.D, 0)} · ${pct(m.A, 0)}`)}${kv('Más de 2,5', pct(m.o25, 0))}${kv('Ambos marcan', pct(m.btts, 0))}${kv('Goles esperados', `${nf(m.lam, 1)} – ${nf(m.mu, 1)}`)}${m.corners ? kv('Córners' + (shaky('Córners') ? ' · poco fiable' : ''), nf(m.corners, 1)) : ''}${m.base ? kv('Sin bajas', `${pct(m.base.H, 0)} · ${pct(m.base.D, 0)} · ${pct(m.base.A, 0)}`) : ''}`
       : m.sport === 'tenis' ? `${kv('Gana ' + m.home, pct(m.pw, 0))}${kv('Gana ' + m.away, pct(1 - m.pw, 0))}${kv('Superficie', ['Pista dura', 'Tierra', 'Hierba', 'Moqueta'][m.surf] || '—')}${kv('Formato', m.bo === 5 ? '5 sets' : '3 sets')}${m.round ? kv('Ronda', esc(m.round)) : ''}`
       : `${kv('Gana local', pct(m.pw, 0))}${kv('Puntos', `${Math.round(m.ph)} – ${Math.round(m.pa)}`)}${kv('Hándicap justo', nf(-m.margin, 1))}${kv('Total', nf(m.total, 1))}`;
     const bar = m.sport === 'futbol' ? `<div class="tribar" aria-hidden="true"><i style="width:${m.H * 100}%"></i><i style="width:${m.D * 100}%"></i><i style="width:${m.A * 100}%"></i></div>` : '';
@@ -999,7 +999,7 @@ const countIO = 'IntersectionObserver' in window && !matchMedia('(prefers-reduce
 const countUp = root => countIO && root.querySelectorAll('[data-count]:not([data-seen])').forEach(el => { el.dataset.seen = 1; countIO.observe(el); });
 // cuenta atrás hasta el partido y «actualizado hace…»: se refrescan cada 30 s
 const untilTxt = ko => { const m = (Date.parse(ko) - Date.now()) / 60000; return m > 0 ? `empieza en ${m >= 60 ? Math.floor(m / 60) + ' h ' : ''}${Math.ceil(m % 60)} min` : m > -150 ? 'en juego' : 'terminado'; };
-const agoTxt = t => { const m = Math.max(0, Math.round((Date.now() - Date.parse(t)) / 60000)); return m < 60 ? `actualizado hace ${m} min` : `actualizado hace ${Math.round(m / 60)} h`; };
+const agoTxt = t => { const m = Math.max(0, Math.round((Date.now() - Date.parse(t)) / 60000)); return m < 60 ? `Actualizado hace ${m} min` : `Actualizado hace ${Math.round(m / 60)} h`; };
 const tickLive = () => { document.querySelectorAll('[data-ko]').forEach(el => { el.textContent = untilTxt(el.dataset.ko); el.classList.toggle('on', el.textContent === 'en juego'); }); document.querySelectorAll('[data-ago]').forEach(el => el.textContent = agoTxt(el.dataset.ago)); };
 setInterval(tickLive, 30000);
 function homeRender() {
@@ -1031,17 +1031,17 @@ function homeRender() {
     <div class="hero">
       <div class="hero-txt">
         <p class="eyebrow"><span class="live"></span>${PR && PR.generated ? `<span data-ago="${esc(PR.generated)}">${agoTxt(PR.generated)}</span>` : 'Se actualiza sola cada hora'} · fútbol · baloncesto · tenis</p>
-        <h2 class="hero-h">Datos, no <em>corazonadas</em>.</h2>
+        <h2 class="hero-h">Datos, no <em>corazonadas</em></h2>
         <p class="hero-sub">Pronósticos calculados con modelos estadísticos, la mejor cuota del mercado y un seguimiento honesto de cada acierto y cada fallo.</p>
         <div class="hero-cta"><button class="btn" data-go="pronosticos:proximos:dia">Ver la apuesta del día ${I('arrow')}</button><button class="btn ghost" data-go="guia">Cómo funciona</button></div>
       </div>
       <div class="hero-seal" aria-hidden="true"><svg viewBox="0 0 200 200"><defs><path id="ring" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
         <circle cx="100" cy="100" r="96" fill="#0e0e10"/><circle cx="100" cy="100" r="92" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="100" cy="100" r="64" fill="none" stroke="url(#sg)" stroke-width="1.5" opacity=".7"/>
-        <g class="spin"><text font-family="JetBrains Mono, monospace" font-size="11.5" letter-spacing="3.2" fill="url(#sg)"><textPath href="#ring">ALDANA BET · PRONÓSTICOS · DATOS · VALOR ·</textPath></text></g>
+        <g><text font-family="JetBrains Mono, monospace" font-size="11.5" letter-spacing="3.2" fill="url(#sg)"><textPath href="#ring">ALDANA BET · PRONÓSTICOS · DATOS · VALOR ·</textPath></text></g>
         <text x="100" y="118" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-size="52" fill="url(#sg)">AB</text></svg></div>
     </div>
     <div class="kpis">${kpi(r(T && T.bet), '%', `apuesta del día${T && T.bet && T.bet.n ? ` · ${T.bet.hits} de ${T.bet.n}` : ''}`)}${kpi(r(T && T.picks), '%', `selección recomendada${T && T.picks && T.picks.n ? ` · ${T.picks.hits} de ${T.picks.n}` : ''}`)}${kpi(evald || null, '', 'pronósticos comprobados')}${kpi(next.length || null, '', 'próximos partidos')}</div>
-    ${tick.length ? `<div class="ticker" aria-label="Pronósticos más probables"><div class="tk-track">${tick.map(tItem).join('')}${tick.map(tItem).join('')}</div></div>` : ''}
+    ${tick.length ? `<div class="ticker" aria-label="Pronósticos más probables"><div class="tk-track">${tick.map(tItem).join('')}</div></div>` : ''}
     <div class="shead"><span class="no">01</span><h3>Hoy en la mesa</h3></div>
     <div class="hfeats">${feat}${comb}${sema}</div>
     <div class="shead"><span class="no">02</span><h3>Lo principal</h3></div>
@@ -1074,11 +1074,6 @@ function wire() {
   addEventListener('resize', navInk);
   document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); goTo(g.dataset.go); } });
   document.addEventListener('keydown', e => { const g = e.target.closest && e.target.closest('[data-go][role="button"]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goTo(g.dataset.go); } });
-  document.addEventListener('pointermove', e => {   // brillo que sigue al ratón en las tarjetas
-    const c = e.target.closest && e.target.closest('.pcard, .hcard, .hfeat, .mc, .cmb, .gcard'); if (!c) return;
-    const r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px');
-    if (c.matches('.mc, .hfeat')) { c.style.setProperty('--ry', ((e.clientX - r.left) / r.width - 0.5) * 5 + 'deg'); c.style.setProperty('--rx', (0.5 - (e.clientY - r.top) / r.height) * 5 + 'deg'); }
-  }, { passive: true });
   $('brandHome').addEventListener('click', () => goTo('inicio'));
   addEventListener('scroll', () => $('toTop').classList.toggle('show', scrollY > 900), { passive: true });
   $('toTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
