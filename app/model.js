@@ -428,7 +428,7 @@ const M = (() => {
     add('Doble oportunidad', [{ key: '1X', label: '1X', p: k.H + k.D }, { key: 'X2', label: 'X2', p: k.D + k.A }, { key: '12', label: '12', p: k.H + k.A }]);
     add('Ambos marcan', [{ key: 'by', label: 'Sí', p: k.btts }, { key: 'bn', label: 'No', p: 1 - k.btts }]);
     add('Goles totales', [0.5, 1.5, 2.5, 3.5, 4.5].flatMap(l => [{ key: 'o' + l, label: `Más de ${nfmt(l)}`, p: k.over(l) }, { key: 'u' + l, label: `Menos de ${nfmt(l)}`, p: 1 - k.over(l) }]));
-    add('Goles exactos', [0, 1, 2, 3, 4].map(n => ({ key: 'eg' + n, label: `${n} goles`, p: k.tot[n] })).concat([{ key: 'eg5', label: '5 o más', p: k.over(4.5) }]));
+    add('Goles exactos', [0, 1, 2, 3, 4].map(n => ({ key: 'eg' + n, label: n === 1 ? '1 gol' : `${n} goles`, p: k.tot[n] })).concat([{ key: 'eg5', label: '5 o más', p: k.over(4.5) }]));
     const odd = k.tot.reduce((s, v, i) => s + (i % 2 ? v : 0), 0);
     add('Par o impar', [{ key: 'par', label: 'Par', p: 1 - odd }, { key: 'impar', label: 'Impar', p: odd }]);
     add('Goles de cada equipo', [0.5, 1.5, 2.5].flatMap(l => [{ key: 'hO' + l, label: `${h} más de ${nfmt(l)}`, p: k.overHome(l) }, { key: 'aO' + l, label: `${a} más de ${nfmt(l)}`, p: k.overAway(l) }]));

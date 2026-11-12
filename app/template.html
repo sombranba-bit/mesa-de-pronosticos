@@ -2,25 +2,9 @@
 <script>/* tema antes de pintar, sin parpadeo: el elegido o el del sistema */try{document.documentElement.dataset.theme=localStorage.getItem('tema')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark')}catch(e){document.documentElement.dataset.theme='dark'}</script>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,500&display=swap">
 <style>
 /* Layout: cabecera tipo marcador; pestaña de pronósticos (lista de próximos partidos + aciertos) y una pestaña por deporte (partido, estadísticas, precisión) */
-:root {
-  --bg: #eef1f0; --surface: #ffffff; --ink: #15201c; --muted: #5b6964; --line: #d5ddd9; --soft: #e4eae7;
-  --accent: #2f48b5; --accent-ink: #ffffff; --pos: #157a45; --pos-bg: #e1f2e8; --neg: #b03a2e; --neg-bg: #f8e4e1; --warn: #93600a; --warn-bg: #fbf0d9;
-  --board: #13201b; --board-ink: #f1f5f3; --board-dim: #9fb3aa;
-  --f-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
-  --f-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0f1513; --surface: #17201d; --ink: #e4ebe8; --muted: #93a39c; --line: #2a3632; --soft: #1f2a26;
-  --accent: #8ea2ff; --accent-ink: #0f1513; --pos: #5ccf8e; --pos-bg: #173326; --neg: #f08a7d; --neg-bg: #3a1e1a; --warn: #e6b45a; --warn-bg: #3a2d14;
-  --board: #0a0f0d; --board-ink: #eef3f1; --board-dim: #8aa197; color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #0f1513; --surface: #17201d; --ink: #e4ebe8; --muted: #93a39c; --line: #2a3632; --soft: #1f2a26;
-  --accent: #8ea2ff; --accent-ink: #0f1513; --pos: #5ccf8e; --pos-bg: #173326; --neg: #f08a7d; --neg-bg: #3a1e1a; --warn: #e6b45a; --warn-bg: #3a2d14;
-  --board: #0a0f0d; --board-ink: #eef3f1; --board-dim: #8aa197; color-scheme: dark }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
 .wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 header.board { background: var(--board); color: var(--board-ink); }
@@ -78,7 +62,7 @@ table.cmp { width: 100%; } table.cmp th, table.cmp td { white-space: normal; }
 .tline .sc { margin-left: auto; font: 500 15px var(--f-mono); padding-left: 10px; }
 .odds { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
 .oc { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 12px; border-radius: 10px; background: var(--soft); min-width: 92px; }
-.oc small { font-size: 11.5px; color: var(--muted); letter-spacing: .02em; } .oc b { font: 600 18px var(--f-mono); color: var(--ink); }
+.oc small { font-size: 12px; color: var(--ink-2); letter-spacing: .02em; } .oc b { font: 600 18px var(--f-mono); color: var(--ink); }
 .oc.best { background: var(--pos-bg); } .oc.best b { color: var(--pos); } .oc.none b { color: var(--muted); }
 .pcard .odds { justify-content: flex-start; }
 .mc .oc { background: rgba(255,255,255,.10); } .mc .oc small { color: #c3cbe8; } .mc .oc b { color: var(--ink); } .mc .oc.best { background: rgba(126,226,168,.18); } .mc .oc.best b { color: #7ee2a8; }
@@ -193,7 +177,7 @@ a { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 .match { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--soft); }
 .match:last-child { border-bottom: 0; }
-.crest { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: hsl(var(--h) 42% 40%); color: #fff;
+.crest { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: hsl(var(--h) 42% 33%); color: #fff;
   font: 600 9px/1 var(--f-body); letter-spacing: .02em; vertical-align: middle; margin-right: 6px; overflow: hidden; flex: none; }
 .crest, .crest img { box-sizing: border-box; }   /* el margen interior va dentro de la baldosa: el escudo nunca se recorta */
 .crest img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; background: #fff; padding: 1px; }
@@ -280,7 +264,8 @@ a { color: var(--accent); }
 .match .pick span { font-size: 12.5px; color: var(--muted); }
 .match .probs { grid-column: 2 / 4; display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .match .probs b { color: var(--ink); font-family: var(--f-mono); font-weight: 500; }
-.tribar { grid-column: 2 / 4; display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--soft); }
+.tribar { grid-column: 2 / 4; display: flex; gap: 2px; height: 6px; }   /* 1 · X · 2 separados por un hueco, cada tramo con su porcentaje al pasar el ratón */
+.tribar i { border-radius: 3px; }
 .tribar i { display: block; height: 100%; } .tribar i:nth-child(1) { background: var(--accent); } .tribar i:nth-child(2) { background: var(--line); } .tribar i:nth-child(3) { background: var(--warn); }
 .daylabel { font-family: var(--f-display); font-size: 18px; font-weight: 600; letter-spacing: 0; margin: 8px 0 0; }
 .linkbtn { background: none; border: 0; color: var(--accent); font: 600 13px var(--f-body); cursor: pointer; padding: 0; justify-self: start; }
@@ -367,6 +352,11 @@ table th { font-family: var(--f-body); font-weight: 500; letter-spacing: 0; text
 .empty { border-color: var(--line); }
 footer, .foot { color: var(--muted); }
 nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none; } nav.tabs button { flex: none; white-space: nowrap; }
+@media (max-width: 520px) {
+  #dataInfo { display: none; }   /* en el móvil la fecha de los datos ya sale en «Actualizado hace…» */
+  nav.tabs { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 24px; }   /* pista de que el menú se desliza */
+  nav.tabs.end { -webkit-mask-image: none; mask-image: none; }
+}
 .wrap { max-width: none; } @media (min-width: 900px) { .wrap { padding-left: 32px; padding-right: 32px; } }
 @media (max-width: 520px) { .brand p { margin-left: 0; width: 100%; font-size: 12px; } nav.tabs { gap: 1.1rem; } .panel { padding: 16px; }
   .mc-p { font-size: 46px; } .mc-team { font-size: 15px; word-break: normal; overflow-wrap: anywhere; } .mc-body { grid-template-columns: 1fr 1fr; row-gap: 14px; } .mc-mid { grid-row: 2; grid-column: 1 / -1; } .mc .oc { padding-inline: 8px; } }
@@ -443,6 +433,12 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 .hfeats:has(.sema) { grid-template-columns: 2fr 1fr 1fr; }
 .sema .hf-p b { font-size: clamp(30px, 3vw, 42px); background-image: none; -webkit-text-fill-color: currentColor; animation: none; }
 .sema.pos .hf-p b, .sema.pos .meter { color: var(--pos); } .sema.warn .hf-p b, .sema.warn .meter { color: var(--warn); } .sema.neg .hf-p b, .sema.neg .meter { color: var(--neg); }
+.has-stretch { position: relative; } .has-stretch > .stretch { position: absolute; inset: 0; z-index: 0; border: 0; padding: 0; background: none; border-radius: inherit; cursor: pointer; }
+.has-stretch > :not(.stretch) { position: relative; z-index: 1; pointer-events: none; } .has-stretch a, .has-stretch button:not(.stretch), .has-stretch [data-go] { pointer-events: auto; }
+.has-stretch > .stretch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tablewrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mkmore { margin-top: 12px; } .mkmore summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--ink-2); font-weight: 500; } .mkmore summary::before { content: '▸'; margin-right: 8px; transition: transform .15s var(--ease); } .mkmore[open] summary::before { transform: rotate(90deg); } .mkmore[open] summary { margin-bottom: 12px; }
 .hmore { margin: -14px 0 30px; } .hmore summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 10px 0; } .hmore[open] summary { margin-bottom: 10px; }
 .hfeat { display: flex; flex-direction: column; gap: 16px; padding: 24px; border-radius: 16px; border: 1px solid var(--gold-line); cursor: pointer; overflow: hidden;
   background: var(--surface-2); transition: border-color .15s var(--ease); animation: rise .4s var(--ease) both; }
@@ -817,7 +813,7 @@ header.board .wrap { position: relative; } #dataInfo { margin-right: 56px; }
       </div>
 
       <h3 class="sect">De dónde salen los datos</h3>
-      <div class="tablewrap"><table class="gtable"><thead><tr><th>Dato</th><th>Fuente</th><th>Cada cuánto</th></tr></thead><tbody>
+      <div class="tablewrap" tabindex="0"><table class="gtable"><thead><tr><th>Dato</th><th>Fuente</th><th>Cada cuánto</th></tr></thead><tbody>
         <tr><td>Resultados, calendario, córners, tarjetas, tiros y cuotas de fútbol</td><td>football-data.co.uk</td><td>Cada hora</td></tr>
         <tr><td>xG (cinco grandes ligas)</td><td>Understat</td><td>Cada hora</td></tr>
         <tr><td>Elo de clubes europeos</td><td>ClubElo</td><td>Cada hora</td></tr>
@@ -837,7 +833,7 @@ header.board .wrap { position: relative; } #dataInfo { margin-right: 56px; }
 
       <h3 class="sect">Qué se ha comprobado</h3>
       <p class="note">Medido con partidos que el modelo no había visto (fútbol: temporada 2025-26 de 17 ligas). En log-loss, cuanto más bajo, mejor.</p>
-      <div class="tablewrap"><table class="gtable"><thead><tr><th>Cambio</th><th>Antes → después</th><th>Estado</th></tr></thead><tbody>
+      <div class="tablewrap" tabindex="0"><table class="gtable"><thead><tr><th>Cambio</th><th>Antes → después</th><th>Estado</th></tr></thead><tbody>
         <tr><td>GAP (tiros a puerta) en el 1X2</td><td class="num">1,0130 → 1,0105</td><td><span class="chip pos">Usado</span></td></tr>
         <tr><td>Ratings de cuotas pasadas en el 1X2</td><td class="num">1,0105 → 1,0083</td><td><span class="chip pos">Usado</span></td></tr>
         <tr><td>Ratings de cuotas en más/menos 2,5</td><td class="num">0,6843 → 0,6806</td><td><span class="chip pos">Usado</span></td></tr>
