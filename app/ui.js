@@ -1037,7 +1037,7 @@ function homeRender() {
       </div>
       <div class="hero-seal" aria-hidden="true"><svg viewBox="0 0 200 200"><defs><path id="ring" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
         <circle cx="100" cy="100" r="96" fill="#0e0e10"/><circle cx="100" cy="100" r="92" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="100" cy="100" r="64" fill="none" stroke="url(#sg)" stroke-width="1.5" opacity=".7"/>
-        <g><text font-family="JetBrains Mono, monospace" font-size="11.5" letter-spacing="3.2" fill="url(#sg)"><textPath href="#ring">ALDANA BET · PRONÓSTICOS · DATOS · VALOR ·</textPath></text></g>
+        <g class="spin"><text font-family="JetBrains Mono, monospace" font-size="11.5" letter-spacing="3.2" fill="url(#sg)"><textPath href="#ring">ALDANA BET · PRONÓSTICOS · DATOS · VALOR ·</textPath></text></g>
         <text x="100" y="118" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-size="52" fill="url(#sg)">AB</text></svg></div>
     </div>
     <div class="kpis">${kpi(r(T && T.bet), '%', `apuesta del día${T && T.bet && T.bet.n ? ` · ${T.bet.hits} de ${T.bet.n}` : ''}`)}${kpi(r(T && T.picks), '%', `selección recomendada${T && T.picks && T.picks.n ? ` · ${T.picks.hits} de ${T.picks.n}` : ''}`)}${kpi(evald || null, '', 'pronósticos comprobados')}${kpi(next.length || null, '', 'próximos partidos')}</div>

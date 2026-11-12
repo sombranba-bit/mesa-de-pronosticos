@@ -405,7 +405,7 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 
 /* ===================== PORTADA ===================== */
 #home { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 40px; padding: 48px 0 18px; }
+.hero { display: grid; grid-template-columns: minmax(0, max-content) auto; justify-content: start; align-items: center; gap: 72px; padding: 48px 0 18px; }   /* el sello junto al texto, no pegado al borde */
 .eyebrow { display: block; margin: 0 0 20px; font: 400 13px var(--f-body); letter-spacing: 0; color: var(--muted); }
 .live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--pos); margin-right: 8px; vertical-align: 1px; }
 .hero-h { margin: 0; font: 500 clamp(40px, 6vw, 80px)/1.04 var(--f-body); letter-spacing: -.03em; color: var(--ink); }
@@ -415,6 +415,8 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 .hero-cta .btn { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 20px; }
 .hero-seal { width: clamp(160px, 18vw, 240px); }
 .hero-seal svg { width: 100%; height: auto; display: block; overflow: visible; }
+.hero-seal .spin { transform-origin: 100px 100px; animation: spin 60s linear infinite; }   /* solo gira el texto del anillo; se para con «reducir movimiento» */
+@keyframes spin { to { transform: rotate(360deg); } }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 16px; background: #121212b3; overflow: hidden; }
 .kpi { padding: 22px 24px; display: flex; flex-direction: column; gap: 6px; } .kpi + .kpi { border-left: 1px solid var(--line); }
 .kpi b { font: 500 clamp(28px, 3vw, 40px)/1 var(--f-body); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
