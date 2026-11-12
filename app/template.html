@@ -405,7 +405,7 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 
 /* ===================== PORTADA ===================== */
 #home { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
-.hero { display: grid; grid-template-columns: minmax(0, max-content) auto; justify-content: start; align-items: center; gap: 72px; padding: 48px 0 18px; }   /* el sello junto al texto, no pegado al borde */
+.hero { display: grid; grid-template-columns: minmax(0, max-content) 1fr; align-items: center; gap: 72px; padding: 48px 0 18px; }   /* el sello junto al texto, no pegado al borde */
 .eyebrow { display: block; margin: 0 0 20px; font: 400 13px var(--f-body); letter-spacing: 0; color: var(--muted); }
 .live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--pos); margin-right: 8px; vertical-align: 1px; }
 .hero-h { margin: 0; font: 500 clamp(40px, 6vw, 80px)/1.04 var(--f-body); letter-spacing: -.03em; color: var(--ink); }
@@ -413,11 +413,17 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 .hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: #b9b9b6; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
 .hero-cta .btn { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 20px; }
-.hero-seal { width: clamp(160px, 18vw, 240px); }
+.hero-seal { width: clamp(160px, 18vw, 240px); justify-self: start; }
 .hero-seal svg { width: 100%; height: auto; display: block; overflow: visible; }
 .hero-seal .spin { transform-origin: 100px 100px; animation: spin 60s linear infinite; }   /* solo gira el texto del anillo; se para con «reducir movimiento» */
 @keyframes spin { to { transform: rotate(360deg); } }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 16px; background: #121212b3; overflow: hidden; }
+.hero > .kpis { grid-column: 1 / -1; margin-top: 16px; }   /* debajo del titular en pantallas medianas */
+@media (min-width: 1400px) {   /* pantallas anchas: las cifras ocupan el hueco a la derecha del sello, en 2×2 */
+  .hero { grid-template-columns: minmax(0, max-content) auto minmax(360px, 1fr); gap: 56px; }
+  .hero > .kpis { grid-column: auto; margin-top: 0; grid-template-columns: 1fr 1fr; }
+  .hero > .kpis .kpi:nth-child(3) { border-left: 0; } .hero > .kpis .kpi:nth-child(n+3) { border-top: 1px solid var(--line); }
+}
 .kpi { padding: 22px 24px; display: flex; flex-direction: column; gap: 6px; } .kpi + .kpi { border-left: 1px solid var(--line); }
 .kpi b { font: 500 clamp(28px, 3vw, 40px)/1 var(--f-body); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
 .kpi span { font: 13px var(--f-body); color: var(--muted); }
