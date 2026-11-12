@@ -291,12 +291,12 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
 :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
   --bg: #0b0b0b; --surface: #121212; --soft: #1a1a1a; --ink: #f4f4f2; --muted: #8d8d8b; --line: #ffffff17; --line-strong: #ffffff38;
   --accent: #e8b23a; --accent-ink: #0b0b0b;
-  --pos: #4ade80; --pos-bg: #12261b; --neg: #f87171; --neg-bg: #2a1515; --warn: #fbbf24; --warn-bg: #2a2110;
+  --pos: #2dd4bf; --pos-bg: #0f2622; --neg: #fb7185; --neg-bg: #2a1418; --warn: #93c5fd; --warn-bg: #111c2e;   /* acierto/fallo distinguibles con daltonismo; «pendiente» en azul para no confundirse con el dorado */
   --board: #0b0b0b; --board-ink: #f4f4f2; --board-dim: #8d8d8b; color-scheme: dark;
   /* tokens de superficie y texto: cada tema les da su valor (oscuro aquí, claro en :root[data-theme="light"]) */
   --surface-2: #141414; --panel: #0f0f0f; --field: #0e0e0e; --ink-2: #d9d9d6; --ink-hi: #ffffff;
   --tint: #ffffff0a; --tint-2: #ffffff1f; --glass: #121212e6;
-  --accent-fill: #e8b23a; --gold-line: #e8b23a40; --gold-line-2: #e8b23a80; --gold-soft: #e8b23a24; --gold-ink: #ffe6a8; --accent-dim: #8a6412; --pos-soft: #4ade801f;
+  --accent-fill: #e8b23a; --gold-line: #e8b23a40; --gold-line-2: #e8b23a80; --gold-soft: #e8b23a24; --gold-ink: #ffe6a8; --accent-dim: #8a6412; --pos-soft: #2dd4bf1f;
   --f-display: "Inter", system-ui, sans-serif; --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace; --f-serif: "Playfair Display", Georgia, serif;
   --ease: cubic-bezier(.22, 1, .36, 1); --ease-spring: var(--ease);   /* una sola curva, sin rebote */
@@ -360,7 +360,7 @@ select, input[type=text], input[type=number], input[type=date] { background: var
 .chip { font-family: var(--f-mono); font-size: 12px; letter-spacing: .02em; }
 .oc { background: var(--surface-2); } .oc.best { background: var(--pos-soft); }
 .scoreline { background: var(--surface-2); border: 1px solid var(--gold-line); }
-.verdict { background: var(--warn-bg); color: var(--gold-ink); border-left-color: var(--accent); }
+.verdict { background: var(--gold-soft); color: var(--gold-ink); border-left-color: var(--accent); }
 table th { font-family: var(--f-body); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
 .mkcard { background: var(--surface); border-color: var(--line); }
 .mk-p i { background: var(--accent); opacity: .5; }
@@ -545,7 +545,7 @@ label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14
   --ink: #1b1a17; --ink-2: #3d3a35; --ink-hi: #000000; --muted: #6b665e; --line: #1b1a171a; --line-strong: #1b1a1740;
   --tint: #1b1a1708; --tint-2: #1b1a171a; --glass: #f5f2ece6;
   --accent: #8a5a00; --accent-ink: #fffdf9; --accent-fill: #b07a0a; --gold-line: #b07a0a59; --gold-line-2: #b07a0a99; --gold-soft: #b07a0a1f; --gold-ink: #6b4500; --accent-dim: #e8b23a;
-  --pos: #15803d; --pos-bg: #e3f3e8; --pos-soft: #15803d1a; --neg: #b91c1c; --neg-bg: #fbe9e7; --warn: #a16207; --warn-bg: #fbf1dc;
+  --pos: #0f766e; --pos-bg: #e1f2ef; --pos-soft: #0f766e1a; --neg: #be123c; --neg-bg: #fbe8ec; --warn: #1d4ed8; --warn-bg: #e8effc;
   --board: #f5f2ec; --board-ink: #1b1a17; --board-dim: #6b665e; color-scheme: light;
 }
 :root[data-theme="light"] .crest.md.ok img { filter: none; }
