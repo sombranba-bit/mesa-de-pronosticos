@@ -993,7 +993,7 @@ function goTo(dest) {
 // cifras que suben desde 0 la primera vez que se ven en pantalla (el texto final ya está puesto: sin JS se ve igual)
 const countIO = 'IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches ? new IntersectionObserver(es => es.forEach(e => {
   if (!e.isIntersecting) return; countIO.unobserve(e.target); const el = e.target, d = el.dataset, to = +d.count, dec = +d.dec || 0, fin = el.textContent, t0 = performance.now();
-  const step = now => { const k = Math.min(1, (now - t0) / 1100), v = to * (1 - Math.pow(1 - k, 3)); el.textContent = k < 1 ? d.pre + v.toFixed(dec).replace('.', ',') + d.suf : fin; if (k < 1) requestAnimationFrame(step); };
+  const step = now => { const k = Math.min(1, (now - t0) / 600), v = to * (1 - Math.pow(1 - k, 3)); el.textContent = k < 1 ? d.pre + v.toFixed(dec).replace('.', ',') + d.suf : fin; if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }), { threshold: 0.4 }) : null;
 const countUp = root => countIO && root.querySelectorAll('[data-count]:not([data-seen])').forEach(el => { el.dataset.seen = 1; countIO.observe(el); });
