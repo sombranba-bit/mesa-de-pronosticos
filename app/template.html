@@ -1,4 +1,5 @@
 <title>Aldana Bet · Mesa de Pronósticos</title>
+<script>/* tema antes de pintar, sin parpadeo: el elegido o el del sistema */try{document.documentElement.dataset.theme=localStorage.getItem('tema')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark')}catch(e){document.documentElement.dataset.theme='dark'}</script>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,500&display=swap">
@@ -80,7 +81,7 @@ table.cmp { width: 100%; } table.cmp th, table.cmp td { white-space: normal; }
 .oc small { font-size: 11.5px; color: var(--muted); letter-spacing: .02em; } .oc b { font: 600 18px var(--f-mono); color: var(--ink); }
 .oc.best { background: var(--pos-bg); } .oc.best b { color: var(--pos); } .oc.none b { color: var(--muted); }
 .pcard .odds { justify-content: flex-start; }
-.mc .oc { background: rgba(255,255,255,.10); } .mc .oc small { color: #c3cbe8; } .mc .oc b { color: #fff; } .mc .oc.best { background: rgba(126,226,168,.18); } .mc .oc.best b { color: #7ee2a8; }
+.mc .oc { background: rgba(255,255,255,.10); } .mc .oc small { color: #c3cbe8; } .mc .oc b { color: var(--ink); } .mc .oc.best { background: rgba(126,226,168,.18); } .mc .oc.best b { color: #7ee2a8; }
 .mr-p .mr-odds { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; } .mr-p .mr-odds b { font: 600 13px var(--f-mono); color: var(--ink); display: inline; } .mr-p .mr-odds b.g { color: var(--pos); }
 .pcard .betbtn { display: block; margin-left: 0; padding-left: 0; }
 .betbtn { margin-top: 2px; font-size: 14px; min-height: 44px; padding-block: 12px; } .mc .betbtn { color: #b9c6ff; }
@@ -214,7 +215,7 @@ a { color: var(--accent); }
 [data-open][role="button"] { cursor: pointer; }
 [data-open][role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* ---------- apuesta del día ---------- */
-.mc { position: relative; color: #fff; border-radius: 16px; overflow: hidden;
+.mc { position: relative; color: var(--ink); border-radius: 16px; overflow: hidden;
   background: radial-gradient(120% 140% at 50% 0%, #2a3f9a 0%, #17224f 55%, #0c1230 100%); box-shadow: 0 10px 30px rgba(10,20,60,.35); }
 .mc-head { display: flex; align-items: center; padding: 12px 18px; font-size: 13px; font-weight: 600; letter-spacing: 0;
   background: rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.08); }
@@ -225,8 +226,8 @@ a { color: var(--accent); }
 .mc-mid { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .mc-p { font-family: var(--f-display); font-weight: 600; font-size: 64px; line-height: .95; }
 .mc-pick { font-weight: 600; font-size: 14px; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.14); }
-.mc-foot { text-align: center; padding: 10px 12px 16px; font-size: 13px; color: rgba(255,255,255,.7); }
-.mc:hover .mc-foot { color: #fff; }
+.mc-foot { text-align: center; padding: 10px 12px 16px; font-size: 13px; color: var(--muted); }
+.mc:hover .mc-foot { color: var(--ink); }
 .whybox { background: var(--soft); border-radius: 12px; padding: 12px 16px; font-size: 14px; }
 .whybox > b { font-size: 12px; letter-spacing: 0; color: var(--muted); }
 .whybox .why { margin: 6px 0 0; }
@@ -292,14 +293,18 @@ th.sortable { cursor: pointer; } th.sortable:hover { color: var(--ink); }
   --accent: #e8b23a; --accent-ink: #0b0b0b;
   --pos: #4ade80; --pos-bg: #12261b; --neg: #f87171; --neg-bg: #2a1515; --warn: #fbbf24; --warn-bg: #2a2110;
   --board: #0b0b0b; --board-ink: #f4f4f2; --board-dim: #8d8d8b; color-scheme: dark;
+  /* tokens de superficie y texto: cada tema les da su valor (oscuro aquí, claro en :root[data-theme="light"]) */
+  --surface-2: #141414; --panel: #0f0f0f; --field: #0e0e0e; --ink-2: #d9d9d6; --ink-hi: #ffffff;
+  --tint: #ffffff0a; --tint-2: #ffffff1f; --glass: #121212e6;
+  --accent-fill: #e8b23a; --gold-line: #e8b23a40; --gold-line-2: #e8b23a80; --gold-soft: #e8b23a24; --gold-ink: #ffe6a8; --accent-dim: #8a6412; --pos-soft: #4ade801f;
   --f-display: "Inter", system-ui, sans-serif; --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace; --f-serif: "Playfair Display", Georgia, serif;
   --ease: cubic-bezier(.22, 1, .36, 1); --ease-spring: var(--ease);   /* una sola curva, sin rebote */
 }
 body { background: var(--bg); -webkit-font-smoothing: antialiased; }
-::selection { background: var(--accent); color: #0b0b0b; }
+::selection { background: var(--accent); color: var(--bg); }
 /* cabecera fija con desenfoque */
-header.board { position: sticky; top: 0; z-index: 50; background: #0b0b0bc4; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
+header.board { position: sticky; top: 0; z-index: 50; background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
 header.board .wrap { padding-block: 14px 0; gap: 10px; }
 .brand { align-items: center; gap: 12px; }
 .brand .seal { width: 44px; height: 44px; flex: none; }
@@ -307,57 +312,57 @@ header.board .wrap { padding-block: 14px 0; gap: 10px; }
 .brand h1 small { font: 400 12px var(--f-body); letter-spacing: 0; color: var(--muted); }
 .brand p { font: 12px var(--f-mono); color: var(--muted); letter-spacing: 0; margin-left: auto; }
 nav.tabs { gap: 1.6rem; }
-nav.tabs button { font: 500 15px var(--f-body); letter-spacing: 0; text-transform: none; color: #c9c9c6; padding: 12px 0 12px; min-height: 44px; min-width: 44px; justify-content: center; border-bottom: 2px solid transparent; display: inline-flex; align-items: baseline; gap: 6px; transition: color .25s var(--ease); }
+nav.tabs button { font: 500 15px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--ink-2); padding: 12px 0 12px; min-height: 44px; min-width: 44px; justify-content: center; border-bottom: 2px solid transparent; display: inline-flex; align-items: baseline; gap: 6px; transition: color .25s var(--ease); }
 nav.tabs button .ix { display: none; }
 nav.tabs button:hover { color: var(--ink); }
 nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 nav.tabs button[aria-selected="true"] .ix { opacity: 1; }
 /* paneles y títulos */
-.panel { background: #121212d9; border-color: var(--line); border-radius: 16px; padding: 22px; }
+.panel { background: var(--glass); border-color: var(--line); border-radius: 16px; padding: 22px; }
 .panel h2 { font: 500 26px var(--f-body); letter-spacing: -.01em; text-transform: none; color: var(--ink); }
 .panel h3, h4.sub4, .daily h3 { font: 500 13px var(--f-body); letter-spacing: 0; color: var(--muted); text-transform: none; }
 .panel h3.sect, h3.sect { font: 500 19px var(--f-body); letter-spacing: -.01em; color: var(--ink); text-transform: none; }
 h3.sect::before { background: var(--accent); }
 .daily { border-left: 1px solid var(--line); }
 .note, .lead { color: var(--muted); }
-.block { border-color: var(--line); border-radius: 16px; background: #0f0f0f; }
+.block { border-color: var(--line); border-radius: 16px; background: var(--panel); }
 /* sub-pestañas tipo píldora */
-.sub button { font: 500 13px var(--f-body); letter-spacing: 0; text-transform: none; border-radius: 8px; background: #1116; border-color: var(--line); color: var(--muted); padding: 8px 14px; transition: color .25s var(--ease), border-color .25s var(--ease); }
+.sub button { font: 500 13px var(--f-body); letter-spacing: 0; text-transform: none; border-radius: 8px; background: var(--surface); border-color: var(--line); color: var(--muted); padding: 8px 14px; transition: color .25s var(--ease), border-color .25s var(--ease); }
 .sub button:hover { color: var(--ink); border-color: var(--line-strong); }
-.sub button[aria-pressed="true"] { background: var(--ink); color: #0b0b0b; border-color: var(--ink); }
-.seg { background: #161616; } .seg button { font: 500 13px var(--f-body); letter-spacing: 0; text-transform: none; }
-.seg button[aria-selected="true"] { background: var(--ink); color: #0b0b0b; }
+.sub button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.seg { background: var(--surface-2); } .seg button { font: 500 13px var(--f-body); letter-spacing: 0; text-transform: none; }
+.seg button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
 /* botones */
-.btn { font: 500 14px var(--f-body); letter-spacing: 0; text-transform: none; border-radius: 10px; padding: 12px 20px; background: var(--ink); color: #0b0b0b; transition: background-color .15s var(--ease), transform .15s var(--ease); box-shadow: inset 0 1px 0 #ffffff1f; }
-.btn:hover { background: #ffffff; }
-.btn.ghost { background: #1116; color: var(--muted); border: 1px solid var(--line); } .btn.ghost:hover { color: var(--ink); border-color: var(--line-strong); background: #1a1a1a; }
+.btn { font: 500 14px var(--f-body); letter-spacing: 0; text-transform: none; border-radius: 10px; padding: 12px 20px; background: var(--ink); color: var(--bg); transition: background-color .15s var(--ease), transform .15s var(--ease); box-shadow: inset 0 1px 0 var(--tint-2); }
+.btn:hover { background: var(--ink-hi); }
+.btn.ghost { background: var(--surface); color: var(--muted); border: 1px solid var(--line); } .btn.ghost:hover { color: var(--ink); border-color: var(--line-strong); background: var(--soft); }
 .linkbtn, .betbtn { color: var(--accent); }
-select, input[type=text], input[type=number], input[type=date] { background: #0e0e0e; border-color: var(--line); color: var(--ink); border-radius: 10px; }
+select, input[type=text], input[type=number], input[type=date] { background: var(--field); border-color: var(--line); color: var(--ink); border-radius: 10px; }
 /* apuesta del día: tarjeta negra con brillo dorado */
-.mc { background: #141414; border: 1px solid #e8b23a40; box-shadow: none; }
-.mc-head { background: #ffffff06; border-bottom-color: #ffffff12; font: 500 13px var(--f-body); letter-spacing: 0; text-transform: none; color: #d9d9d6; }
+.mc { background: var(--surface-2); border: 1px solid var(--gold-line); box-shadow: none; }
+.mc-head { background: var(--tint); border-bottom-color: var(--tint); font: 500 13px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--ink-2); }
 .mc-team { font: 600 19px var(--f-body); letter-spacing: -.01em; text-transform: none; }
 .mc-p { font: 500 68px var(--f-body); letter-spacing: -.03em; color: var(--accent); font-variant-numeric: tabular-nums; }
-.mc-pick { background: #e8b23a24; color: #ffe6a8; border: 1px solid #e8b23a40; font-weight: 600; }
-.mc .oc { background: #ffffff0d; } .mc .oc small { color: #a9a9a6; } .mc .oc.best { background: #4ade801f; } .mc .oc.best b { color: #4ade80; }
+.mc-pick { background: var(--gold-soft); color: var(--gold-ink); border: 1px solid var(--gold-line); font-weight: 600; }
+.mc .oc { background: var(--tint); } .mc .oc small { color: var(--ink-2); } .mc .oc.best { background: var(--pos-soft); } .mc .oc.best b { color: var(--pos); }
 .mc .betbtn { color: var(--accent); }
-.whybox { background: #141414; border: 1px solid var(--line); }
+.whybox { background: var(--surface-2); border: 1px solid var(--line); }
 /* tarjetas */
-.pcard, .cmb { background: #121212; border-color: var(--line); border-radius: 14px; transition: border-color .15s var(--ease); }
+.pcard, .cmb { background: var(--surface); border-color: var(--line); border-radius: 14px; transition: border-color .15s var(--ease); }
 .pcard:hover { border-color: var(--line-strong); }
 .pc-p b, .mr-p b { font-family: var(--f-body); letter-spacing: -.03em; color: var(--ink); }
 .pc-p b { font-weight: 500; font-variant-numeric: tabular-nums; }
-.stat { background: #161616; border: 1px solid var(--line); border-radius: 12px; } .stat b { color: var(--ink); }
-.lghead { background: #161616; font-family: var(--f-body); letter-spacing: 0; text-transform: none; }
-.mrow { border-color: #ffffff0f; transition: background-color .25s var(--ease); } .mrow:hover { background: #ffffff06; }
-.kv { background: #161616; }
+.stat { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; } .stat b { color: var(--ink); }
+.lghead { background: var(--surface-2); font-family: var(--f-body); letter-spacing: 0; text-transform: none; }
+.mrow { border-color: var(--tint); transition: background-color .25s var(--ease); } .mrow:hover { background: var(--tint); }
+.kv { background: var(--surface-2); }
 .tribar i:nth-child(1) { background: var(--accent); }
 .chip { font-family: var(--f-mono); font-size: 12px; letter-spacing: .02em; }
-.oc { background: #171717; } .oc.best { background: #4ade8014; }
-.scoreline { background: #141414; border: 1px solid #e8b23a33; }
-.verdict { background: #2a2110; color: #ffe6a8; border-left-color: var(--accent); }
+.oc { background: var(--surface-2); } .oc.best { background: var(--pos-soft); }
+.scoreline { background: var(--surface-2); border: 1px solid var(--gold-line); }
+.verdict { background: var(--warn-bg); color: var(--gold-ink); border-left-color: var(--accent); }
 table th { font-family: var(--f-body); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
-.mkcard { background: #121212; border-color: var(--line); }
+.mkcard { background: var(--surface); border-color: var(--line); }
 .mk-p i { background: var(--accent); opacity: .5; }
 .empty { border-color: var(--line); }
 footer, .foot { color: var(--muted); }
@@ -369,7 +374,7 @@ nav.tabs { scrollbar-width: none; } nav.tabs::-webkit-scrollbar { display: none;
 /* ===================== ICONOS ===================== */
 .i { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; display: inline-block; }
 .sub button .i, .seg button .i { width: 16px; height: 16px; margin-right: 8px; vertical-align: -3px; color: currentColor; }
-.sub button[aria-pressed="true"] .i, .seg button[aria-selected="true"] .i { color: #8a6412; }
+.sub button[aria-pressed="true"] .i, .seg button[aria-selected="true"] .i { color: var(--accent-dim); }
 h3.sect .i, .panel h3 .i, h4.sub4 .i, .gcard h4 .i, .kicker .i { color: var(--muted); width: 20px; height: 20px; margin-right: 2px; }
 h3.sect:has(> .i)::before { display: none; }
 .gcard h4 { display: flex; align-items: center; gap: 8px; font-family: var(--f-body); letter-spacing: -.01em; }
@@ -396,8 +401,8 @@ section[data-sec]:not([hidden]) [data-view]:not([hidden]), section[data-sec]:not
 .mc { animation: rise .7s var(--ease) both; }
 .meter i { transform-origin: left; animation: grow 1.2s var(--ease) both .2s; }
 .btn:active, .sub button:active, .seg button:active, .hcard:active { transform: scale(.97); }
-.mc { transition: border-color .15s var(--ease); cursor: pointer; } .mc:hover { border-color: #e8b23a80; }
-.gcard { background: #121212; transition: border-color .15s var(--ease); } .gcard:hover { border-color: var(--line-strong); }
+.mc { transition: border-color .15s var(--ease); cursor: pointer; } .mc:hover { border-color: var(--gold-line-2); }
+.gcard { background: var(--surface); transition: border-color .15s var(--ease); } .gcard:hover { border-color: var(--line-strong); }
 /* subrayado deslizante de las pestañas */
 nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-bottom-color: transparent; }
 .nav-ink { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); border-radius: 2px; transition: transform .5s var(--ease), width .5s var(--ease); pointer-events: none; }
@@ -410,16 +415,16 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 .live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--pos); margin-right: 8px; vertical-align: 1px; }
 .hero-h { margin: 0; font: 500 clamp(40px, 6vw, 80px)/1.04 var(--f-body); letter-spacing: -.03em; color: var(--ink); }
 .hero-h em { font-style: normal; color: var(--accent); }
-.hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: #b9b9b6; }
+.hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: var(--ink-2); }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
 .hero-cta .btn { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 20px; }
 .hero-seal { width: clamp(160px, 18vw, 240px); justify-self: start; }
 .hero-seal svg { width: 100%; height: auto; display: block; overflow: visible; }
 .hero-seal .spin { transform-origin: 100px 100px; animation: spin 60s linear infinite; }   /* solo gira el texto del anillo; se para con «reducir movimiento» */
 @keyframes spin { to { transform: rotate(360deg); } }
-.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 16px; background: #121212b3; overflow: hidden; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 16px; background: var(--glass); overflow: hidden; }
 .hero > .kpis { grid-column: 1 / -1; margin-top: 16px; }   /* debajo del titular en pantallas medianas */
-@media (min-width: 1400px) {   /* pantallas anchas: las cifras ocupan el hueco a la derecha del sello, en 2×2 */
+@media (min-width: 1600px) {   /* pantallas anchas: las cifras ocupan el hueco a la derecha del sello, en 2×2 */
   .hero { grid-template-columns: minmax(0, max-content) auto minmax(360px, 1fr); gap: 56px; }
   .hero > .kpis { grid-column: auto; margin-top: 0; grid-template-columns: 1fr 1fr; }
   .hero > .kpis .kpi:nth-child(3) { border-left: 0; } .hero > .kpis .kpi:nth-child(n+3) { border-top: 1px solid var(--line); }
@@ -439,25 +444,25 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 .sema .hf-p b { font-size: clamp(30px, 3vw, 42px); background-image: none; -webkit-text-fill-color: currentColor; animation: none; }
 .sema.pos .hf-p b, .sema.pos .meter { color: var(--pos); } .sema.warn .hf-p b, .sema.warn .meter { color: var(--warn); } .sema.neg .hf-p b, .sema.neg .meter { color: var(--neg); }
 .hmore { margin: -14px 0 30px; } .hmore summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 10px 0; } .hmore[open] summary { margin-bottom: 10px; }
-.hfeat { display: flex; flex-direction: column; gap: 16px; padding: 24px; border-radius: 16px; border: 1px solid #e8b23a40; cursor: pointer; overflow: hidden;
-  background: #141414; transition: border-color .15s var(--ease); animation: rise .4s var(--ease) both; }
-.hfeat.sm { background: #121212; border-color: var(--line); animation-delay: .08s; }
-.hfeat:hover { border-color: #e8b23a80; } .hfeat.sm:hover { border-color: var(--line-strong); }
+.hfeat { display: flex; flex-direction: column; gap: 16px; padding: 24px; border-radius: 16px; border: 1px solid var(--gold-line); cursor: pointer; overflow: hidden;
+  background: var(--surface-2); transition: border-color .15s var(--ease); animation: rise .4s var(--ease) both; }
+.hfeat.sm { background: var(--surface); border-color: var(--line); animation-delay: .08s; }
+.hfeat:hover { border-color: var(--gold-line-2); } .hfeat.sm:hover { border-color: var(--line-strong); }
 .hf-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-.kicker { display: inline-flex; align-items: center; gap: 8px; font: 500 13px var(--f-body); letter-spacing: 0; color: #d9d9d6; }
+.kicker { display: inline-flex; align-items: center; gap: 8px; font: 500 13px var(--f-body); letter-spacing: 0; color: var(--ink-2); }
 .hf-body { display: flex; align-items: center; justify-content: space-between; gap: 18px; } .hf-teams { display: flex; flex-direction: column; gap: 8px; font-size: 18px; font-weight: 500; }
 .hf-p { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; } .hfeat.sm .hf-p { align-items: flex-start; text-align: left; } .hfeat.sm:not(.sema) .hf-p b { color: var(--ink); }   /* el dorado, solo para la apuesta del día */
 .hf-p b { font: 500 clamp(48px, 5vw, 72px)/1 var(--f-body); letter-spacing: -.03em; color: var(--accent); font-variant-numeric: tabular-nums; }
-.hf-p span { color: #d9d9d6; font-weight: 500; }
+.hf-p span { color: var(--ink-2); font-weight: 500; }
 .hfeat .odds { justify-content: flex-end; margin: 0; }
 .hf-go { margin-top: auto; display: inline-flex; align-items: center; gap: 8px; font: 500 13px var(--f-body); letter-spacing: 0; color: var(--muted); transition: color .15s var(--ease); }
 .hfeat:hover .hf-go { color: var(--ink); }
 .hgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; padding-bottom: 32px; }
-.hcard { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 8px; padding: 20px; min-height: 172px; border-radius: 16px; border: 1px solid var(--line); background: #121212;
+.hcard { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 8px; padding: 20px; min-height: 172px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface);
   transition: border-color .15s var(--ease); }
 .hcard:hover, .hcard:focus-visible { border-color: var(--line-strong); }
 .hcard:focus-visible, [data-go][role="button"]:focus-visible, .tk:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.hc-ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); background: #1a1a1a; border: 1px solid var(--line); }
+.hc-ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); background: var(--soft); border: 1px solid var(--line); }
 .hc-ico .i { width: 18px; height: 18px; }
 .hc-no { display: none; }
 .hcard b { margin-top: 8px; font-size: 17px; font-weight: 500; letter-spacing: -.01em; color: var(--ink); } .hcard > span:not(.hc-ico):not(.hc-no):not(.hc-go) { font-size: 14px; line-height: 1.45; color: var(--muted); }
@@ -476,7 +481,7 @@ td { font-size: 14px; padding: 9px 10px; } th { padding: 8px 10px; }
 :is(#hiOut, #fbOut, #nbOut, #tnOut, #acOut, #odOut, #btFbOut, #btNbOut, #btTnOut, #stOut) { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 :is(#fbOut, #nbOut, #tnOut, #acOut, #odOut) > * { margin-top: 0 !important; margin-bottom: 0 !important; }
 :is(#fbOut, #nbOut, #tnOut) > .scoreline + .note { margin-top: -6px !important; }
-#fbOut > .block, #nbOut > .block, #tnOut > .block { background: #0f0f0f; }
+#fbOut > .block, #nbOut > .block, #tnOut > .block { background: var(--panel); }
 /* marcador de la ficha */
 .scoreline { padding: 26px 24px; border-radius: 16px; gap: 20px; }
 .scoreline .team { font: 600 21px var(--f-body); letter-spacing: -.02em; text-transform: none; gap: 12px; }
@@ -488,13 +493,13 @@ td { font-size: 14px; padding: 9px 10px; } th { padding: 8px 10px; }
 .mkcard h4 { margin: 0 0 10px; font: 600 16px var(--f-body); letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .mkhead, .mkrow { grid-template-columns: minmax(0, 1fr) 92px 52px; gap: 14px; }
 .mkhead { padding-bottom: 6px; border-bottom: 1px solid var(--line); } .mkhead span { font: 400 12px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--muted); text-align: right; }
-.mkrow { padding: 10px 0; border-bottom-color: #ffffff0d; line-height: 1.35; }
+.mkrow { padding: 10px 0; border-bottom-color: var(--tint); line-height: 1.35; }
 .mk-p { height: auto; padding: 0 0 8px; background: none; overflow: visible; justify-content: flex-end; }
-.mk-p::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 4px; background: #ffffff12; }
-.mk-p i { inset: auto auto 0 0; height: 4px; border-radius: 4px; opacity: 1 !important; background: #6b6b69 !important; }
+.mk-p::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 4px; background: var(--tint); }
+.mk-p i { inset: auto auto 0 0; height: 4px; border-radius: 4px; opacity: 1 !important; background: var(--muted) !important; }
 .mkrow.hi .mk-p i { background: var(--accent) !important; } .mkrow.hi .mk-p b { color: var(--accent); }
 .mk-p b { padding: 0; font-size: 13.5px; }
-.mk-o { color: #c9c9c6; }
+.mk-o { color: var(--ink-2); }
 /* apuesta del día: subtítulos con nota */
 .daily h3 { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .daily h3 .note, .panel h3 .note { font: 13px var(--f-body); letter-spacing: 0; text-transform: none; color: var(--muted); }
@@ -518,26 +523,43 @@ h4.sub4 { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
 @keyframes ringfill { from { --p: 0; } }
 .pring { position: relative; display: grid; place-items: center; width: 168px; height: 168px; margin: -6px auto 2px; }
 .pring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; animation: ringfill 1.4s var(--ease) both .2s;
-  background: conic-gradient(from -90deg, var(--accent) calc(var(--p) * 100%), #ffffff10 0);
+  background: conic-gradient(from -90deg, var(--accent) calc(var(--p) * 100%), var(--tint) 0);
   -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 7px), #000 calc(100% - 6px)); mask: radial-gradient(farthest-side, #0000 calc(100% - 7px), #000 calc(100% - 6px)); }
 .pring .mc-p { position: relative; font-size: 56px; }
-.cd { color: var(--accent); white-space: nowrap; } .cd.on { color: #4ade80; } .cd.on::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; margin-right: 6px; vertical-align: 1px; }
+.cd { color: var(--accent); white-space: nowrap; } .cd.on { color: var(--pos); } .cd.on::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--pos); margin-right: 6px; vertical-align: 1px; }
 .tribar i { transform-origin: left; animation: grow .9s var(--ease) both .1s; }
-.totop { position: fixed; right: 20px; bottom: 20px; z-index: 60; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-strong); background: #121212e6; color: var(--accent);
+.totop { position: fixed; right: 20px; bottom: 20px; z-index: 60; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--glass); color: var(--accent);
   display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(10px); opacity: 0; transform: translateY(14px) scale(.9); pointer-events: none;
   transition: opacity .2s var(--ease), transform .2s var(--ease), border-color .15s var(--ease); }
 .totop .i { width: 20px; height: 20px; transform: rotate(-90deg); } .totop.show { opacity: 1; transform: none; pointer-events: auto; } .totop:hover { border-color: var(--ink); }
 @media (max-width: 520px) { .pring { width: 132px; height: 132px; } .pring .mc-p { font-size: 44px; } .totop { right: 14px; bottom: 14px; } }
 #odWrap { display: flex; flex-direction: column; gap: 18px; margin-top: 6px; }
 label.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; } label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
-.crest.face img, .crest.face.ok img { object-fit: cover; object-position: center 18%; padding: 0; background: #1a1a1a; border-radius: inherit; }
-.crest.face { border-radius: 50%; } .crest.face.xl { border-radius: 50%; box-shadow: 0 0 0 1px var(--line-strong); } .crest.face.xl.ok { background: #1a1a1a; }
+.crest.face img, .crest.face.ok img { object-fit: cover; object-position: center 18%; padding: 0; background: var(--soft); border-radius: inherit; }
+.crest.face { border-radius: 50%; } .crest.face.xl { border-radius: 50%; box-shadow: 0 0 0 1px var(--line-strong); } .crest.face.xl.ok { background: var(--soft); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ===================== MODO CLARO «papel y oro» (auditoría: todo el texto ≥ 4,8:1; el dorado de marca se oscurece para leerse sobre papel) ===================== */
+:root[data-theme="light"] {
+  --bg: #f5f2ec; --surface: #fffdf9; --surface-2: #fffdf9; --panel: #fbf8f2; --field: #ffffff; --soft: #efeae1;
+  --ink: #1b1a17; --ink-2: #3d3a35; --ink-hi: #000000; --muted: #6b665e; --line: #1b1a171a; --line-strong: #1b1a1740;
+  --tint: #1b1a1708; --tint-2: #1b1a171a; --glass: #f5f2ece6;
+  --accent: #8a5a00; --accent-ink: #fffdf9; --accent-fill: #b07a0a; --gold-line: #b07a0a59; --gold-line-2: #b07a0a99; --gold-soft: #b07a0a1f; --gold-ink: #6b4500; --accent-dim: #e8b23a;
+  --pos: #15803d; --pos-bg: #e3f3e8; --pos-soft: #15803d1a; --neg: #b91c1c; --neg-bg: #fbe9e7; --warn: #a16207; --warn-bg: #fbf1dc;
+  --board: #f5f2ec; --board-ink: #1b1a17; --board-dim: #6b665e; color-scheme: light;
+}
+:root[data-theme="light"] .crest.md.ok img { filter: none; }
+#sg stop { stop-color: var(--accent-fill); }
+.seal-bg { fill: var(--surface); }
+.theme-btn { position: absolute; top: 14px; right: max(16px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; transition: border-color .15s var(--ease), color .15s var(--ease); }
+.theme-btn:hover { border-color: var(--line-strong); color: var(--ink); } .theme-btn .i { width: 18px; height: 18px; }
+header.board .wrap { position: relative; } #dataInfo { margin-right: 56px; }
 </style>
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></symbol><symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 5 9-5" opacity=".5"/></symbol><symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol><symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m8.7 12 2.3 2.3 4.3-4.6"/></symbol><symbol id="i-gem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/></symbol><symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5M10 3v6L4.8 18.2A1.9 1.9 0 0 0 6.5 21h11a1.9 1.9 0 0 0 1.7-2.8L14 9V3"/><path d="M7.2 15h9.6"/></symbol><symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16.2 9.3"/></symbol><symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.2" r=".6" fill="currentColor"/></symbol><symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></symbol><symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 3.8 2.8-1.5 4.5H9.7l-1.5-4.5z"/><path d="M12 3v4.5M15.8 10.3l4.6-1.4M14.3 14.8l2.8 3.9M9.7 14.8l-2.8 3.9M8.2 10.3 3.6 8.9"/></symbol><symbol id="i-basket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18"/><path d="M5.6 5.6c3.2 3.4 3.2 9.4 0 12.8M18.4 5.6c-3.2 3.4-3.2 9.4 0 12.8"/></symbol><symbol id="i-tennis" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.2 5.9c3.6 3.2 3.6 9 0 12.2M18.8 5.9c-3.6 3.2-3.6 9 0 12.2"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7.5 14h2M11 14h2M14.5 14h2M7.5 17h2M11 17h2"/></symbol><symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16.5" height="11.5" rx="2.5"/><path d="M15.5 13.7h2"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol><symbol id="i-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="7" rx="5.5" ry="2.5"/><path d="M3.5 7v4.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V7"/><path d="M9.5 16.3c.9 1.3 3 2.2 5.5 2.2 3 0 5.5-1.1 5.5-2.5V12c0-1.2-1.8-2.2-4.3-2.4"/></symbol><symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7 4.5 4 5v13.5c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V20"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></symbol><symbol id="i-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M5 7h14"/><path d="m5 7-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/></symbol><symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></symbol><symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol><symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></symbol></defs></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></symbol><symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 5 9-5" opacity=".5"/></symbol><symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol><symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m8.7 12 2.3 2.3 4.3-4.6"/></symbol><symbol id="i-gem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/></symbol><symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5M10 3v6L4.8 18.2A1.9 1.9 0 0 0 6.5 21h11a1.9 1.9 0 0 0 1.7-2.8L14 9V3"/><path d="M7.2 15h9.6"/></symbol><symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16.2 9.3"/></symbol><symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.2" r=".6" fill="currentColor"/></symbol><symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></symbol><symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></symbol><symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7.5 3.8 2.8-1.5 4.5H9.7l-1.5-4.5z"/><path d="M12 3v4.5M15.8 10.3l4.6-1.4M14.3 14.8l2.8 3.9M9.7 14.8l-2.8 3.9M8.2 10.3 3.6 8.9"/></symbol><symbol id="i-basket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18"/><path d="M5.6 5.6c3.2 3.4 3.2 9.4 0 12.8M18.4 5.6c-3.2 3.4-3.2 9.4 0 12.8"/></symbol><symbol id="i-tennis" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.2 5.9c3.6 3.2 3.6 9 0 12.2M18.8 5.9c-3.6 3.2-3.6 9 0 12.2"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M7.5 14h2M11 14h2M14.5 14h2M7.5 17h2M11 17h2"/></symbol><symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol><symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16.5" height="11.5" rx="2.5"/><path d="M15.5 13.7h2"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol><symbol id="i-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="7" rx="5.5" ry="2.5"/><path d="M3.5 7v4.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V7"/><path d="M9.5 16.3c.9 1.3 3 2.2 5.5 2.2 3 0 5.5-1.1 5.5-2.5V12c0-1.2-1.8-2.2-4.3-2.4"/></symbol><symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7 4.5 4 5v13.5c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V20"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></symbol><symbol id="i-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M5 7h14"/><path d="m5 7-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/></symbol><symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></symbol><symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol><symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></symbol></defs></svg>
 <header class="board"><div class="wrap">
-  <div class="brand" id="brandHome" role="link" tabindex="0" title="Inicio"><svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8b23a"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="#0e0e10"/><circle cx="50" cy="50" r="45" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="50" cy="50" r="40" fill="none" stroke="url(#sg)" stroke-width="1" opacity=".6"/><text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="500" font-size="34" fill="url(#sg)">AB</text></svg><h1><small>Mesa de pronósticos</small>Aldana Bet</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
+  <div class="brand" id="brandHome" role="link" tabindex="0" title="Inicio"><svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8b23a"/></linearGradient></defs><circle class="seal-bg" cx="50" cy="50" r="48"/><circle cx="50" cy="50" r="45" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="50" cy="50" r="40" fill="none" stroke="url(#sg)" stroke-width="1" opacity=".6"/><text x="50" y="61" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="500" font-size="34" fill="url(#sg)">AB</text></svg><h1><small>Mesa de pronósticos</small>Aldana Bet</h1><p id="dataInfo">Pronósticos de fútbol, baloncesto y tenis</p></div>
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Cambiar a modo claro"><svg class="i"><use href="#i-sun"/></svg></button>
   <nav class="tabs" role="tablist">
     <button role="tab" id="tab-inicio" aria-selected="true" data-tab="inicio"><span class="ix">00</span>Inicio</button>
     <button role="tab" id="tab-pronosticos" aria-selected="false" data-tab="pronosticos"><span class="ix">01</span>Pronósticos</button>

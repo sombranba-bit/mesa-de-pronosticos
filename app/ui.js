@@ -1036,7 +1036,7 @@ function homeRender() {
         <div class="hero-cta"><button class="btn" data-go="pronosticos:proximos:dia">Ver la apuesta del día ${I('arrow')}</button><button class="btn ghost" data-go="guia">Cómo funciona</button></div>
       </div>
       <div class="hero-seal" aria-hidden="true"><svg viewBox="0 0 200 200"><defs><path id="ring" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
-        <circle cx="100" cy="100" r="96" fill="#0e0e10"/><circle cx="100" cy="100" r="92" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="100" cy="100" r="64" fill="none" stroke="url(#sg)" stroke-width="1.5" opacity=".7"/>
+        <circle class="seal-bg" cx="100" cy="100" r="96"/><circle cx="100" cy="100" r="92" fill="none" stroke="url(#sg)" stroke-width="3"/><circle cx="100" cy="100" r="64" fill="none" stroke="url(#sg)" stroke-width="1.5" opacity=".7"/>
         <g class="spin"><text font-family="JetBrains Mono, monospace" font-size="11.5" letter-spacing="3.2" fill="url(#sg)"><textPath href="#ring">ALDANA BET · PRONÓSTICOS · DATOS · VALOR ·</textPath></text></g>
         <text x="100" y="118" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-size="52" fill="url(#sg)">AB</text></svg></div>
     <div class="kpis">${kpi(r(T && T.bet), '%', `apuesta del día${T && T.bet && T.bet.n ? ` · ${T.bet.hits} de ${T.bet.n}` : ''}`)}${kpi(r(T && T.picks), '%', `selección recomendada${T && T.picks && T.picks.n ? ` · ${T.picks.hits} de ${T.picks.n}` : ''}`)}${kpi(evald || null, '', 'pronósticos comprobados')}${kpi(next.length || null, '', 'próximos partidos')}</div>
@@ -1075,6 +1075,11 @@ function wire() {
   document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); goTo(g.dataset.go); } });
   document.addEventListener('keydown', e => { const g = e.target.closest && e.target.closest('[data-go][role="button"]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goTo(g.dataset.go); } });
   $('brandHome').addEventListener('click', () => goTo('inicio'));
+  const themeUi = () => { const light = document.documentElement.dataset.theme === 'light';   // el botón muestra a qué modo pasas
+    $('themeBtn').innerHTML = I(light ? 'moon' : 'sun'); $('themeBtn').setAttribute('aria-label', light ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro'); $('themeBtn').title = light ? 'Modo oscuro' : 'Modo claro'; };
+  $('themeBtn').addEventListener('click', () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t; try { localStorage.setItem('tema', t); } catch {} themeUi(); });
+  themeUi();
   addEventListener('scroll', () => $('toTop').classList.toggle('show', scrollY > 900), { passive: true });
   $('toTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
   new MutationObserver(() => countUp(document)).observe(document.querySelector('main') || document.body, { childList: true, subtree: true });
