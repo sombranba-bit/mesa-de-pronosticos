@@ -406,8 +406,8 @@ nav.tabs { position: relative; } nav.tabs button[aria-selected="true"] { border-
 /* ===================== PORTADA ===================== */
 #home { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 40px; padding: 48px 0 18px; }
-.eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 20px; font: 400 13px var(--f-body); letter-spacing: 0; color: var(--muted); }
-.live { width: 8px; height: 8px; border-radius: 50%; background: var(--pos); }
+.eyebrow { display: block; margin: 0 0 20px; font: 400 13px var(--f-body); letter-spacing: 0; color: var(--muted); }
+.live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--pos); margin-right: 8px; vertical-align: 1px; }
 .hero-h { margin: 0; font: 500 clamp(40px, 6vw, 80px)/1.04 var(--f-body); letter-spacing: -.03em; color: var(--ink); }
 .hero-h em { font-style: normal; color: var(--accent); }
 .hero-sub { max-width: 58ch; margin: 22px 0 0; font-size: clamp(16px, 1.4vw, 19px); line-height: 1.55; color: #b9b9b6; }
