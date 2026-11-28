@@ -413,7 +413,16 @@ export function keepBest(m, old) {
   if (!m.best && old?.best && old.pick?.code === m.pick.code) m.best = old.best;
   if (!m.fair && old?.fair) m.fair = old.fair;
   if (!m.cons && old?.cons) m.cons = old.cons;
+  if (!m.bf && old?.bf) m.bf = old.bf;
   return m;
+}
+// Betfair Exchange: busca el partido (fecha ±3 h, nombres parecidos; en tenis y baloncesto el orden puede venir al revés) y da sus cuotas justas
+export function findBf(m, events) {
+  const near = e => Math.abs(Date.parse(e.kickoff) - Date.parse(m.kickoff)) <= 3 * 3600e3;
+  const e = (events || []).find(e => near(e) && sameTeam(m.home, e.home) && sameTeam(m.away, e.away));
+  if (e) return e.fair;
+  const r = m.sport !== 'futbol' && (events || []).find(e => near(e) && sameTeam(m.home, e.away) && sameTeam(m.away, e.home));
+  return r ? { ...r.fair, H: r.fair.A, A: r.fair.H } : null;
 }
 export function attachBest(matches, odds) {
   let n = 0;
@@ -632,7 +641,7 @@ export function fitCalib(hist, now = NOW) {
 // la mediana sin margen de todas las casas.
 // w se ajusta con el 75% más antiguo (últimos 120 días) y solo se usa si mejora el log-loss del 25% más reciente en 0,002 o más.
 export const BLEND_MIN = 80;
-const mkt = e => e.fair?.[e.pick?.code] || e.cons?.[e.pick?.code];
+const mkt = e => e.fair?.[e.pick?.code] || e.bf?.[e.pick?.code] || e.cons?.[e.pick?.code];   // Pinnacle, Betfair o la mediana de las casas
 const SPORT_G = e => e.sport === 'futbol' ? 'futbol' : e.sport === 'tenis' ? 'tenis' : 'baloncesto';
 const blendP = (p, q, w) => sg(w * lg(Math.min(Math.max(p, 1e-6), 1 - 1e-6)) + (1 - w) * lg(Math.min(Math.max(q, 1e-6), 1 - 1e-6)));
 const llBlend = (P, w) => P.reduce((s, x) => { const r = Math.min(Math.max(blendP(x.p, x.q, w), 1e-6), 1 - 1e-6); return s - Math.log(x.hit ? r : 1 - r); }, 0) / P.length;
@@ -821,6 +830,8 @@ async function main() {
   const calibFile = path.join(STATE, 'calib.json'); let calib = read(calibFile, {});
   applyCalib(matches, calib.sports, calib.markets);
   const nBest = attachBest(matches, read(path.join(DATA, 'odds.json'), {}));
+  const BF = read(path.join(DATA, 'betfair.json'), {}).events || [];
+  for (const m of matches) { const f = findBf(m, BF); if (f) m.bf = f; }
   if (skipped.length) console.log(`AVISO: ${skipped.length} partidos sin datos suficientes (equipo nuevo o nombre distinto):`, skipped.slice(0, 10).join(', '));
   // historial: se guarda el último pronóstico antes del inicio
   const histFile = path.join(STATE, 'history.json'), hist = readHistory(histFile);
@@ -843,7 +854,13 @@ async function main() {
   }
   for (const [id, e] of Object.entries(hist)) if (NOW - Date.parse(e.kickoff) > 400 * 864e5) delete hist[id];
   const CL = read(path.join(STATE, 'closing.json'), {});   // football-data publica las cuotas de cierre unos días después
-  for (const e of Object.values(hist)) if (e.eval && !e.close && NOW - Date.parse(e.kickoff) < 30 * 864e5) { const c = closingFor(e, CL); if (c) e.close = c; }
+  const BFC = Object.values(read(path.join(STATE, 'betfair_close.json'), {}));   // última lectura de Betfair antes del inicio
+  for (const e of Object.values(hist)) {
+    if (!e.eval || NOW - Date.parse(e.kickoff) >= 30 * 864e5 || e.closeSrc === 'fd' || (e.close && !e.closeSrc)) continue;
+    const c = closingFor(e, CL);   // football-data (Pinnacle de cierre) manda; Betfair cubre mientras tanto y los deportes que football-data no tiene
+    if (c) { e.close = c; e.closeSrc = 'fd'; continue; }
+    const b = !e.close && findBf(e, BFC); if (b) { e.close = b; e.closeSrc = 'bf'; }
+  }
   const perf = performance(hist);
   writeHistory(histFile, hist);
   // reajuste semanal (lunes): se recalcula la calibración y se aplica desde la siguiente ejecución

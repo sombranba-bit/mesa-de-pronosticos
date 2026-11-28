@@ -303,6 +303,11 @@ ok(!P2.activeCommands().some(c => ['porra', 'valor'].includes(c[0])) && P2.helpT
   ok(S.on && S.gain > 0.01, `apilado: detecta el sesgo del tenis (${S.gain})`);
   ok(!S2.on, `apilado: sin sesgo no se activa (${S2.gain})`);
   const m = [{ sport: 'tenis', pick: { p: 0.75, code: 'H' } }]; P2.applyStack(m, S); ok(m[0].pick.p < 0.68 && m[0].pickSt === 0.75, `apilado: baja el tenis (${m[0].pick.p.toFixed(3)})`); }
+// ---- Betfair: encuentra el partido aunque el orden venga al revés (tenis) y gira las cuotas ----
+{ const ev = [{ home: 'Alcaraz C.', away: 'Sinner J.', kickoff: '2026-11-30T15:00:00Z', fair: { H: 1.8, A: 2.25 } }];
+  const f = P2.findBf({ sport: 'tenis', home: 'Jannik Sinner', away: 'Carlos Alcaraz', kickoff: '2026-11-30T16:00:00Z' }, ev);
+  ok(f && f.H === 2.25 && f.A === 1.8, `betfair: tenis al revés (${JSON.stringify(f)})`);
+  ok(!P2.findBf({ sport: 'tenis', home: 'Jannik Sinner', away: 'Carlos Alcaraz', kickoff: '2026-12-02T16:00:00Z' }, ev), 'betfair: otra fecha no cuenta'); }
 // ---- mezcla con Pinnacle: si el mercado acierta mejor, el peso del modelo baja; si no, se queda en 1 ----
 { const now = Date.parse('2026-11-01T00:00:00Z'), H = {}, H2 = {};
   for (let i = 0; i < 200; i++) {
